@@ -59,15 +59,46 @@ docker compose run --rm --user "$(id -u):$(id -g)" backend \
 docker compose run --rm backend python manage.py createsuperuser
 ```
 
-## Endpoints de la Fase 0
+### Probar el backend de punta a punta (Postman)
+
+[`backend/postman/Turnio-Backend-E2E.postman_collection.json`](backend/postman/Turnio-Backend-E2E.postman_collection.json)
+trae un caso completo listo para importar en Postman: registra un
+negocio con dueño + empleada, crea un servicio, carga el horario de la
+empleada, agenda una cita sin elegir empleado ("cualquiera
+disponible"), recorre la máquina de estados de `Cita`
+(confirmar → completar, y verifica que cancelar una ya completada
+falla), prueba que un empleado sin `puede_editar_precios` no puede
+crear servicios (403), y verifica aislamiento entre negocios (un
+segundo negocio no ve las citas del primero).
+
+- Requests **en orden** (usa "Run Collection"): cada uno guarda en
+  variables de colección lo que el siguiente necesita.
+- **Re-ejecutable sin resetear la base de datos**: cada corrida genera
+  emails únicos, así que no choca con datos de una corrida anterior.
+- Variable `base_url` ya apunta a `http://localhost:8001`.
+- También se puede correr desde la terminal con
+  [Newman](https://www.npmjs.com/package/newman):
+  ```bash
+  npx newman run backend/postman/Turnio-Backend-E2E.postman_collection.json
+  ```
+
+## Endpoints (Fase 0 + Fase 1)
+
+Lista rápida de orientación — el detalle exacto de campos y tipos
+siempre vive en [`backend/openapi.yaml`](backend/openapi.yaml) /
+`http://localhost:8001/api/docs/` (ver `CONTRATO.md`).
 
 | Método | Ruta | Descripción |
 |---|---|---|
 | POST | `/api/negocios/registro/` | Registra un negocio nuevo + dueño (con todas las capacidades) + empleados opcionales |
 | POST | `/api/auth/login/` | Login JWT (email + password) |
 | POST | `/api/auth/refresh/` | Refresca el access token |
-| GET | `/api/negocios/empleados/` | Lista los empleados del negocio del usuario autenticado |
-| POST | `/api/negocios/empleados/` | Agrega un empleado al negocio (requiere `puede_gestionar_empleados`) |
+| GET/POST | `/api/negocios/empleados/` | Lista/agrega empleados del negocio (crear requiere `puede_gestionar_empleados`) |
+| GET/PATCH | `/api/negocios/empleados/{id}/` | Detalle/edición de capacidades y especialidad de un empleado |
+| GET/POST/PATCH/DELETE | `/api/servicios/` | CRUD de servicios (escribir requiere `puede_editar_precios`) |
+| GET/POST/PATCH/DELETE | `/api/agenda/horarios/` | Disponibilidad semanal por empleado (requiere `puede_gestionar_agenda`) |
+| GET/POST | `/api/agenda/citas/` | Lista/agenda citas (`empleado` opcional = "cualquiera disponible") |
+| POST | `/api/agenda/citas/{id}/confirmar\|completar\|cancelar/` | Transiciones de la máquina de estados de `Cita` |
 
 ## Desarrollo local (frontend)
 

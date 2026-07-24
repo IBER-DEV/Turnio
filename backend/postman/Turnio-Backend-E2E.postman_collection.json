@@ -1,0 +1,710 @@
+{
+  "info": {
+    "_postman_id": "3d798d2c-ba04-4479-a9d5-5e9e7e457e4c",
+    "name": "Turnio Backend — Caso E2E (Barbería El Corte)",
+    "description": "Flujo end-to-end del backend de Turnio (Fase 0 + Fase 1): registro de negocio con dueno + empleada, servicios, horario por empleado, agenda con asignación 'cualquiera disponible', máquina de estados de Cita, permisos por capacidad y aislamiento entre tenants.\n\nEjecutar los requests EN ORDEN (Run Collection sirve). Cada uno guarda en variables de colección lo que el siguiente necesita (tokens, ids).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8001",
+      "type": "string"
+    },
+    {
+      "key": "run_id",
+      "value": ""
+    },
+    {
+      "key": "carlos_email",
+      "value": ""
+    },
+    {
+      "key": "ana_email",
+      "value": ""
+    },
+    {
+      "key": "otro_dueno_email",
+      "value": ""
+    },
+    {
+      "key": "fecha_cita",
+      "value": ""
+    },
+    {
+      "key": "carlos_access",
+      "value": ""
+    },
+    {
+      "key": "carlos_refresh",
+      "value": ""
+    },
+    {
+      "key": "ana_id",
+      "value": ""
+    },
+    {
+      "key": "ana_access",
+      "value": ""
+    },
+    {
+      "key": "servicio_id",
+      "value": ""
+    },
+    {
+      "key": "cita_id",
+      "value": ""
+    },
+    {
+      "key": "otro_access",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Registrar Barbería El Corte (dueño + empleada Ana)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/negocios/registro/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "negocios",
+            "registro",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre_negocio\": \"Barbería El Corte\",\n  \"ciudad\": \"Bogotá\",\n  \"email_dueno\": \"{{carlos_email}}\",\n  \"nombre_dueno\": \"Carlos Dueño\",\n  \"password_dueno\": \"claveSegura123\",\n  \"empleados\": [\n    {\n      \"email\": \"{{ana_email}}\",\n      \"nombre\": \"Ana\",\n      \"password\": \"claveSegura123\",\n      \"especialidad\": \"Barbera\",\n      \"puede_gestionar_agenda\": true\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    // Emails únicos por corrida: la colección queda re-ejecutable sin",
+              "    // chocar con datos de una corrida anterior (el backend rechaza",
+              "    // emails duplicados con 400).",
+              "    const runId = Date.now();",
+              "    pm.collectionVariables.set(\"run_id\", runId);",
+              "    pm.collectionVariables.set(\"carlos_email\", `carlos.${runId}@elcorte.com`);",
+              "    pm.collectionVariables.set(\"ana_email\", `ana.${runId}@elcorte.com`);",
+              "    pm.collectionVariables.set(\"otro_dueno_email\", `duena.${runId}@otrosalon.com`);",
+              "    ",
+              "    // Fecha de la cita: el próximo lunes a partir de hoy (coincide con el",
+              "    // horario que se carga más abajo, dia_semana=0). No hace falta variarla",
+              "    // entre corridas: cada corrida crea una Ana nueva (email único arriba),",
+              "    // así que nunca hay un choque de disponibilidad con una corrida anterior.",
+              "    const hoy = new Date();",
+              "    let diasHastaLunes = (1 - hoy.getDay() + 7) % 7;",
+              "    if (diasHastaLunes === 0) diasHastaLunes = 7;",
+              "    const fechaCita = new Date(hoy);",
+              "    fechaCita.setDate(hoy.getDate() + diasHastaLunes);",
+              "    const yyyy = fechaCita.getFullYear();",
+              "    const mm = String(fechaCita.getMonth() + 1).padStart(2, \"0\");",
+              "    const dd = String(fechaCita.getDate()).padStart(2, \"0\");",
+              "    pm.collectionVariables.set(\"fecha_cita\", `${yyyy}-${mm}-${dd}T10:00:00`);",
+              "})();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "    const data = pm.response.json();",
+              "    pm.collectionVariables.set(\"carlos_access\", data.access);",
+              "    pm.collectionVariables.set(\"carlos_refresh\", data.refresh);",
+              "    pm.test(\"Devuelve tokens\", () => {",
+              "        pm.expect(data.access).to.be.a(\"string\");",
+              "        pm.expect(data.refresh).to.be.a(\"string\");",
+              "    });",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Listar empleados (ubicar id de Ana)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/negocios/empleados/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "negocios",
+            "empleados",
+            ""
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{carlos_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "    const data = pm.response.json();",
+              "    const anaEmail = pm.collectionVariables.get(\"ana_email\");",
+              "    const ana = data.find(m => m.email === anaEmail);",
+              "    pm.test(\"Ana está en la lista de empleados\", () => pm.expect(ana).to.not.be.undefined);",
+              "    if (ana) pm.collectionVariables.set(\"ana_id\", ana.id);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Crear servicio 'Corte clásico' (como Carlos)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/servicios/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "servicios",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Corte clásico\",\n  \"precio\": \"20000\",\n  \"duracion_minutos\": 30\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{carlos_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "    const data = pm.response.json();",
+              "    pm.collectionVariables.set(\"servicio_id\", data.id);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Cargar horario de Ana (lunes 09:00-18:00)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/agenda/horarios/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "agenda",
+            "horarios",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"miembro\": \"{{ana_id}}\",\n  \"dia_semana\": 0,\n  \"hora_inicio\": \"09:00:00\",\n  \"hora_fin\": \"18:00:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{carlos_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Agendar cita sin elegir empleado (cualquiera disponible)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/agenda/citas/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "agenda",
+            "citas",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"servicio\": \"{{servicio_id}}\",\n  \"fecha_hora_inicio\": \"{{fecha_cita}}\",\n  \"nombre_cliente\": \"Cliente de Prueba\",\n  \"telefono_cliente\": \"3001234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{carlos_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "    const data = pm.response.json();",
+              "    pm.test(\"Queda en estado agendada\", () => pm.expect(data.estado).to.eql(\"agendada\"));",
+              "    pm.test(\"Se asignó automáticamente a Ana\", () => {",
+              "        pm.expect(String(data.empleado)).to.eql(String(pm.collectionVariables.get(\"ana_id\")));",
+              "    });",
+              "    pm.collectionVariables.set(\"cita_id\", data.id);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Confirmar la cita",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/agenda/citas/{{cita_id}}/confirmar/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "agenda",
+            "citas",
+            "{{cita_id}}",
+            "confirmar",
+            ""
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{carlos_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "    pm.test(\"Estado confirmada\", () => pm.expect(pm.response.json().estado).to.eql(\"confirmada\"));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Completar la cita",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/agenda/citas/{{cita_id}}/completar/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "agenda",
+            "citas",
+            "{{cita_id}}",
+            "completar",
+            ""
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{carlos_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "    pm.test(\"Estado completada\", () => pm.expect(pm.response.json().estado).to.eql(\"completada\"));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Cancelar una cita ya completada (debe fallar)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/agenda/citas/{{cita_id}}/cancelar/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "agenda",
+            "citas",
+            "{{cita_id}}",
+            "cancelar",
+            ""
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{carlos_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 400 (transición inválida)\", () => pm.response.to.have.status(400));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Login como Ana",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/login/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{ana_email}}\",\n  \"password\": \"claveSegura123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "    pm.collectionVariables.set(\"ana_access\", pm.response.json().access);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Ana intenta crear un servicio (debe fallar, sin capacidad)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/servicios/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "servicios",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Otro servicio\",\n  \"precio\": \"10000\",\n  \"duracion_minutos\": 20\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{ana_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 403 (sin puede_editar_precios)\", () => pm.response.to.have.status(403));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Registrar un segundo negocio (Otro Salón)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/negocios/registro/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "negocios",
+            "registro",
+            ""
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre_negocio\": \"Otro Salón\",\n  \"ciudad\": \"Medellín\",\n  \"email_dueno\": \"{{otro_dueno_email}}\",\n  \"nombre_dueno\": \"Otra Dueña\",\n  \"password_dueno\": \"claveSegura123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "    pm.collectionVariables.set(\"otro_access\", pm.response.json().access);",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Otro Salón lista citas: debe salir vacío (aislamiento por tenant)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/agenda/citas/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "agenda",
+            "citas",
+            ""
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{otro_access}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "(function () {",
+              "    pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "    pm.test(\"No ve la cita de Barbería El Corte\", () => pm.expect(pm.response.json()).to.have.lengthOf(0));",
+              "})();"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
