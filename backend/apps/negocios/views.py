@@ -10,6 +10,7 @@ from apps.negocios import services
 from apps.negocios.serializers import (
     EmpleadoAltaSerializer,
     MiembroNegocioSerializer,
+    MiMembresiaSerializer,
     NegocioSerializer,
     RegistroNegocioRespuestaSerializer,
     RegistroNegocioSerializer,
@@ -102,6 +103,22 @@ class EmpleadoListCreateView(generics.ListCreateAPIView):
         return Response(
             MiembroNegocioSerializer(membresia).data, status=status.HTTP_201_CREATED
         )
+
+
+class MiMembresiaView(generics.RetrieveAPIView):
+    """Quién soy, en qué negocio y qué puedo hacer.
+
+    Pensado para que el frontend lo llame justo después de loguearse
+    (o al recuperar sesión desde tokens guardados) y resuelva de una
+    sola vez sus propias capacidades + los datos del negocio, sin
+    tener que listar empleados y buscarse a sí mismo por email.
+    """
+
+    serializer_class = MiMembresiaSerializer
+    permission_classes = [TieneMembresiaActiva]
+
+    def get_object(self):
+        return self.request.membresia
 
 
 class EmpleadoDetailView(generics.RetrieveUpdateAPIView):

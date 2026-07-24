@@ -269,6 +269,49 @@ clave pasan limpio: `makemigrations --check --dry-run` sin cambios,
 (37 tests).
 
 ### Bloqueos o dudas abiertas para el humano
-(ninguno pendiente de esta sesión — CI resuelto, almuerzo verificado
+(ninguno pendiente de esa sesión — CI resuelto, almuerzo verificado
 y confirmado sin cambios, vacaciones/incapacidad pospuesto a
 propósito por decisión explícita del humano)
+
+---
+
+## Fase 1 — ajuste posterior: endpoint "quién soy" (2026-07-24)
+
+El compañero de frontend preguntó cómo sabría la UI qué mostrar sin
+tener roles fijos, y al explicar el flujo (login → listar empleados →
+buscarse por email) quedó claro que era un workaround frágil: el login
+no devuelve email/capacidades, así que el frontend tenía que recordar
+el email escrito en el formulario para poder identificarse después en
+la lista de empleados. Se decidió (confirmado por el humano) cerrar
+ese hueco con un endpoint dedicado en vez de dejar que el frontend
+construyera sobre el workaround.
+
+### Qué se completó
+- `GET /api/negocios/mi-membresia/` (`MiMembresiaView`, sin capacidad
+  requerida — solo pertenecer a un negocio activo): devuelve la
+  membresía del usuario autenticado con `negocio` anidado
+  (`MiMembresiaSerializer`). Resuelve `request.membresia` (ya
+  adjuntada por `TieneMembresiaActiva`) directamente, sin queryset.
+- **Bug encontrado y corregido en el camino**: `TieneMembresiaActiva.has_permission`
+  no comprobaba `request.user.is_authenticated` antes de resolver la
+  membresía, así que un request sin token (usuario `AnonymousUser`)
+  hacía explotar `obtener_membresia_activa()` con `AttributeError` →
+  `500`, en vez del `401` que la sección 4 de `CONTRATO.md` ya
+  documentaba. Afectaba a **todos** los endpoints protegidos por esta
+  permission o por `requiere_capacidad(...)` (empleados, servicios,
+  horarios, citas), no solo al nuevo endpoint. Se agregó el chequeo de
+  `is_authenticated` al inicio del método, más un test dedicado en
+  `apps/common/tests/test_permissions.py` que fija el comportamiento
+  correcto para no volver a perderlo.
+- 4 tests nuevos (2 de `mi-membresia`, 2 de la regresión de permisos).
+  Suite completa: 41 tests.
+- `openapi.yaml` y `CONTRATO.md` actualizados (nueva sección 3.1).
+
+### Decisión y justificación
+- El endpoint devuelve `negocio` **anidado**, no solo las capacidades:
+  el frontend necesita el nombre/ciudad/slug del negocio en el primer
+  render (ej. header de la app) tanto como las capacidades, y evitar
+  un segundo request para eso.
+- No requiere ninguna capacidad especial (solo pertenecer a un negocio
+  activo): es información sobre uno mismo, no una acción sobre el
+  negocio.

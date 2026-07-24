@@ -62,8 +62,20 @@ Fase 1 completo — ver `../CONTRATO.md` para el contrato completo y
 `../backend/openapi.yaml` para el detalle exacto de campos):
 - `POST /api/negocios/registro/`
 - `POST /api/auth/login/` / `POST /api/auth/refresh/`
+- **`GET /api/negocios/mi-membresia/`** — llamar justo después del
+  login (y al recuperar sesión desde tokens guardados): devuelve de
+  una vez las capacidades del usuario **y** los datos de su negocio
+  (`negocio` anidado). Es la base de "qué vista mostrar" sin roles
+  fijos: cada pantalla/botón se muestra u oculta preguntando por el
+  flag de capacidad puntual que necesita (`puede_gestionar_agenda`,
+  `puede_editar_precios`, etc.), no por un tipo de usuario. Ver
+  `../CONTRATO.md` sección 3.1 — **no** resolver esto listando
+  empleados y buscando por email, ese approach quedó descartado por
+  frágil (el login no devuelve el email, así que había que recordarlo
+  aparte).
 - `GET/POST /api/negocios/empleados/` y `GET/PATCH
-  /api/negocios/empleados/{id}/` (capacidades + `especialidad`)
+  /api/negocios/empleados/{id}/` (capacidades + `especialidad`) — para
+  la pantalla de *gestión* de empleados, no para autoidentificarse.
 - `GET/POST/PATCH/DELETE /api/servicios/`
 - `GET/POST/PATCH/DELETE /api/agenda/horarios/` (disponibilidad
   semanal por empleado)
