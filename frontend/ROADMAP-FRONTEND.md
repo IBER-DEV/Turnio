@@ -21,10 +21,35 @@ negocio). No hay todavía código de frontend en este repo.
 ### Decisiones pendientes antes de arrancar
 - Stack confirmado: **React** + Capacitor (decisión tomada por el
   humano el 2026-07-24, ver `../ROADMAP.md`).
-- Falta decidir: gestor de estado/data-fetching (ej. React Query vs.
-  RTK Query), librería de UI, y herramienta de generación de tipos a
-  partir de `../backend/openapi.yaml` (ej. `openapi-typescript` u
-  `orval`) para no transcribir a mano los tipos del contrato.
+- Decidido (humano, 2026-07-24):
+  - Data-fetching/estado: **fetch nativo + Context** (sin librería de
+    cache tipo React Query/RTK Query, para no sumar una dependencia
+    todavía). Cliente base en `src/api/client.ts` con manejo de
+    JWT (`Authorization: Bearer`) y refresh automático en 401 según
+    `../CONTRATO.md` sección 3.
+  - Librería de UI: **Tailwind CSS v4** (`@tailwindcss/vite`) +
+    **Headless UI** (`@headlessui/react`).
+  - Generador de tipos desde `../backend/openapi.yaml`:
+    **openapi-typescript**. Script `npm run gen:api-types` regenera
+    `src/api/schema.d.ts` (correr cada vez que backend actualice el
+    contrato).
+
+### Setup del ambiente — hecho (2026-07-24)
+- Scaffold Vite + React + TypeScript en `frontend/` (`npm create
+  vite@latest -- --template react-ts`), boilerplate de demo (logos,
+  contador) eliminado.
+- Instalado: `tailwindcss` + `@tailwindcss/vite`, `@headlessui/react`,
+  `openapi-typescript` (dev).
+  - Nota: `openapi-typescript@7.13.0` declara peer `typescript@^5.x`
+    pero el scaffold trae `typescript@~6.0.2`; se instaló con
+    `--legacy-peer-deps` porque es solo dependencia de codegen (no
+    corre en runtime). Revisar si esto se resuelve solo en una
+    próxima versión de `openapi-typescript`.
+- `frontend/.env.example` con `VITE_API_BASE_URL=http://localhost:8001`
+  (coincide con `../CONTRATO.md` sección 2); `.env` local ya ignorado
+  por el `.gitignore` de la raíz.
+- Verificado: `npm run build`, `npm run lint` (oxlint) y `npm run dev`
+  (puerto 5173) corren sin errores.
 
 ## Fase 1 — App Capacitor mínima para el negocio (próxima, sin empezar)
 

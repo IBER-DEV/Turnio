@@ -58,9 +58,9 @@ NO hacer todavía.
 1. Confirmar que el puerto 8001 del backend en local no choca con
    ninguna convención que el frontend ya tenga asumida para apuntar su
    cliente HTTP en desarrollo.
-2. Falta decidir, del lado frontend, el generador de tipos TypeScript
-   a partir de `backend/openapi.yaml` (ver dudas abiertas en
-   `frontend/ROADMAP-FRONTEND.md`).
+2. ~~Falta decidir, del lado frontend, el generador de tipos
+   TypeScript a partir de `backend/openapi.yaml`~~ — Resuelto
+   (2026-07-24): `openapi-typescript`, ver `frontend/ROADMAP-FRONTEND.md`.
 3. CI de backend ya existe (`.github/workflows/backend-ci.yml`,
    2026-07-24). Cuando el frontend tenga código, falta un workflow
    equivalente para esa carpeta (lint/build/tests), a definir cuando
