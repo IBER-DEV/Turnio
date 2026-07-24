@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Django
+*.sqlite3
+/backend/staticfiles/
+/backend/media/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Virtualenv
+.venv/
+venv/
+
+# Node / Capacitor (frontend, próximas fases)
+node_modules/
+dist/
+build/
+.capacitor/
+ios/App/Pods/
+android/.gradle/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
