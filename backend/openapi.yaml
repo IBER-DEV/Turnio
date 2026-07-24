@@ -619,6 +619,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/MiembroNegocio'
           description: ''
+  /api/negocios/mi-membresia/:
+    get:
+      operationId: negocios_mi_membresia_retrieve
+      description: |-
+        Quién soy, en qué negocio y qué puedo hacer.
+
+        Pensado para que el frontend lo llame justo después de loguearse
+        (o al recuperar sesión desde tokens guardados) y resuelva de una
+        sola vez sus propias capacidades + los datos del negocio, sin
+        tener que listar empleados y buscarse a sí mismo por email.
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiMembresia'
+          description: ''
   /api/negocios/registro/:
     post:
       operationId: negocios_registro_create
@@ -992,6 +1013,62 @@ components:
       - hora_inicio
       - id
       - miembro
+    MiMembresia:
+      type: object
+      description: |-
+        Forma de la respuesta de GET /api/negocios/mi-membresia/.
+
+        Pensado para que el frontend, justo después de loguearse, resuelva
+        en un solo request "quién soy, en qué negocio y qué puedo hacer"
+        sin tener que listar empleados y buscarse a sí mismo por email.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        nombre:
+          type: string
+          readOnly: true
+        especialidad:
+          type: string
+          readOnly: true
+        negocio:
+          allOf:
+          - $ref: '#/components/schemas/Negocio'
+          readOnly: true
+        puede_cobrar:
+          type: boolean
+          readOnly: true
+        puede_ver_reportes:
+          type: boolean
+          readOnly: true
+        puede_editar_precios:
+          type: boolean
+          readOnly: true
+        puede_gestionar_empleados:
+          type: boolean
+          readOnly: true
+        puede_gestionar_agenda:
+          type: boolean
+          readOnly: true
+        activo:
+          type: boolean
+          readOnly: true
+      required:
+      - activo
+      - email
+      - especialidad
+      - id
+      - negocio
+      - nombre
+      - puede_cobrar
+      - puede_editar_precios
+      - puede_gestionar_agenda
+      - puede_gestionar_empleados
+      - puede_ver_reportes
     MiembroNegocio:
       type: object
       properties:

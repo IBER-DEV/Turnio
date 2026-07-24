@@ -82,3 +82,33 @@ class MiembroNegocioSerializer(serializers.ModelSerializer):
             "activo",
         ]
         read_only_fields = ["id", "email", "nombre"]
+
+
+class MiMembresiaSerializer(serializers.ModelSerializer):
+    """Forma de la respuesta de GET /api/negocios/mi-membresia/.
+
+    Pensado para que el frontend, justo después de loguearse, resuelva
+    en un solo request "quién soy, en qué negocio y qué puedo hacer"
+    sin tener que listar empleados y buscarse a sí mismo por email.
+    """
+
+    email = serializers.EmailField(source="usuario.email", read_only=True)
+    nombre = serializers.CharField(source="usuario.nombre", read_only=True)
+    negocio = NegocioSerializer(read_only=True)
+
+    class Meta:
+        model = MiembroNegocio
+        fields = [
+            "id",
+            "email",
+            "nombre",
+            "especialidad",
+            "negocio",
+            "puede_cobrar",
+            "puede_ver_reportes",
+            "puede_editar_precios",
+            "puede_gestionar_empleados",
+            "puede_gestionar_agenda",
+            "activo",
+        ]
+        read_only_fields = fields

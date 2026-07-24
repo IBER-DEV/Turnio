@@ -194,3 +194,42 @@ def test_no_se_puede_ver_detalle_de_empleado_de_otro_tenant():
     respuesta = client.get(f"/api/negocios/empleados/{membresia_b.id}/")
 
     assert respuesta.status_code == 404
+
+
+def test_mi_membresia_devuelve_mis_capacidades_y_mi_negocio():
+    negocio, _dueno, _m = services.registrar_negocio(
+        nombre_negocio="Barbería El Corte",
+        email_dueno="dueno3@ejemplo.com",
+        password_dueno="claveSegura123",
+        nombre_dueno="Carlos Dueño",
+        ciudad="Bogotá",
+    )
+    services.agregar_empleado(
+        negocio=negocio,
+        email="ana3@ejemplo.com",
+        password="claveSegura123",
+        nombre="Ana",
+        especialidad="Barbera",
+        capacidades={"puede_gestionar_agenda": True},
+    )
+
+    client = APIClient()
+    _login(client, "ana3@ejemplo.com", "claveSegura123")
+
+    respuesta = client.get("/api/negocios/mi-membresia/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["email"] == "ana3@ejemplo.com"
+    assert respuesta.data["especialidad"] == "Barbera"
+    assert respuesta.data["puede_gestionar_agenda"] is True
+    assert respuesta.data["puede_editar_precios"] is False
+    assert respuesta.data["negocio"]["nombre"] == "Barbería El Corte"
+    assert respuesta.data["negocio"]["ciudad"] == "Bogotá"
+
+
+def test_mi_membresia_requiere_autenticacion():
+    client = APIClient()
+
+    respuesta = client.get("/api/negocios/mi-membresia/")
+
+    assert respuesta.status_code == 401

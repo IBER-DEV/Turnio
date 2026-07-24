@@ -49,6 +49,37 @@ JWT vía `djangorestframework-simplejwt`.
   manejar el caso de access expirado (401) refrescando con el
   `refresh`, y el caso de refresh expirado forzando login de nuevo.
 
+### 3.1 "Quién soy" — `GET /api/negocios/mi-membresia/`
+
+El login **no** devuelve el email, nombre, negocio ni capacidades del
+usuario — solo tokens. Para resolver "quién soy, en qué negocio y qué
+puedo hacer", el frontend debe llamar a
+`GET /api/negocios/mi-membresia/` (con el `access` en el header) justo
+después de loguearse, y también al recuperar sesión desde tokens
+guardados (ej. al reabrir la app). Responde:
+
+```json
+{
+  "id": 6,
+  "email": "ana@elcorte.com",
+  "nombre": "Ana",
+  "especialidad": "Barbera",
+  "negocio": {"id": 4, "nombre": "Barbería El Corte", "slug": "barberia-el-corte", "ciudad": "Bogotá", "direccion": "", "telefono": "", "activo": true},
+  "puede_cobrar": false,
+  "puede_ver_reportes": false,
+  "puede_editar_precios": false,
+  "puede_gestionar_empleados": false,
+  "puede_gestionar_agenda": true,
+  "activo": true
+}
+```
+
+**No** se resuelve buscando por email en `GET /api/negocios/empleados/`
+(esa lista es para gestionar empleados, no para autoidentificarse) —
+este endpoint dedicado resuelve la membresía directamente desde el
+JWT del solicitante, sin ambigüedad y sin depender de que el frontend
+recuerde el email con el que se logueó.
+
 ## 4. Convenciones de la API
 
 - **Idioma y formato de campos JSON: español, `snake_case`**
@@ -152,3 +183,14 @@ igual que uno inexistente.
   ver 5.3). Todos requieren `puede_gestionar_agenda` para
   crear/transicionar citas y horarios; lectura solo requiere
   pertenecer al negocio.
+- **2026-07-24** — Nuevo `GET /api/negocios/mi-membresia/` (ver 3.1):
+  devuelve la membresía propia del usuario autenticado (capacidades +
+  negocio anidado) en un solo request, para que el frontend no tenga
+  que resolver "quién soy" buscando por email en la lista de
+  empleados. Además, se corrigió un bug en `TieneMembresiaActiva`
+  (usado por todos los endpoints de empleados y de Fase 1): un request
+  sin autenticar devolvía `500` en vez de `401` porque intentaba leer
+  capacidades de un `AnonymousUser`. Cualquier request sin token (o
+  con token inválido/expirado) a esos endpoints ahora responde `401`
+  de forma consistente, como ya documentaba la sección 4 pero no se
+  cumplía en la práctica.
