@@ -1,11 +1,24 @@
-# ROADMAP — Turnio
+# ROADMAP — Turnio (visión conjunta)
 
-> Memoria persistente entre sesiones. Leer completo antes de escribir
-> código. Nunca borrar historial de fases anteriores, solo agregar.
+> Memoria persistente entre sesiones, **compartida por backend y
+> frontend**. Leer completo antes de escribir código, sin importar en
+> qué carpeta se trabaje. Nunca borrar historial de fases anteriores,
+> solo agregar.
+>
+> Este archivo mantiene solo el **estado por fase a nivel de
+> proyecto**. El detalle día a día de cada lado vive en su propio
+> archivo, para que las dos personas (y sus dos Claude Code, trabajando
+> en paralelo) no compitan por las mismas líneas de un mismo archivo:
+> - Backend: [`backend/ROADMAP-BACKEND.md`](backend/ROADMAP-BACKEND.md)
+> - Frontend: [`frontend/ROADMAP-FRONTEND.md`](frontend/ROADMAP-FRONTEND.md)
+> - Contrato entre ambos: [`CONTRATO.md`](CONTRATO.md)
+>
+> Regla para actualizar este archivo: se edita cuando **una fase
+> completa cambia de estado** (arranca, termina) o cuando hay una
+> decisión/bloqueo que concierne a ambas partes. Los avances parciales
+> dentro de una fase van en el sub-roadmap correspondiente, no acá.
 
-## Estado actual: Fase 0 — COMPLETADA (2026-07-24)
-
-### Decisiones previas (de `plan-accion.md`, no se repiten aquí)
+## Decisiones de arquitectura ya tomadas (de `plan-accion.md` y sesiones posteriores)
 - Multi-tenancy: shared DB + `tenant_id`, no schema-per-tenant.
 - Permisos por capacidades, no roles fijos.
 - Agenda por empleado desde el inicio (Fase 1), no operador único como
@@ -13,124 +26,54 @@
 - Búsqueda/reserva de negocios sube al MVP (Fase 2), no se pospone.
 - Capa de servicios (`services.py`) por app, sin event bus formal
   (Django signals cuando haga falta desacoplar side-effects).
-- Frontend: **React** (confirmado por el humano el 2026-07-24).
-- Nombre del proyecto: **Turnio** (confirmado por el humano, coincide
-  con el nombre de la carpeta).
+- Frontend: **React** + Capacitor (confirmado por el humano, 2026-07-24).
+- Nombre del proyecto: **Turnio** (confirmado por el humano).
+- **Estructura de repo: monorepo** (`backend/` + `frontend/` en este
+  mismo repo Git), con dos personas trabajando en paralelo cada una
+  con su propio Claude Code (confirmado por el humano, 2026-07-24).
+- **Contrato API backend↔frontend: OpenAPI autogenerado**
+  (`drf-spectacular` → `backend/openapi.yaml`) + `CONTRATO.md` para
+  convenciones que el schema no captura (auth, errores, capacidades).
+  Se prefirió sobre un doc mantenido a mano justamente porque dos
+  Claude Code en paralelo, sin verse el código mutuamente, harían que
+  un contrato manual se desincronizara del backend real tarde o
+  temprano (confirmado por el humano, 2026-07-24).
 
-### Qué se completó en esta sesión
-- Repo git inicializado (rama `main`), `.gitignore`, `CLAUDE.md`,
-  `README.md`.
-- Docker: `docker-compose.yml` (servicios `db` Postgres 16 y `backend`
-  Django), `backend/Dockerfile`. Backend expuesto en el host en el
-  puerto **8001** (el 8000 estaba tomado por otro proyecto local,
-  `driveriq`, corriendo en esta misma máquina). El servicio `db` no
-  publica puerto al host (los puertos 5432-5434 ya estaban en uso por
-  otros proyectos locales); solo es accesible dentro de la red de
-  Docker Compose vía el hostname `db`.
-- Proyecto Django `config` en `backend/`, con apps en `backend/apps/`:
-  - `apps.common`: `TenantScopedModel` (abstract base con FK a
-    `Tenant`, para que todo modelo de negocio futuro —Servicio, Cita,
-    Caja, etc.— lo herede en vez de repetir el campo), y
-    `permissions.py` con `TieneMembresiaActiva` / `requiere_capacidad()`
-    para el filtrado y los permisos por capacidad en la API.
-  - `apps.tenants`: modelo `Tenant` (UUID pk, pensado para que en el
-    futuro (Fase 6, multi-sucursal) un Tenant tenga varios `Negocio`
-    sin migración de datos).
-  - `apps.negocios`: modelo `Negocio` (hereda `TenantScopedModel`, slug
-    autogenerado y único), `services.py` con `registrar_negocio()` y
-    `agregar_empleado()`, serializers, vistas (`RegistroNegocioView`,
-    `EmpleadoListCreateView`) y urls.
-  - `apps.usuarios`: `Usuario` (custom user model, `email` como
-    `USERNAME_FIELD`, sin `tenant` propio porque un usuario podría en
-    el futuro pertenecer a varios negocios) y `MiembroNegocio` (vínculo
-    Usuario↔Negocio con las capacidades booleanas: `puede_cobrar`,
-    `puede_ver_reportes`, `puede_editar_precios`,
-    `puede_gestionar_empleados`, `puede_gestionar_agenda`; constraint
-    único usuario+negocio).
-- Auth JWT con `djangorestframework-simplejwt` (login por email,
-  access token 8h, refresh 14 días, rotación de refresh tokens).
-- Endpoint `POST /api/negocios/registro/`: crea Tenant + Negocio +
-  Usuario dueño (con **todas** las capacidades, caso operador único) y,
-  opcionalmente en el mismo request, empleados adicionales con
-  capacidades específicas (caso multi-empleado). Devuelve tokens JWT
-  del dueño.
-- Endpoint `GET/POST /api/negocios/empleados/`: lista/agrega empleados
-  del negocio del usuario autenticado, siempre filtrado por su
-  membresía activa (nunca expone empleados de otro tenant); crear
-  requiere la capacidad `puede_gestionar_empleados`.
-- 13 tests (pytest + pytest-django) cubriendo modelos, la capa de
-  servicios (capacidades del dueño vs. empleado) y los endpoints
-  (incluyendo aislamiento entre tenants y rechazo por falta de
-  capacidad). Todos pasan corriendo dentro del contenedor Docker.
-- Verificación manual end-to-end contra el contenedor corriendo:
-  registro → login → listado de empleados, con curl.
+## Estado por fase
 
-### Dependencias añadidas (justificación)
-- `djangorestframework` + `djangorestframework-simplejwt`: API REST y
-  auth JWT, pedidas explícitamente en la arquitectura.
-- `psycopg2-binary`: driver de Postgres.
-- `python-dotenv`: cargar `.env` en `settings.py` sin lógica manual.
-- `django-cors-headers`: el frontend Capacitor (web admin, apps
-  cliente/empleado) consumirá la API desde otro origen; se necesita
-  desde el primer endpoint público.
-- `pytest` + `pytest-django` + `pytest-cov`: requeridos explícitamente
-  para tests de servicios y endpoints.
-- **No se agregó Celery/Redis todavía**: el stack técnico del plan los
-  lista, pero nada en Fase 0 los usa (recordatorios, cálculo async de
-  comisiones y reportes son de fases posteriores). Se agregan cuando
-  haya un consumidor real, para no cargar infra sin uso.
+| Fase | Estado | Detalle |
+|---|---|---|
+| Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
+| Fase 1 — Núcleo operativo multi-empleado | 🔜 Siguiente, sin empezar | Backend: Servicios, Empleados, Agenda por empleado. Frontend: app Capacitor mínima (login + agenda + registrar servicio). |
+| Fase 2 — Descubrimiento y reserva de clientes | Sin empezar | |
+| Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
+| Fase 4 — Clientes y reportes | Sin empezar | |
+| Fase 5 — Beta y suscripción | Sin empezar | |
+| Fase 6+ — Crecimiento | Sin empezar | |
 
-### Pendiente / a medio hacer
-- No hay superusuario creado por defecto ni fixture de datos demo.
-- No hay CI configurado todavía (el plan lo menciona como parte de
-  Fase 0 "Setup... CI básico" en `plan-accion.md`, pero no está en las
-  instrucciones obligatorias de `CLAUDE.md`; queda pendiente de
-  confirmación con el humano si se quiere GitHub Actions u otro).
-- No se ha creado el frontend Capacitor todavía (corresponde a Fase 1).
-- `SECRET_KEY` en `.env.example` es un valor de desarrollo débil
-  (genera warning de `InsecureKeyLengthWarning` en los tests JWT); hay
-  que generar una clave fuerte antes de cualquier despliegue real.
-- `EmpleadoListCreateView` asume que el usuario autenticado tiene
-  exactamente una membresía activa (caso típico hoy). Si en el futuro
-  un mismo usuario pertenece a varios negocios a la vez (no solo
-  multi-sucursal bajo un mismo tenant), `obtener_membresia_activa()`
-  tomará la primera y habrá que decidir cómo el cliente elige "negocio
-  activo" (ej. header o parámetro explícito).
+Ver `CLAUDE.md` para el detalle completo de alcance de cada fase y qué
+NO hacer todavía.
 
-### Decisiones técnicas de esta sesión y su justificación
-- `Tenant` y `Negocio` como modelos separados (no fusionados) desde
-  Fase 0, aunque hoy sea 1:1, para que el multi-sucursal de Fase 6 no
-  requiera migrar datos ni cambiar la forma en que se filtra por
-  tenant en el resto de la API.
-- `TenantScopedModel` abstracto en `apps.common`: no es una
-  abstracción especulativa, es literalmente lo que pide la arquitectura
-  ("todo modelo de negocio debe tener tenant_id") aplicado de forma
-  que Fase 1+ no repita el campo a mano en Servicio/Cita/Caja.
-- Capacidades modeladas como booleanos planos en `MiembroNegocio`
-  (no como tabla de permisos dinámica/JSON) porque el conjunto de
-  capacidades es conocido y pequeño; evita sobre-ingeniería para el
-  tamaño actual del proyecto.
+## Bloqueos o dudas abiertas que conciernen a ambas partes
+1. ¿Se quiere CI (GitHub Actions) ya, o se pospone hasta que el repo
+   tenga remoto? (afecta tanto a `backend/` como a `frontend/` cuando
+   este último tenga código).
+2. Confirmar que el puerto 8001 del backend en local no choca con
+   ninguna convención que el frontend ya tenga asumida para apuntar su
+   cliente HTTP en desarrollo.
+3. Falta decidir, del lado frontend, el generador de tipos TypeScript
+   a partir de `backend/openapi.yaml` (ver dudas abiertas en
+   `frontend/ROADMAP-FRONTEND.md`).
 
-### Bloqueos o dudas abiertas para el humano
-1. ¿Se quiere CI (GitHub Actions) ya en Fase 0, o se pospone hasta que
-   el repo tenga remoto en GitHub?
-2. Confirmar que el puerto 8001 (en vez de 8000) para el backend en
-   local no choca con ninguna convención ya establecida en otras
-   herramientas del equipo.
+## Historial de fases
 
----
+### Fase 0 — Fundacional — COMPLETADA (2026-07-24)
+Backend funcional con multi-tenancy, modelos base (`Tenant`, `Negocio`,
+`Usuario`, `MiembroNegocio` con capacidades), auth JWT y registro de
+negocio con alta de empleados desde el inicio. Detalle completo,
+dependencias y decisiones técnicas en `backend/ROADMAP-BACKEND.md`.
 
-## Fases futuras (sin empezar)
-
-Ver `CLAUDE.md` para el detalle completo de cada fase. Resumen:
-- **Fase 1**: Servicios, Empleados con capacidades individuales, Agenda
-  con calendario por empleado, app Capacitor (React) mínima para el
-  negocio.
-- **Fase 2**: Perfil público, búsqueda de negocios, reserva en línea,
-  app Capacitor para el cliente.
-- **Fase 3**: Caja, Comisiones automáticas, auditoría, soporte offline.
-- **Fase 4**: Clientes (lado negocio), Reportes, panel admin,
-  consentimiento de datos (Ley 1581).
-- **Fase 5**: Planes/suscripción, cobro recurrente, onboarding, push.
-- **Fase 6+**: multi-sucursal, WhatsApp, inventario avanzado,
-  fidelización, marketplace avanzado, IA.
+Además, en esta misma fecha se definió la estructura de colaboración
+de dos personas (backend/frontend) en paralelo: monorepo, contrato
+OpenAPI autogenerado (`CONTRATO.md` + `backend/openapi.yaml`), y
+roadmap dividido por responsable con esta vista conjunta.

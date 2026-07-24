@@ -1,0 +1,321 @@
+openapi: 3.0.3
+info:
+  title: Turnio API
+  version: 0.1.0
+  description: Contrato vivo entre el backend y el frontend de Turnio. Ver también
+    /CONTRATO.md en la raíz del repo para convenciones que este schema no captura
+    (auth, formato de errores, etc.).
+paths:
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/negocios/empleados/:
+    get:
+      operationId: negocios_empleados_list
+      description: |-
+        Lista o agrega empleados del negocio del usuario autenticado.
+
+        El queryset se filtra siempre por el negocio de la membresía activa
+        del solicitante: nunca se exponen empleados de otro tenant.
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MiembroNegocio'
+          description: ''
+    post:
+      operationId: negocios_empleados_create
+      description: |-
+        Lista o agrega empleados del negocio del usuario autenticado.
+
+        El queryset se filtra siempre por el negocio de la membresía activa
+        del solicitante: nunca se exponen empleados de otro tenant.
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MiembroNegocio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MiembroNegocio'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MiembroNegocio'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiembroNegocio'
+          description: ''
+  /api/negocios/registro/:
+    post:
+      operationId: negocios_registro_create
+      description: |-
+        Alta de un negocio nuevo, con su dueño (todas las capacidades) y,
+        opcionalmente, empleados adicionales desde el mismo registro.
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroNegocio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegistroNegocio'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegistroNegocio'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroNegocioRespuesta'
+          description: ''
+components:
+  schemas:
+    EmpleadoAlta:
+      type: object
+      description: Empleado adicional dado de alta junto con el registro del negocio.
+      properties:
+        email:
+          type: string
+          format: email
+        nombre:
+          type: string
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+        puede_cobrar:
+          type: boolean
+          default: false
+        puede_ver_reportes:
+          type: boolean
+          default: false
+        puede_editar_precios:
+          type: boolean
+          default: false
+        puede_gestionar_empleados:
+          type: boolean
+          default: false
+        puede_gestionar_agenda:
+          type: boolean
+          default: false
+      required:
+      - email
+      - nombre
+      - password
+    MiembroNegocio:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        nombre:
+          type: string
+          readOnly: true
+        puede_cobrar:
+          type: boolean
+        puede_ver_reportes:
+          type: boolean
+        puede_editar_precios:
+          type: boolean
+        puede_gestionar_empleados:
+          type: boolean
+        puede_gestionar_agenda:
+          type: boolean
+        activo:
+          type: boolean
+      required:
+      - email
+      - id
+      - nombre
+    Negocio:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        ciudad:
+          type: string
+          readOnly: true
+        direccion:
+          type: string
+          readOnly: true
+        telefono:
+          type: string
+          readOnly: true
+        activo:
+          type: boolean
+          readOnly: true
+      required:
+      - activo
+      - ciudad
+      - direccion
+      - id
+      - nombre
+      - slug
+      - telefono
+    RegistroNegocio:
+      type: object
+      properties:
+        nombre_negocio:
+          type: string
+          maxLength: 150
+        ciudad:
+          type: string
+          maxLength: 100
+        direccion:
+          type: string
+          maxLength: 255
+        telefono:
+          type: string
+          maxLength: 30
+        email_dueno:
+          type: string
+          format: email
+        nombre_dueno:
+          type: string
+          maxLength: 150
+        password_dueno:
+          type: string
+          writeOnly: true
+        empleados:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmpleadoAlta'
+      required:
+      - email_dueno
+      - nombre_dueno
+      - nombre_negocio
+      - password_dueno
+    RegistroNegocioRespuesta:
+      type: object
+      description: Forma de la respuesta de POST /api/negocios/registro/.
+      properties:
+        negocio:
+          $ref: '#/components/schemas/Negocio'
+        access:
+          type: string
+        refresh:
+          type: string
+      required:
+      - access
+      - negocio
+      - refresh
+    TokenObtainPair:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - email
+      - password
+      - refresh
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

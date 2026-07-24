@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -10,6 +11,7 @@ from apps.negocios.serializers import (
     EmpleadoAltaSerializer,
     MiembroNegocioSerializer,
     NegocioSerializer,
+    RegistroNegocioRespuestaSerializer,
     RegistroNegocioSerializer,
 )
 
@@ -20,6 +22,10 @@ class RegistroNegocioView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RegistroNegocioSerializer,
+        responses={201: RegistroNegocioRespuestaSerializer},
+    )
     def post(self, request):
         serializer = RegistroNegocioSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -75,6 +81,10 @@ class EmpleadoListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return self.request.membresia.negocio.miembros.select_related("usuario").all()
 
+    @extend_schema(
+        request=EmpleadoAltaSerializer,
+        responses={201: MiembroNegocioSerializer},
+    )
     def create(self, request, *args, **kwargs):
         serializer = EmpleadoAltaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

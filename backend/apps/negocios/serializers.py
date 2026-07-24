@@ -54,6 +54,14 @@ class NegocioSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class RegistroNegocioRespuestaSerializer(serializers.Serializer):
+    """Forma de la respuesta de POST /api/negocios/registro/."""
+
+    negocio = NegocioSerializer()
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+
+
 class MiembroNegocioSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="usuario.email", read_only=True)
     nombre = serializers.CharField(source="usuario.nombre", read_only=True)
