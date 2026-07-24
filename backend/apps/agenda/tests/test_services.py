@@ -55,6 +55,45 @@ def test_empleado_no_disponible_fuera_de_su_horario(negocio_con_dueno):
     assert disponible is False
 
 
+def test_empleado_soporta_dos_bloques_el_mismo_dia_para_modelar_el_almuerzo(negocio_con_dueno):
+    """HorarioTrabajo no tiene constraint único por (miembro, dia_semana):
+    un descanso de almuerzo se modela como dos bloques el mismo día."""
+    _negocio, _dueno, membresia = negocio_con_dueno
+    services.crear_horario(
+        miembro=membresia,
+        dia_semana=DiaSemana.LUNES,
+        hora_inicio=datetime.time(8, 0),
+        hora_fin=datetime.time(12, 0),
+    )
+    services.crear_horario(
+        miembro=membresia,
+        dia_semana=DiaSemana.LUNES,
+        hora_inicio=datetime.time(13, 0),
+        hora_fin=datetime.time(18, 0),
+    )
+
+    # Dentro del bloque de la mañana: disponible.
+    assert services.empleado_disponible(
+        empleado=membresia,
+        inicio=LUNES_10AM,
+        fin=LUNES_10AM + datetime.timedelta(minutes=30),
+    ) is True
+
+    # Dentro del bloque de la tarde: disponible.
+    tarde = LUNES_10AM.replace(hour=15)
+    assert services.empleado_disponible(
+        empleado=membresia, inicio=tarde, fin=tarde + datetime.timedelta(minutes=30)
+    ) is True
+
+    # Cruza el descanso de almuerzo (11:30-12:30): no cabe en ningún bloque completo.
+    cruce_almuerzo = LUNES_10AM.replace(hour=11, minute=30)
+    assert services.empleado_disponible(
+        empleado=membresia,
+        inicio=cruce_almuerzo,
+        fin=cruce_almuerzo + datetime.timedelta(hours=1),
+    ) is False
+
+
 def test_empleado_no_disponible_si_hay_cita_que_se_cruza(negocio_con_dueno, servicio_de_prueba):
     negocio, _dueno, membresia = negocio_con_dueno
     services.crear_horario(

@@ -55,16 +55,16 @@ Ver `CLAUDE.md` para el detalle completo de alcance de cada fase y qué
 NO hacer todavía.
 
 ## Bloqueos o dudas abiertas que conciernen a ambas partes
-1. El repo ya tiene remoto: https://github.com/IBER-DEV/Turnio
-   (2026-07-24). ¿Se quiere CI (GitHub Actions) ahora que ya existe
-   remoto, o se sigue posponiendo? (afecta tanto a `backend/` como a
-   `frontend/` cuando este último tenga código).
-2. Confirmar que el puerto 8001 del backend en local no choca con
+1. Confirmar que el puerto 8001 del backend en local no choca con
    ninguna convención que el frontend ya tenga asumida para apuntar su
    cliente HTTP en desarrollo.
-3. Falta decidir, del lado frontend, el generador de tipos TypeScript
+2. Falta decidir, del lado frontend, el generador de tipos TypeScript
    a partir de `backend/openapi.yaml` (ver dudas abiertas en
    `frontend/ROADMAP-FRONTEND.md`).
+3. CI de backend ya existe (`.github/workflows/backend-ci.yml`,
+   2026-07-24). Cuando el frontend tenga código, falta un workflow
+   equivalente para esa carpeta (lint/build/tests), a definir cuando
+   arranque.
 
 ## Historial de fases
 

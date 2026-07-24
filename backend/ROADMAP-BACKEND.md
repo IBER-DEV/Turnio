@@ -211,10 +211,28 @@
   flujo de Caja (registrar cobro), que no existe aún. No es código
   muerto especulativo: es la función que Fase 3 va a llamar, ya
   probada.
-- **Sin bloqueos/excepciones de horario (vacaciones, incapacidad) en
-  esta fase**: el `HorarioTrabajo` semanal recurrente cubre el caso
-  común; se agrega solo si la operación real de un negocio piloto lo
-  pide, para no construir una feature sin demanda confirmada.
+- **Sin excepciones puntuales de horario (vacaciones, incapacidad) en
+  esta fase — decisión confirmada por el humano (2026-07-24)**: son un
+  problema distinto al almuerzo (ver abajo): `HorarioTrabajo` modela un
+  patrón *semanal recurrente*; una incapacidad es una excepción de
+  *fecha específica* que rompe ese patrón y requeriría un concepto
+  nuevo (algo como `BloqueoAgenda` con rango de fechas y motivo). El
+  costo de no tenerlo hoy es bajo a escala de un piloto (el dueño
+  reagenda manualmente), así que se espera a que un negocio real lo
+  pida antes de diseñarlo, en vez de adivinar la forma de la
+  excepción (¿día completo?, ¿rango de horas?, ¿requiere aprobación?).
+- **El almuerzo NO requería una feature nueva — ya estaba resuelto**:
+  se verificó que (a) `HorarioTrabajo` no tiene ningún
+  `unique_together`/constraint que impida dos bloques el mismo
+  `(miembro, dia_semana)`, y (b) `empleado_disponible()` ya usa
+  `.filter(...).exists()` (no `.get()`), por lo que evalúa correctamente
+  contra **todos** los bloques del día. Un descanso de almuerzo se
+  modela con dos filas de `HorarioTrabajo` el mismo día (ej. 8-12 y
+  13-18); una cita que cruce el hueco entre bloques correctamente no
+  encuentra disponibilidad. Se agregó
+  `test_empleado_soporta_dos_bloques_el_mismo_dia_para_modelar_el_almuerzo`
+  para fijar este comportamiento como contrato de test, ya que antes
+  era una garantía implícita sin cobertura.
 
 ### Pendiente / a medio hacer
 - `HorarioTrabajoViewSet` y `CitaViewSet` asumen que solo quien tiene
@@ -229,13 +247,28 @@
   de "horario del negocio" separado del horario por empleado). Queda
   como refinamiento de validación antes de exponer reserva de clientes
   en Fase 2.
-- Sigue sin CI (mismo bloqueo que Fase 0, ver abajo).
+- Excepciones puntuales de horario (vacaciones/incapacidad): pendiente
+  a propósito, ver decisión arriba. No es un bloqueo, es un "no
+  todavía" confirmado.
+
+### CI (GitHub Actions) — resuelto (2026-07-24)
+Se agregó `.github/workflows/backend-ci.yml`: corre en cada push/PR
+que toque `backend/**`, contra un servicio Postgres 16. Pasos:
+1. `makemigrations --check --dry-run` (falla si falta una migración).
+2. `migrate`.
+3. Regenera el schema OpenAPI a un archivo temporal y hace `diff`
+   contra `backend/openapi.yaml` committeado — **falla el build si el
+   contrato no se regeneró** después de un cambio de API, forzando en
+   CI la regla de oro de `CONTRATO.md` en vez de depender de que se
+   recuerde a mano.
+4. `pytest`.
+
+Verificado localmente (fuera de GitHub Actions) que los tres comandos
+clave pasan limpio: `makemigrations --check --dry-run` sin cambios,
+`spectacular --validate` + diff sin diferencias, y la suite completa
+(37 tests).
 
 ### Bloqueos o dudas abiertas para el humano
-1. ¿Se quiere CI (GitHub Actions) ya, o se pospone hasta que el repo
-   tenga remoto en GitHub? *(el remoto ya se creó — https://github.com/IBER-DEV/Turnio —
-   así que esto ya podría resolverse si se confirma que se quiere CI ahora.)*
-2. Confirmar si vale la pena ya modelar bloqueos/excepciones de
-   horario (vacaciones, incapacidad, almuerzo) o esperar a validarlo
-   con un negocio piloto real, como indica el principio general del
-   proyecto de no construir por anticipado.
+(ninguno pendiente de esta sesión — CI resuelto, almuerzo verificado
+y confirmado sin cambios, vacaciones/incapacidad pospuesto a
+propósito por decisión explícita del humano)
