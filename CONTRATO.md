@@ -62,14 +62,22 @@ JWT vía `djangorestframework-simplejwt`.
   - `403`: autenticado pero sin la capacidad requerida para la acción
     (ver sección 5).
   - `404`: recurso no existe o no pertenece al tenant del solicitante
-    (ver sección 5.2: nunca se distingue "no existe" de "no es tuyo").
+    (ver sección 5.4: nunca se distingue "no existe" de "no es tuyo").
 - **IDs**: `Tenant` usa UUID; el resto de modelos (`Negocio`,
   `MiembroNegocio`, etc.) usan enteros autoincrementales. El frontend
   no debe asumir un formato único de ID entre entidades.
-- **Paginación**: ningún endpoint de Fase 0 pagina todavía (listas
-  cortas: empleados de un negocio). Cuando Fase 1+ agregue endpoints
-  con listas potencialmente largas (ej. citas, servicios), se
-  documentará aquí el esquema de paginación antes de exponerse.
+- **Paginación**: ningún endpoint pagina todavía, incluyendo
+  `GET /api/agenda/citas/` y `GET /api/servicios/` (Fase 1): a la
+  escala de un negocio individual la lista completa es manejable. Si
+  en fases posteriores el volumen lo justifica, se documentará aquí el
+  esquema de paginación **antes** de activarlo (cambio de contrato).
+- **Máquina de estados de `Cita`**: `agendada → confirmada →
+  completada`, con `cancelada` alcanzable desde `agendada` o
+  `confirmada` (no desde `completada`). No se transiciona con
+  `PATCH estado=...`: son acciones dedicadas —
+  `POST /api/agenda/citas/{id}/confirmar/`,
+  `.../completar/`, `.../cancelar/` — que devuelven `400` si la
+  transición no es válida desde el estado actual.
 
 ## 5. Modelo de permisos (capacidades, no roles)
 
@@ -97,7 +105,25 @@ capacidades. El frontend no necesita un flujo de UI distinto para este
 caso: es simplemente un negocio cuya única membresía tiene todo en
 `true`.
 
-### 5.2 Aislamiento por tenant
+### 5.2 Perfil del empleado vs. capacidades
+
+`MiembroNegocio` (el "empleado" dentro de un negocio) tiene, además de
+las capacidades booleanas, un campo `especialidad` (texto libre, ej.
+"Barbero", "Estilista") que es puramente informativo para la UI (no
+es una capacidad ni afecta permisos).
+
+### 5.3 Agendar una cita: "cualquiera disponible"
+
+`POST /api/agenda/citas/` acepta `empleado` como **opcional**. Si se
+omite (o se envía `null`), el backend asigna automáticamente el
+primer empleado del negocio con disponibilidad real para ese servicio
+y horario (según `HorarioTrabajo` y que no tenga otra cita
+encimada). Si no hay ningún empleado disponible, responde `400` con
+`non_field_errors`. El frontend nunca debe intentar calcular la
+disponibilidad por su cuenta ni elegir un empleado "al azar": siempre
+delega esa decisión al backend omitiendo el campo.
+
+### 5.4 Aislamiento por tenant
 
 Todo endpoint de negocio filtra automáticamente por el tenant del
 usuario autenticado. Un usuario nunca puede ver ni deducir la
@@ -114,3 +140,15 @@ igual que uno inexistente.
   opcionales), `POST /api/auth/login/`, `POST /api/auth/refresh/`,
   `GET/POST /api/negocios/empleados/`. Ver `backend/openapi.yaml` para
   el detalle de campos.
+- **2026-07-24** — Fase 1 backend: agregado `GET/PATCH
+  /api/negocios/empleados/{id}/` (detalle/edición de capacidades y
+  `especialidad` de un empleado); nuevo campo `especialidad` en
+  `MiembroNegocio` (ver 5.2); nuevo `GET/POST/PATCH/DELETE
+  /api/servicios/` (requiere `puede_editar_precios` para
+  crear/editar/borrar); nuevo `GET/POST /api/agenda/horarios/`
+  (disponibilidad recurrente por empleado) y `GET/POST
+  /api/agenda/citas/` + `.../{id}/confirmar|completar|cancelar/`
+  (agenda con máquina de estados y asignación "cualquiera disponible",
+  ver 5.3). Todos requieren `puede_gestionar_agenda` para
+  crear/transicionar citas y horarios; lectura solo requiere
+  pertenecer al negocio.

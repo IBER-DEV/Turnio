@@ -141,3 +141,56 @@ def test_empleado_sin_capacidad_no_puede_agregar_empleados():
     )
 
     assert respuesta.status_code == 403
+
+
+def test_dueno_puede_actualizar_capacidades_de_un_empleado():
+    negocio, _dueno, _m = services.registrar_negocio(
+        nombre_negocio="Negocio A",
+        email_dueno="dueno@ejemplo.com",
+        password_dueno="claveSegura123",
+        nombre_dueno="Dueño A",
+    )
+    _usuario, membresia = services.agregar_empleado(
+        negocio=negocio,
+        email="empleado@ejemplo.com",
+        password="claveSegura123",
+        nombre="Empleado",
+    )
+
+    client = APIClient()
+    _login(client, "dueno@ejemplo.com", "claveSegura123")
+
+    respuesta = client.patch(
+        f"/api/negocios/empleados/{membresia.id}/",
+        {"puede_cobrar": True, "especialidad": "Barbero"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["puede_cobrar"] is True
+    assert respuesta.data["especialidad"] == "Barbero"
+
+
+def test_no_se_puede_ver_detalle_de_empleado_de_otro_tenant():
+    negocio_a, _dueno_a, _m = services.registrar_negocio(
+        nombre_negocio="Negocio A",
+        email_dueno="duenoa2@ejemplo.com",
+        password_dueno="claveSegura123",
+        nombre_dueno="Dueño A",
+    )
+    negocio_b, _dueno_b, _m2 = services.registrar_negocio(
+        nombre_negocio="Negocio B",
+        email_dueno="duenob2@ejemplo.com",
+        password_dueno="claveSegura123",
+        nombre_dueno="Dueño B",
+    )
+    _usuario_b, membresia_b = services.agregar_empleado(
+        negocio=negocio_b, email="empleadob2@ejemplo.com", password="x", nombre="Empleado B"
+    )
+
+    client = APIClient()
+    _login(client, "duenoa2@ejemplo.com", "claveSegura123")
+
+    respuesta = client.get(f"/api/negocios/empleados/{membresia_b.id}/")
+
+    assert respuesta.status_code == 404

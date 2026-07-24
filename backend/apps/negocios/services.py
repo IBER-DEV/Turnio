@@ -36,7 +36,7 @@ def registrar_negocio(*, nombre_negocio, email_dueno, password_dueno, nombre_due
 
 
 @transaction.atomic
-def agregar_empleado(*, negocio, email, password, nombre, capacidades=None):
+def agregar_empleado(*, negocio, email, password, nombre, especialidad="", capacidades=None):
     """Da de alta un empleado adicional en un negocio ya existente.
 
     `capacidades` es un dict parcial con las capacidades a otorgar
@@ -48,6 +48,10 @@ def agregar_empleado(*, negocio, email, password, nombre, capacidades=None):
     }
     usuario = Usuario.objects.create_user(email=email, password=password, nombre=nombre)
     membresia = MiembroNegocio.objects.create(
-        tenant=negocio.tenant, negocio=negocio, usuario=usuario, **capacidades_validas
+        tenant=negocio.tenant,
+        negocio=negocio,
+        usuario=usuario,
+        especialidad=especialidad,
+        **capacidades_validas,
     )
     return usuario, membresia

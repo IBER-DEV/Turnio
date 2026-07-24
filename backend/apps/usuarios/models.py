@@ -62,6 +62,8 @@ class MiembroNegocio(TenantScopedModel):
         "negocios.Negocio", on_delete=models.CASCADE, related_name="miembros"
     )
 
+    especialidad = models.CharField(max_length=150, blank=True)
+
     puede_cobrar = models.BooleanField(default=False)
     puede_ver_reportes = models.BooleanField(default=False)
     puede_editar_precios = models.BooleanField(default=False)

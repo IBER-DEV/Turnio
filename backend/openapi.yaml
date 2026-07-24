@@ -6,6 +6,411 @@ info:
     /CONTRATO.md en la raíz del repo para convenciones que este schema no captura
     (auth, formato de errores, etc.).
 paths:
+  /api/agenda/citas/:
+    get:
+      operationId: agenda_citas_list
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cita'
+          description: ''
+    post:
+      operationId: agenda_citas_create
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      tags:
+      - agenda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CitaCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CitaCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CitaCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cita'
+          description: ''
+  /api/agenda/citas/{id}/:
+    get:
+      operationId: agenda_citas_retrieve
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cita'
+          description: ''
+    put:
+      operationId: agenda_citas_update
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cita'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cita'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cita'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cita'
+          description: ''
+    patch:
+      operationId: agenda_citas_partial_update
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCita'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCita'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCita'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cita'
+          description: ''
+    delete:
+      operationId: agenda_citas_destroy
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/agenda/citas/{id}/cancelar/:
+    post:
+      operationId: agenda_citas_cancelar_create
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cita'
+          description: ''
+  /api/agenda/citas/{id}/completar/:
+    post:
+      operationId: agenda_citas_completar_create
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cita'
+          description: ''
+  /api/agenda/citas/{id}/confirmar/:
+    post:
+      operationId: agenda_citas_confirmar_create
+      description: |-
+        Agenda: crear y consultar citas, y transicionar su estado.
+
+        Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+        crear: si se omite, el servicio de agenda asigna automáticamente el
+        primer empleado disponible ("cualquiera disponible").
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cita'
+          description: ''
+  /api/agenda/horarios/:
+    get:
+      operationId: agenda_horarios_list
+      description: Horario semanal recurrente de los empleados del negocio.
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HorarioTrabajo'
+          description: ''
+    post:
+      operationId: agenda_horarios_create
+      description: Horario semanal recurrente de los empleados del negocio.
+      tags:
+      - agenda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HorarioTrabajo'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HorarioTrabajo'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HorarioTrabajo'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioTrabajo'
+          description: ''
+  /api/agenda/horarios/{id}/:
+    get:
+      operationId: agenda_horarios_retrieve
+      description: Horario semanal recurrente de los empleados del negocio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this horario trabajo.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioTrabajo'
+          description: ''
+    put:
+      operationId: agenda_horarios_update
+      description: Horario semanal recurrente de los empleados del negocio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this horario trabajo.
+        required: true
+      tags:
+      - agenda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HorarioTrabajo'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HorarioTrabajo'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HorarioTrabajo'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioTrabajo'
+          description: ''
+    patch:
+      operationId: agenda_horarios_partial_update
+      description: Horario semanal recurrente de los empleados del negocio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this horario trabajo.
+        required: true
+      tags:
+      - agenda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedHorarioTrabajo'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedHorarioTrabajo'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedHorarioTrabajo'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioTrabajo'
+          description: ''
+    delete:
+      operationId: agenda_horarios_destroy
+      description: Horario semanal recurrente de los empleados del negocio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this horario trabajo.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/auth/login/:
     post:
       operationId: auth_login_create
@@ -110,6 +515,110 @@ paths:
               schema:
                 $ref: '#/components/schemas/MiembroNegocio'
           description: ''
+  /api/negocios/empleados/{id}/:
+    get:
+      operationId: negocios_empleados_retrieve
+      description: |-
+        Detalle y edición de un empleado puntual del negocio.
+
+        Editar (capacidades, especialidad, activo) requiere
+        `puede_gestionar_empleados`; ver el detalle solo requiere
+        pertenecer al negocio. Nunca expone empleados de otro tenant: el
+        queryset ya viene acotado al negocio de la membresía del
+        solicitante.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiembroNegocio'
+          description: ''
+    put:
+      operationId: negocios_empleados_update
+      description: |-
+        Detalle y edición de un empleado puntual del negocio.
+
+        Editar (capacidades, especialidad, activo) requiere
+        `puede_gestionar_empleados`; ver el detalle solo requiere
+        pertenecer al negocio. Nunca expone empleados de otro tenant: el
+        queryset ya viene acotado al negocio de la membresía del
+        solicitante.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MiembroNegocio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MiembroNegocio'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MiembroNegocio'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiembroNegocio'
+          description: ''
+    patch:
+      operationId: negocios_empleados_partial_update
+      description: |-
+        Detalle y edición de un empleado puntual del negocio.
+
+        Editar (capacidades, especialidad, activo) requiere
+        `puede_gestionar_empleados`; ver el detalle solo requiere
+        pertenecer al negocio. Nunca expone empleados de otro tenant: el
+        queryset ya viene acotado al negocio de la membresía del
+        solicitante.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMiembroNegocio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMiembroNegocio'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMiembroNegocio'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiembroNegocio'
+          description: ''
   /api/negocios/registro/:
     post:
       operationId: negocios_registro_create
@@ -140,8 +649,276 @@ paths:
               schema:
                 $ref: '#/components/schemas/RegistroNegocioRespuesta'
           description: ''
+  /api/servicios/:
+    get:
+      operationId: servicios_list
+      description: |-
+        CRUD de servicios del negocio del usuario autenticado.
+
+        Leer requiere solo pertenecer al negocio; crear/editar/borrar
+        requiere la capacidad `puede_editar_precios`, porque un servicio
+        define precio y comisión.
+      tags:
+      - servicios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Servicio'
+          description: ''
+    post:
+      operationId: servicios_create
+      description: |-
+        CRUD de servicios del negocio del usuario autenticado.
+
+        Leer requiere solo pertenecer al negocio; crear/editar/borrar
+        requiere la capacidad `puede_editar_precios`, porque un servicio
+        define precio y comisión.
+      tags:
+      - servicios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Servicio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Servicio'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Servicio'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Servicio'
+          description: ''
+  /api/servicios/{id}/:
+    get:
+      operationId: servicios_retrieve
+      description: |-
+        CRUD de servicios del negocio del usuario autenticado.
+
+        Leer requiere solo pertenecer al negocio; crear/editar/borrar
+        requiere la capacidad `puede_editar_precios`, porque un servicio
+        define precio y comisión.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this servicio.
+        required: true
+      tags:
+      - servicios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Servicio'
+          description: ''
+    put:
+      operationId: servicios_update
+      description: |-
+        CRUD de servicios del negocio del usuario autenticado.
+
+        Leer requiere solo pertenecer al negocio; crear/editar/borrar
+        requiere la capacidad `puede_editar_precios`, porque un servicio
+        define precio y comisión.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this servicio.
+        required: true
+      tags:
+      - servicios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Servicio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Servicio'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Servicio'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Servicio'
+          description: ''
+    patch:
+      operationId: servicios_partial_update
+      description: |-
+        CRUD de servicios del negocio del usuario autenticado.
+
+        Leer requiere solo pertenecer al negocio; crear/editar/borrar
+        requiere la capacidad `puede_editar_precios`, porque un servicio
+        define precio y comisión.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this servicio.
+        required: true
+      tags:
+      - servicios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedServicio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedServicio'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedServicio'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Servicio'
+          description: ''
+    delete:
+      operationId: servicios_destroy
+      description: |-
+        CRUD de servicios del negocio del usuario autenticado.
+
+        Leer requiere solo pertenecer al negocio; crear/editar/borrar
+        requiere la capacidad `puede_editar_precios`, porque un servicio
+        define precio y comisión.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this servicio.
+        required: true
+      tags:
+      - servicios
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
 components:
   schemas:
+    Cita:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        servicio:
+          type: integer
+        servicio_nombre:
+          type: string
+          readOnly: true
+        empleado:
+          type: integer
+        empleado_nombre:
+          type: string
+          readOnly: true
+        fecha_hora_inicio:
+          type: string
+          format: date-time
+        fecha_hora_fin:
+          type: string
+          format: date-time
+          readOnly: true
+        estado:
+          allOf:
+          - $ref: '#/components/schemas/EstadoEnum'
+          readOnly: true
+        nombre_cliente:
+          type: string
+          maxLength: 150
+        telefono_cliente:
+          type: string
+          maxLength: 30
+        notas:
+          type: string
+      required:
+      - empleado
+      - empleado_nombre
+      - estado
+      - fecha_hora_fin
+      - fecha_hora_inicio
+      - id
+      - nombre_cliente
+      - servicio
+      - servicio_nombre
+    CitaCreate:
+      type: object
+      description: |-
+        Entrada para agendar una cita. `empleado` es opcional: si se
+        omite, se asigna automáticamente el primer empleado disponible.
+      properties:
+        servicio:
+          type: integer
+        empleado:
+          type: integer
+          nullable: true
+        fecha_hora_inicio:
+          type: string
+          format: date-time
+        nombre_cliente:
+          type: string
+          maxLength: 150
+        telefono_cliente:
+          type: string
+          default: ''
+          maxLength: 30
+        notas:
+          type: string
+          default: ''
+      required:
+      - fecha_hora_inicio
+      - nombre_cliente
+      - servicio
+    DiaSemanaEnum:
+      enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      type: integer
+      description: |-
+        * `0` - Lunes
+        * `1` - Martes
+        * `2` - Miércoles
+        * `3` - Jueves
+        * `4` - Viernes
+        * `5` - Sábado
+        * `6` - Domingo
     EmpleadoAlta:
       type: object
       description: Empleado adicional dado de alta junto con el registro del negocio.
@@ -155,6 +932,10 @@ components:
         password:
           type: string
           writeOnly: true
+        especialidad:
+          type: string
+          default: ''
+          maxLength: 150
         puede_cobrar:
           type: boolean
           default: false
@@ -174,6 +955,43 @@ components:
       - email
       - nombre
       - password
+    EstadoEnum:
+      enum:
+      - agendada
+      - confirmada
+      - completada
+      - cancelada
+      type: string
+      description: |-
+        * `agendada` - Agendada
+        * `confirmada` - Confirmada
+        * `completada` - Completada
+        * `cancelada` - Cancelada
+    HorarioTrabajo:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        miembro:
+          type: integer
+        dia_semana:
+          allOf:
+          - $ref: '#/components/schemas/DiaSemanaEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        hora_inicio:
+          type: string
+          format: time
+        hora_fin:
+          type: string
+          format: time
+      required:
+      - dia_semana
+      - hora_fin
+      - hora_inicio
+      - id
+      - miembro
     MiembroNegocio:
       type: object
       properties:
@@ -187,6 +1005,9 @@ components:
         nombre:
           type: string
           readOnly: true
+        especialidad:
+          type: string
+          maxLength: 150
         puede_cobrar:
           type: boolean
         puede_ver_reportes:
@@ -236,6 +1057,116 @@ components:
       - nombre
       - slug
       - telefono
+    PatchedCita:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        servicio:
+          type: integer
+        servicio_nombre:
+          type: string
+          readOnly: true
+        empleado:
+          type: integer
+        empleado_nombre:
+          type: string
+          readOnly: true
+        fecha_hora_inicio:
+          type: string
+          format: date-time
+        fecha_hora_fin:
+          type: string
+          format: date-time
+          readOnly: true
+        estado:
+          allOf:
+          - $ref: '#/components/schemas/EstadoEnum'
+          readOnly: true
+        nombre_cliente:
+          type: string
+          maxLength: 150
+        telefono_cliente:
+          type: string
+          maxLength: 30
+        notas:
+          type: string
+    PatchedHorarioTrabajo:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        miembro:
+          type: integer
+        dia_semana:
+          allOf:
+          - $ref: '#/components/schemas/DiaSemanaEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        hora_inicio:
+          type: string
+          format: time
+        hora_fin:
+          type: string
+          format: time
+    PatchedMiembroNegocio:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        nombre:
+          type: string
+          readOnly: true
+        especialidad:
+          type: string
+          maxLength: 150
+        puede_cobrar:
+          type: boolean
+        puede_ver_reportes:
+          type: boolean
+        puede_editar_precios:
+          type: boolean
+        puede_gestionar_empleados:
+          type: boolean
+        puede_gestionar_agenda:
+          type: boolean
+        activo:
+          type: boolean
+    PatchedServicio:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 150
+        descripcion:
+          type: string
+        categoria:
+          type: string
+          maxLength: 100
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        duracion_minutos:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        porcentaje_comision:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        activo:
+          type: boolean
     RegistroNegocio:
       type: object
       properties:
@@ -283,6 +1214,39 @@ components:
       - access
       - negocio
       - refresh
+    Servicio:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 150
+        descripcion:
+          type: string
+        categoria:
+          type: string
+          maxLength: 100
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        duracion_minutos:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        porcentaje_comision:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        activo:
+          type: boolean
+      required:
+      - duracion_minutos
+      - id
+      - nombre
+      - precio
     TokenObtainPair:
       type: object
       properties:

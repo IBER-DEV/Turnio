@@ -47,6 +47,7 @@ class RegistroNegocioView(APIView):
                 email=empleado["email"],
                 password=empleado["password"],
                 nombre=empleado["nombre"],
+                especialidad=empleado.get("especialidad", ""),
                 capacidades={
                     campo: empleado.get(campo, False)
                     for campo in services.CAMPOS_CAPACIDADES
@@ -95,8 +96,30 @@ class EmpleadoListCreateView(generics.ListCreateAPIView):
             email=datos["email"],
             password=datos["password"],
             nombre=datos["nombre"],
+            especialidad=datos.get("especialidad", ""),
             capacidades={campo: datos.get(campo, False) for campo in services.CAMPOS_CAPACIDADES},
         )
         return Response(
             MiembroNegocioSerializer(membresia).data, status=status.HTTP_201_CREATED
         )
+
+
+class EmpleadoDetailView(generics.RetrieveUpdateAPIView):
+    """Detalle y edición de un empleado puntual del negocio.
+
+    Editar (capacidades, especialidad, activo) requiere
+    `puede_gestionar_empleados`; ver el detalle solo requiere
+    pertenecer al negocio. Nunca expone empleados de otro tenant: el
+    queryset ya viene acotado al negocio de la membresía del
+    solicitante.
+    """
+
+    serializer_class = MiembroNegocioSerializer
+
+    def get_permissions(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return [requiere_capacidad("puede_gestionar_empleados")()]
+        return [TieneMembresiaActiva()]
+
+    def get_queryset(self):
+        return self.request.membresia.negocio.miembros.select_related("usuario").all()

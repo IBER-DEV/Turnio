@@ -26,6 +26,8 @@ INSTALLED_APPS = [
     "apps.tenants",
     "apps.negocios",
     "apps.usuarios",
+    "apps.servicios",
+    "apps.agenda",
 ]
 
 MIDDLEWARE = [

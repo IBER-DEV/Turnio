@@ -44,7 +44,7 @@
 | Fase | Estado | Detalle |
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
-| Fase 1 — Núcleo operativo multi-empleado | 🔜 Siguiente, sin empezar | Backend: Servicios, Empleados, Agenda por empleado. Frontend: app Capacitor mínima (login + agenda + registrar servicio). |
+| Fase 1 — Núcleo operativo multi-empleado | 🟡 Backend completado (2026-07-24), frontend sin empezar | Backend: Servicios, Empleados (capacidades + especialidad), Agenda por empleado con máquina de estados de `Cita`. Ver `backend/ROADMAP-BACKEND.md`. Frontend: app Capacitor mínima (login + agenda + registrar servicio) — pendiente, ver `frontend/ROADMAP-FRONTEND.md`. La fase no se cierra en este archivo hasta que el frontend entregue lo suyo. |
 | Fase 2 — Descubrimiento y reserva de clientes | Sin empezar | |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
@@ -55,9 +55,10 @@ Ver `CLAUDE.md` para el detalle completo de alcance de cada fase y qué
 NO hacer todavía.
 
 ## Bloqueos o dudas abiertas que conciernen a ambas partes
-1. ¿Se quiere CI (GitHub Actions) ya, o se pospone hasta que el repo
-   tenga remoto? (afecta tanto a `backend/` como a `frontend/` cuando
-   este último tenga código).
+1. El repo ya tiene remoto: https://github.com/IBER-DEV/Turnio
+   (2026-07-24). ¿Se quiere CI (GitHub Actions) ahora que ya existe
+   remoto, o se sigue posponiendo? (afecta tanto a `backend/` como a
+   `frontend/` cuando este último tenga código).
 2. Confirmar que el puerto 8001 del backend en local no choca con
    ninguna convención que el frontend ya tenga asumida para apuntar su
    cliente HTTP en desarrollo.
@@ -77,3 +78,16 @@ Además, en esta misma fecha se definió la estructura de colaboración
 de dos personas (backend/frontend) en paralelo: monorepo, contrato
 OpenAPI autogenerado (`CONTRATO.md` + `backend/openapi.yaml`), y
 roadmap dividido por responsable con esta vista conjunta.
+
+### Fase 1 — Núcleo operativo multi-empleado — backend completado (2026-07-24)
+Backend: módulo de Servicios (precio, duración, categoría,
+comisión configurable), extensión de Empleados (especialidad +
+detalle/edición individual), y módulo de Agenda (horario semanal por
+empleado, `Cita` con máquina de estados `agendada → confirmada →
+completada`/`cancelada`, y asignación automática "cualquiera
+disponible"). 36 tests pasando. Contrato (`CONTRATO.md` +
+`backend/openapi.yaml`) actualizado con los nuevos endpoints. Detalle
+completo y decisiones técnicas en `backend/ROADMAP-BACKEND.md`.
+
+Frontend de esta fase (app Capacitor mínima) todavía no ha empezado;
+la fase queda en estado mixto hasta que se entregue.

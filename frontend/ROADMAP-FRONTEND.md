@@ -32,15 +32,26 @@ Alcance esperado (ver `../CLAUDE.md`): login + agenda + registrar
 servicio, para un negocio con varios empleados (calendario por
 empleado, no solo el caso de un operador único).
 
-Endpoints ya disponibles del lado backend para arrancar (ver
-`../CONTRATO.md` para el contrato completo):
+Endpoints ya disponibles del lado backend (2026-07-24, backend de
+Fase 1 completo — ver `../CONTRATO.md` para el contrato completo y
+`../backend/openapi.yaml` para el detalle exacto de campos):
 - `POST /api/negocios/registro/`
 - `POST /api/auth/login/` / `POST /api/auth/refresh/`
-- `GET /api/negocios/empleados/`
+- `GET/POST /api/negocios/empleados/` y `GET/PATCH
+  /api/negocios/empleados/{id}/` (capacidades + `especialidad`)
+- `GET/POST/PATCH/DELETE /api/servicios/`
+- `GET/POST/PATCH/DELETE /api/agenda/horarios/` (disponibilidad
+  semanal por empleado)
+- `GET/POST /api/agenda/citas/` + `POST
+  /api/agenda/citas/{id}/confirmar|completar|cancelar/` — al crear
+  una cita, el campo `empleado` es opcional: si se omite, el backend
+  asigna automáticamente el primer empleado disponible ("cualquiera
+  disponible"); la UI de agenda no necesita calcular disponibilidad
+  por su cuenta.
 
-Los endpoints de Servicios y Agenda (Fase 1 backend) todavía no
-existen; no empezar esas pantallas hasta que aparezcan en
-`../backend/openapi.yaml` y se anoten en `../CONTRATO.md`.
+Con esto, todas las pantallas del alcance de Fase 1 (login, registrar
+servicio, agenda por empleado) ya tienen contrato disponible: el
+frontend puede empezar.
 
 ### Bloqueos o dudas abiertas para el humano
 (ninguna todavía — el frontend no ha empezado)

@@ -123,8 +123,119 @@
 
 ---
 
-## Fase 1 — Núcleo operativo multi-empleado (sin empezar)
-Servicios (precio, duración, comisión, categoría), Empleados con
-capacidades individuales, Agenda con calendario por empleado y máquina
-de estados de `Cita`. Ver `../CLAUDE.md` y `../ROADMAP.md` para el
-detalle de alcance de esta fase.
+## Fase 1 — Núcleo operativo multi-empleado — backend COMPLETADO (2026-07-24)
+
+> El backend de Fase 1 está listo; la fase completa (ver `../ROADMAP.md`)
+> sigue abierta hasta que el frontend entregue su app Capacitor mínima.
+
+### Qué se completó
+- **`apps.servicios`**: modelo `Servicio` (hereda `TenantScopedModel`;
+  `nombre`, `descripcion`, `categoria` texto libre, `precio`,
+  `duracion_minutos`, `porcentaje_comision`, `activo`). `services.py`
+  con `crear_servicio()` y `calcular_comision()` (esta última no se
+  invoca todavía desde ningún flujo automático: la ejecución real al
+  completar una cita y registrar el cobro es de Fase 3, cuando exista
+  Caja). `ServicioViewSet` (CRUD) en `GET/POST/PATCH/DELETE
+  /api/servicios/`: leer solo requiere pertenecer al negocio; escribir
+  requiere `puede_editar_precios`.
+- **Empleados**: `MiembroNegocio` ganó el campo `especialidad` (texto
+  libre, informativo, no es una capacidad). Nuevo
+  `EmpleadoDetailView` en `GET/PATCH /api/negocios/empleados/{id}/`
+  para ver/editar capacidades y especialidad de un empleado puntual;
+  editar requiere `puede_gestionar_empleados`, igual que crear.
+- **`apps.agenda`**:
+  - `HorarioTrabajo`: bloque recurrente semanal de disponibilidad por
+    empleado (`miembro`, `dia_semana`, `hora_inicio`, `hora_fin`). No
+    modela excepciones puntuales (vacaciones, incapacidad) todavía.
+  - `Cita`: `negocio`, `empleado`, `servicio`, `fecha_hora_inicio`,
+    `fecha_hora_fin` (calculada desde la duración del servicio),
+    `estado` (máquina de estados `agendada → confirmada →
+    completada`, con `cancelada` alcanzable desde `agendada` o
+    `confirmada`), y datos mínimos del cliente inline
+    (`nombre_cliente`, `telefono_cliente`) porque el módulo de
+    Clientes formal es de Fase 4.
+  - `services.py`: `crear_horario()` (valida hora_inicio < hora_fin),
+    `empleado_disponible()` (cruza horario semanal + citas existentes,
+    excluyendo canceladas), `agendar_cita()` (si no se pasa
+    `empleado`, asigna el primero disponible entre los miembros
+    activos del negocio — "cualquiera disponible"), y
+    `cambiar_estado_cita()` (valida la transición contra
+    `TRANSICIONES_VALIDAS` antes de guardar).
+  - API: `GET/POST/PATCH/DELETE /api/agenda/horarios/` y
+    `GET/POST /api/agenda/citas/` +
+    `POST /api/agenda/citas/{id}/confirmar|completar|cancelar/`
+    (acciones dedicadas, no `PATCH estado=`). Escribir/transicionar
+    requiere `puede_gestionar_agenda`; leer solo requiere pertenecer
+    al negocio.
+- `backend/conftest.py`: fixtures compartidas de test
+  (`negocio_con_dueno`, `servicio_de_prueba`,
+  `cliente_autenticado_dueno`) para no repetir el boilerplate de
+  registro+login en cada archivo de tests nuevo.
+- 36 tests en total (23 nuevos de Fase 1) cubriendo: cálculo de
+  comisión, aislamiento de tenant en Servicios y Citas, permisos por
+  capacidad (`puede_editar_precios`, `puede_gestionar_agenda`,
+  `puede_gestionar_empleados`), disponibilidad real vs. fuera de
+  horario vs. cruce de citas, asignación automática "cualquiera
+  disponible", y las cuatro transiciones de estado de `Cita`
+  (incluida una transición inválida rechazada).
+- `openapi.yaml` regenerado y validado sin errores ni warnings (se
+  ajustaron los tres `ModelViewSet` nuevos con el guard
+  `swagger_fake_view` en `get_queryset()`, para que drf-spectacular
+  pueda introspectar el tipo de sus parámetros de ruta sin depender de
+  `request.membresia`, que no existe durante la generación del schema).
+
+### Decisiones técnicas y su justificación
+- **`categoria` de `Servicio` es texto libre**, no un catálogo/enum
+  separado: los tipos de negocio (barbería, salón, spa) tienen
+  categorías muy distintas y fijarlas de antemano sería sobre-diseño;
+  se revisita si Fase 4 (Reportes) necesita agrupar por categoría de
+  forma más estricta.
+- **`especialidad` vive en `MiembroNegocio`, no en un modelo aparte**:
+  es un atributo del empleado dentro de ese negocio, igual que sus
+  capacidades; crear un modelo "Empleado" separado hubiera duplicado
+  la relación Usuario↔Negocio que `MiembroNegocio` ya resuelve.
+- **`Cita` no tiene FK a un modelo `Cliente`**: ese módulo es de Fase 4.
+  Se capturan `nombre_cliente`/`telefono_cliente` inline para no
+  bloquear Fase 1 en una dependencia de una fase posterior; cuando
+  exista `Cliente`, la migración natural es agregar una FK opcional y
+  no romper las citas ya creadas (los campos inline pueden quedarse
+  como "nombre capturado en el momento" incluso con cliente vinculado).
+- **"Cualquiera disponible" se resuelve en el momento de crear la
+  cita, no con un campo `empleado` nulo permanente**: una vez creada,
+  toda `Cita` tiene un empleado concreto asignado. Esto simplifica
+  reportes y agenda por empleado (Fase 4) porque nunca hay que
+  re-resolver "a quién quedó asignada esta cita".
+- **`calcular_comision()` existe pero no se invoca automáticamente
+  todavía**: construirla ahora sin usarla evita que Fase 3 tenga que
+  re-derivar la fórmula, pero disparar el cálculo real pertenece al
+  flujo de Caja (registrar cobro), que no existe aún. No es código
+  muerto especulativo: es la función que Fase 3 va a llamar, ya
+  probada.
+- **Sin bloqueos/excepciones de horario (vacaciones, incapacidad) en
+  esta fase**: el `HorarioTrabajo` semanal recurrente cubre el caso
+  común; se agrega solo si la operación real de un negocio piloto lo
+  pide, para no construir una feature sin demanda confirmada.
+
+### Pendiente / a medio hacer
+- `HorarioTrabajoViewSet` y `CitaViewSet` asumen que solo quien tiene
+  `puede_gestionar_agenda` puede tocar el horario de **cualquier**
+  empleado del negocio, incluyendo el propio. No hay todavía un modo
+  "autogestión" donde un empleado sin esa capacidad pueda ver/editar
+  únicamente su propio horario — es una mejora razonable de UX que no
+  bloquea el MVP (el dueño o quien tenga esa capacidad puede cargar el
+  horario de todos).
+- `Cita` no valida que `fecha_hora_inicio` no esté en el pasado ni que
+  el negocio esté abierto ese día/hora (no existe todavía un concepto
+  de "horario del negocio" separado del horario por empleado). Queda
+  como refinamiento de validación antes de exponer reserva de clientes
+  en Fase 2.
+- Sigue sin CI (mismo bloqueo que Fase 0, ver abajo).
+
+### Bloqueos o dudas abiertas para el humano
+1. ¿Se quiere CI (GitHub Actions) ya, o se pospone hasta que el repo
+   tenga remoto en GitHub? *(el remoto ya se creó — https://github.com/IBER-DEV/Turnio —
+   así que esto ya podría resolverse si se confirma que se quiere CI ahora.)*
+2. Confirmar si vale la pena ya modelar bloqueos/excepciones de
+   horario (vacaciones, incapacidad, almuerzo) o esperar a validarlo
+   con un negocio piloto real, como indica el principio general del
+   proyecto de no construir por anticipado.

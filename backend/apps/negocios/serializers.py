@@ -11,6 +11,7 @@ class EmpleadoAltaSerializer(serializers.Serializer):
     email = serializers.EmailField()
     nombre = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True, validators=[validate_password])
+    especialidad = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
     puede_cobrar = serializers.BooleanField(default=False)
     puede_ver_reportes = serializers.BooleanField(default=False)
     puede_editar_precios = serializers.BooleanField(default=False)
@@ -72,6 +73,7 @@ class MiembroNegocioSerializer(serializers.ModelSerializer):
             "id",
             "email",
             "nombre",
+            "especialidad",
             "puede_cobrar",
             "puede_ver_reportes",
             "puede_editar_precios",
