@@ -62,7 +62,7 @@
       "opsz" 24;
   }
 
-  /* Skeleton de carga: pulso suave sobre gris claro (DESIGN.md). */
+  /* Skeleton de carga: pulso suave sobre gris claro. */
   .skeleton-pulse {
     @apply animate-pulse bg-surface-container-high;
   }

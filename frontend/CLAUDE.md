@@ -58,11 +58,16 @@ nunca de leer o adivinar el código Django directamente.
   crezca.
 - **Sistema de diseño propio sobre Tailwind** (revisado 2026-07-25; la
   decisión original era "CSS plano en `src/App.css`, sin Tailwind", y
-  quedó obsoleta con el rediseño de UI/UX). Los tokens de
-  `tailwind.config.js` (colores, tipografías, espaciados, sombras) están
-  copiados de `ui-ux/turnio/DESIGN.md`: **no inventar valores nuevos
-  ahí** — si hace falta un color o espaciado que no existe, primero se
-  revisa el diseño. Los componentes compartidos viven en `src/ui/`.
+  quedó obsoleta con el rediseño de UI/UX). **`tailwind.config.js` es la
+  fuente de verdad del sistema de diseño**: colores, tipografías,
+  espaciados, sombras y animaciones. Los mockups de los que se
+  extrajeron esos tokens (generados con `diseno-ui-ux-prompt.md`) se
+  borraron del repo a propósito una vez volcados, para no mantener dos
+  copias que se desincronizarían — así que no busques una carpeta de
+  diseño, no existe. Regla práctica: **nada de `#hex` ni `[13px]`
+  sueltos en un `className`**; si falta un valor, se agrega al config
+  con nombre semántico y se usa por ese nombre. Los componentes
+  compartidos viven en `src/ui/`.
 - **Sin librería de componentes con estilos propios** (no MUI, no
   Chakra, no shadcn completo): pelearían con el sistema de diseño ya
   definido. Lo que sí se usa son **primitivas headless de Radix**

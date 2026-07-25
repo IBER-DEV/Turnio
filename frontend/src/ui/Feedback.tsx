@@ -58,8 +58,8 @@ export function SkeletonLista({ filas = 3 }: { filas?: number }) {
   );
 }
 
-/** Estado vacío: icono en terracota, mensaje y acción sugerida
- * (DESIGN.md § Empty States). */
+/** Estado vacío: icono en terracota, mensaje y acción sugerida. Nunca
+ * un "no hay datos" a secas — siempre dice qué hacer a continuación. */
 export function EstadoVacio({
   icono,
   titulo,

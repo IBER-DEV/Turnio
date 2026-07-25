@@ -1,8 +1,15 @@
 /**
- * Tokens copiados literalmente de `ui-ux/turnio/DESIGN.md` y de los
- * `code.html` de cada pantalla. No inventar valores nuevos acá: si
- * hace falta un color/espaciado que no está, primero se revisa el
- * diseño.
+ * **Este archivo es la fuente de verdad del sistema de diseño.**
+ *
+ * Los tokens se extrajeron de los mockups de UI/UX que se generaron a
+ * partir de `diseno-ui-ux-prompt.md`; esos mockups ya se borraron del
+ * repo a propósito, una vez volcados acá, para no mantener dos copias
+ * del mismo sistema que se desincronizarían.
+ *
+ * Regla: no inventar valores sueltos en los componentes. Si hace falta
+ * un color, espaciado o tamaño que no está, se agrega acá con nombre
+ * semántico y se usa por ese nombre — nunca un `#hex` o un `[13px]`
+ * incrustado en un `className`.
  */
 import tailwindcssAnimate from "tailwindcss-animate";
 
@@ -102,7 +109,7 @@ export default {
       },
       boxShadow: {
         // Nivel 2 del sistema de elevación: sombra media con tinte azul
-        // del primario (ver DESIGN.md § Elevation & Depth).
+        // del primario, en vez de un gris neutro.
         card: "0 4px 12px rgba(33, 49, 69, 0.08)",
         "card-soft": "0 4px 12px rgba(33, 49, 69, 0.05)",
         nav: "0 -1px 12px rgba(33, 49, 69, 0.08)",

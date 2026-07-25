@@ -7,7 +7,7 @@ type Variante = "primary" | "secondary" | "accent" | "danger" | "ghost";
 type Tamano = "md" | "lg";
 
 const VARIANTES: Record<Variante, string> = {
-  // Fondo índigo profundo + texto blanco (DESIGN.md § Components).
+  // Fondo índigo profundo + texto blanco.
   primary: "bg-primary text-on-primary hover:bg-primary-container shadow-sm",
   // Fondo transparente + borde 1px índigo.
   secondary: "border border-primary text-primary hover:bg-surface-container",

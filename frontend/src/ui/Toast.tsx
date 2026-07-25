@@ -22,9 +22,9 @@ const ToastContext = createContext<{ mostrar: (tipo: TipoToast, mensaje: string)
   null,
 );
 
-/** Feedback de éxito/error tras crear, editar o borrar algo — el
- * diseño los ubica arriba-centro en móvil y abajo-derecha en
- * escritorio (DESIGN.md § Toasts). */
+/** Feedback de éxito/error tras crear, editar o borrar algo. Se ubican
+ * arriba-centro en móvil (lejos del pulgar y de la bottom nav) y
+ * abajo-derecha en escritorio. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const temporizadores = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());

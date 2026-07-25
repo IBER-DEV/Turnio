@@ -19,7 +19,8 @@ type EmpleadoAlta = components["schemas"]["EmpleadoAlta"];
 type Capacidad = keyof EmpleadoAlta & keyof MiembroNegocio;
 
 /** Cada capacidad se explica en términos de lo que habilita, no con el
- * nombre técnico del campo (DESIGN.md § pantalla de Empleados). */
+ * nombre técnico del campo: quien administra el negocio no tiene por
+ * qué traducir `puede_editar_precios` a "puede tocar el catálogo". */
 const CAPACIDADES: Array<{ campo: Capacidad; etiqueta: string; descripcion: string }> = [
   {
     campo: "puede_cobrar",

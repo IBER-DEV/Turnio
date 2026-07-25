@@ -2,10 +2,10 @@ import type { components } from "../api/schema";
 
 type Estado = components["schemas"]["EstadoEnum"];
 
-/** Sistema de color de los 4 estados de `Cita`, tomado literalmente del
- * diseño de Agenda (`ui-ux/agenda_calendario/code.html`). Vive en un
- * solo lugar para que el bloque del calendario, el badge y cualquier
- * vista futura no se desincronicen entre sí. */
+/** Sistema de color de los 4 estados de `Cita`. Vive en un solo lugar
+ * para que el bloque de la lista, el de la grilla semanal, el badge y
+ * cualquier vista futura no se desincronicen entre sí: si un estado
+ * cambia de color, se cambia acá y no hay que cazar usos sueltos. */
 export const ESTILO_ESTADO: Record<
   Estado,
   { etiqueta: string; bloque: string; borde: string; titulo: string; texto: string; badge: string }

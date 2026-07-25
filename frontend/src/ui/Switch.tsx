@@ -2,8 +2,8 @@ import { useId } from "react";
 
 import { cn } from "./cn";
 
-/** Switch de la matriz de capacidades (DESIGN.md § Components):
- * encendido en índigo primario, apagado en gris claro. */
+/** Switch de la matriz de capacidades: encendido en índigo primario,
+ * apagado en gris claro. */
 export function Switch({
   checked,
   onChange,
