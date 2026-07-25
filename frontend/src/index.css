@@ -1,11 +1,15 @@
 /* Fuentes autoalojadas (no CDN): la app final es un bundle Capacitor y
-   debe verse igual sin conexión. Pesos tomados del diseño. */
-@import "@fontsource/montserrat/600.css";
-@import "@fontsource/montserrat/700.css";
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/500.css";
-@import "@fontsource/inter/600.css";
-@import "material-symbols/outlined.css";
+   debe verse igual sin conexión. Pesos tomados del diseño.
+
+   Solo el subset `latin`: cubre todo el español (á é í ó ú ñ ü ¿ ¡).
+   Importar el paquete completo traía además cirílico, griego,
+   vietnamita y latin-ext — cientos de kB que esta app nunca dibuja, y
+   que en un bundle Capacitor son peso muerto permanente en el APK. */
+@import "@fontsource/montserrat/latin-600.css";
+@import "@fontsource/montserrat/latin-700.css";
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
 
 @tailwind base;
 @tailwind components;
@@ -44,24 +48,6 @@
 }
 
 @layer components {
-  .material-symbols-outlined {
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 400,
-      "GRAD" 0,
-      "opsz" 24;
-    font-feature-settings: "liga";
-    user-select: none;
-  }
-
-  .icon-fill {
-    font-variation-settings:
-      "FILL" 1,
-      "wght" 400,
-      "GRAD" 0,
-      "opsz" 24;
-  }
-
   /* Skeleton de carga: pulso suave sobre gris claro. */
   .skeleton-pulse {
     @apply animate-pulse bg-surface-container-high;

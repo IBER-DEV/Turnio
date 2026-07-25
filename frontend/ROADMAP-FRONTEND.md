@@ -300,3 +300,61 @@ Servicios y Agenda la lectura sí sirve a cualquier miembro, así que esas
 siguen abiertas y ocultan únicamente sus acciones de escritura. El guard
 de ruta no es la barrera de seguridad —esa está en el backend— sino la
 forma de no ofrecer una pantalla que respondería 403.
+
+## Peso del bundle: fuera la fuente de iconos (2026-07-25)
+
+Detectado al evaluar dónde construir la landing: el bundle pesaba
+**5,3 MB**, de los cuales **3,96 MB eran el woff2 completo de Material
+Symbols** — cargado entero para dibujar ~30 iconos. En el contexto que
+documenta `../ESTRATEGIA-COMPETITIVA.md` (negocios donde solo el 44,2%
+tiene internet decente, uso mayoritariamente móvil) eso es un primer
+arranque inaceptable, y en el bundle Capacitor es peso muerto
+permanente en el APK.
+
+### Qué se hizo
+- **Iconos como SVG inline generado**: `scripts/generar-iconos.mjs`
+  extrae de `@material-symbols/svg-400` solo los iconos referenciados en
+  `src/`, y escribe `src/ui/iconos.generated.ts` (37 entradas: 33 iconos
+  + 4 variantes rellenas para la bottom nav). `npm run iconos`.
+- **Subsets de tipografía**: se pasó de `@fontsource/inter/400.css` a
+  `@fontsource/inter/latin-400.css`. El paquete completo traía cirílico,
+  griego, vietnamita y latin-ext.
+- Se desinstaló `material-symbols` (ya sin uso) y se agregó
+  `@material-symbols/svg-400` como devDependency — solo se usa al
+  generar, no entra al bundle.
+
+### Resultado
+| | Antes | Ahora |
+|---|---|---|
+| `dist/assets` total | 5,3 MB | **676 kB** |
+| Fuente de iconos | 3.960 kB | 0 (eliminada) |
+| Fuentes de texto | ~1 MB | 239 kB |
+| JS | 362 kB (112 gzip) | 391 kB (122 gzip) |
+
+Los iconos pasaron de 3,96 MB en una request aparte a ~9 kB gzip dentro
+del JS. El JS crece un poco, el total baja **87%**.
+
+### Efecto secundario: los nombres de icono quedaron tipados
+`Icon` ya no acepta `string` sino `NombreIcono`, derivado del archivo
+generado. Al migrar, TypeScript señaló los 9 sitios donde se pasaba
+`string` sin validar (`Button`, `Input`, `Feedback`, `Toast`,
+`EstadoCita`, `DashboardPage`…). Antes, un nombre mal escrito
+renderizaba el texto literal dentro de la UI; ahora no compila.
+
+Detalle de tipado que costó encontrar: en `DashboardPage` la anotación
+tiene que ir sobre el **literal del array**, no sobre el resultado de
+`.filter()` — ahí TypeScript ya perdió el tipado contextual e infiere
+`string`. Queda comentado en el código.
+
+### Tests
+5 nuevos en `src/ui/Icon.test.tsx` (9 en total): que dibuja SVG y no
+pide fuente, que queda `aria-hidden`, que `filled` usa la variante
+rellena, que pedir `filled` sobre un icono sin variante no rompe, y que
+el tamaño sigue heredándose de `font-size` para no romper las clases
+`text-[32px]` que ya estaban repartidas por las pantallas.
+
+### Pendiente relacionado
+Quedan ~239 kB de tipografías (Inter 400/500/600 + Montserrat 600/700,
+en woff2 **y** woff). Los `.woff` son fallback para navegadores que
+ningún WebView de Capacitor actual necesita; se podrían excluir del
+build si hiciera falta apretar más.

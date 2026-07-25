@@ -3,6 +3,7 @@ import type { InputHTMLAttributes, SelectHTMLAttributes, ReactNode } from "react
 
 import { cn } from "./cn";
 import { Icon } from "./Icon";
+import type { NombreIcono } from "./Icon";
 
 const BASE_CAMPO =
   "w-full rounded-lg border border-outline-variant bg-surface-bright py-3 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/10";
@@ -10,7 +11,7 @@ const BASE_CAMPO =
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   /** Nombre del icono de Material Symbols dentro del campo. */
-  icono?: string;
+  icono?: NombreIcono;
   ayuda?: string;
   error?: string;
   /** Contenido a la derecha del label (ej. "¿Olvidaste tu contraseña?"). */

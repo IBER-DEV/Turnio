@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "./cn";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
+import type { NombreIcono } from "./Icon";
 
 /** Tarjeta base: superficie blanca + borde suave (nivel 1 de elevación). */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
@@ -67,7 +68,7 @@ export function EstadoVacio({
   accion,
   accionSecundaria,
 }: {
-  icono: string;
+  icono: NombreIcono;
   titulo: string;
   descripcion: string;
   accion?: { etiqueta: string; onClick: () => void };

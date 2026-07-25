@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "./cn";
 import { Icon } from "./Icon";
+import type { NombreIcono } from "./Icon";
 
 type TipoToast = "exito" | "error" | "info";
 
@@ -12,7 +13,7 @@ interface Toast {
   mensaje: string;
 }
 
-const ESTILOS: Record<TipoToast, { icono: string; clases: string }> = {
+const ESTILOS: Record<TipoToast, { icono: NombreIcono; clases: string }> = {
   exito: { icono: "check_circle", clases: "bg-primary text-on-primary" },
   error: { icono: "error", clases: "bg-error text-on-error" },
   info: { icono: "info", clases: "bg-inverse-surface text-inverse-on-surface" },

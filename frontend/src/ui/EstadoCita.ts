@@ -1,4 +1,5 @@
 import type { components } from "../api/schema";
+import type { NombreIcono } from "./Icon";
 
 type Estado = components["schemas"]["EstadoEnum"];
 
@@ -49,7 +50,7 @@ export const ESTILO_ESTADO: Record<
  * responde 400; esto solo evita ofrecer acciones imposibles. */
 export const ACCIONES_POR_ESTADO: Record<
   Estado,
-  Array<{ accion: "confirmar" | "completar" | "cancelar"; etiqueta: string; icono: string }>
+  Array<{ accion: "confirmar" | "completar" | "cancelar"; etiqueta: string; icono: NombreIcono }>
 > = {
   agendada: [
     { accion: "confirmar", etiqueta: "Confirmar", icono: "check_circle" },

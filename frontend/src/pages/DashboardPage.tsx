@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Badge, Card, EstadoError, SkeletonLista } from "../ui/Feedback";
 import { ESTILO_ESTADO } from "../ui/EstadoCita";
 import { Icon } from "../ui/Icon";
+import type { NombreIcono } from "../ui/Icon";
 import { cn } from "../ui/cn";
 
 type Cita = components["schemas"]["Cita"];
@@ -56,7 +57,14 @@ export function DashboardPage() {
   const completadas = citasHoy.filter((cita) => cita.estado === "completada").length;
 
   // Accesos directos: solo los que las capacidades del usuario permiten.
-  const accesos = [
+  // El tipo va sobre el literal, no sobre el resultado de `.filter()`:
+  // ahí TypeScript ya perdió el tipado contextual e infiere `string`.
+  const todosLosAccesos: Array<{
+    visible: boolean;
+    etiqueta: string;
+    icono: NombreIcono;
+    to: string;
+  }> = [
     {
       visible: membresia.puede_gestionar_agenda,
       etiqueta: "Agregar Cita",
@@ -75,7 +83,8 @@ export function DashboardPage() {
       icono: "group_add",
       to: "/empleados",
     },
-  ].filter((acceso) => acceso.visible);
+  ];
+  const accesos = todosLosAccesos.filter((acceso) => acceso.visible);
 
   return (
     <div className="space-y-md">

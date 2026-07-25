@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cn } from "./cn";
 import { Icon } from "./Icon";
+import type { NombreIcono } from "./Icon";
 
 type Variante = "primary" | "secondary" | "accent" | "danger" | "ghost";
 type Tamano = "md" | "lg";
@@ -26,7 +27,7 @@ const TAMANOS: Record<Tamano, string> = {
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: Variante;
   tamano?: Tamano;
-  icono?: string;
+  icono?: NombreIcono;
   cargando?: boolean;
   anchoCompleto?: boolean;
   children?: ReactNode;

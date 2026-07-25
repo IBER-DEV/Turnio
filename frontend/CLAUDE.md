@@ -84,6 +84,21 @@ nunca de leer o adivinar el código Django directamente.
   del proyecto están declarados en `extendTailwindMerge` ahí mismo; si
   agregas un token de tipografía nuevo en `tailwind.config.js`, agrégalo
   también a esa lista o los conflictos no se resolverán.
+- **Iconos: SVG inline generado, no fuente de iconos.** `src/ui/Icon.tsx`
+  lee de `src/ui/iconos.generated.ts`, que produce `npm run iconos`
+  (script en `scripts/generar-iconos.mjs`) tomando de
+  `@material-symbols/svg-400` **solo los iconos que el código usa**.
+  Antes se importaba la fuente completa de Material Symbols: 3,96 MB de
+  woff2 para dibujar ~30 glifos. **Si agregas un `<Icon name="...">` con
+  un icono nuevo, corre `npm run iconos`** — si no, TypeScript falla en
+  compilación señalando el archivo y la línea (con la fuente, en cambio,
+  se renderizaba el texto literal "calendar_todai" en la UI y nadie se
+  enteraba). El archivo generado se commitea; no hace falta regenerarlo
+  en cada build. Los nombres válidos están en
+  https://fonts.google.com/icons.
+- **Fuentes: solo el subset `latin`** (`@fontsource/inter/latin-400.css`,
+  no `@fontsource/inter/400.css`). Cubre todo el español; el paquete
+  completo arrastraba cirílico, griego y vietnamita.
 - **Animaciones vía `tailwindcss-animate` + keyframes propios** en
   `tailwind.config.js`. Nada por encima de ~250ms en interacciones. Hay
   un bloque global de `prefers-reduced-motion` en `index.css`: cualquier
