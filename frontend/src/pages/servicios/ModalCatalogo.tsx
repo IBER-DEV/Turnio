@@ -64,37 +64,32 @@ export function ModalCatalogo({
 
     setGuardando(true);
 
-    // El contrato no expone creación en lote (`POST /api/servicios/` crea
-    // uno), así que se mandan en paralelo y se cuenta cuántos entraron.
-    const resultados = await Promise.all(
-      elegidos.map((item) =>
-        conReintentoDeAuth(() =>
-          apiClient.POST("/api/servicios/", {
-            body: sugerenciaAServicio(item) as Servicio,
-          }),
-        ),
-      ),
+    // `POST /api/servicios/lote/` los crea todos o ninguno (ver
+    // CONTRATO.md 5.5). Antes era un POST por servicio, y con 10
+    // marcados era normal que entraran 7 y el usuario quedara sin saber
+    // cuáles reintentar.
+    const { error: errorRespuesta } = await conReintentoDeAuth(() =>
+      apiClient.POST("/api/servicios/lote/", {
+        body: { servicios: elegidos.map(sugerenciaAServicio) as Servicio[] },
+      }),
     );
 
     setGuardando(false);
 
-    const fallidos = resultados.filter((resultado) => resultado.error).length;
-    const creados = elegidos.length - fallidos;
-
-    if (creados > 0) {
-      mostrar(
-        fallidos > 0 ? "info" : "exito",
-        fallidos > 0
-          ? `Se agregaron ${creados} de ${elegidos.length}. Revisa los que faltaron.`
-          : `Se agregaron ${creados} ${creados === 1 ? "servicio" : "servicios"}.`,
-      );
-    } else {
-      mostrar("error", "No se pudo agregar ninguno. Revisa tu conexión.");
+    if (errorRespuesta) {
+      mostrar("error", "No se pudo agregar el catálogo. No se creó ninguno.");
+      return;
     }
 
+    mostrar(
+      "exito",
+      `Se ${elegidos.length === 1 ? "agregó" : "agregaron"} ${elegidos.length} ${
+        elegidos.length === 1 ? "servicio" : "servicios"
+      }.`,
+    );
     setSeleccion(new Set());
     await onCreados();
-    if (fallidos === 0) onCerrar();
+    onCerrar();
   }
 
   return (

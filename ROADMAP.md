@@ -89,16 +89,11 @@ NO hacer todavía.
    para confirmar cómo agendan hoy, cómo pagan comisión a fin de
    semana, y qué pasa cuando se cae el internet, antes de comprometer
    el detalle de Fase 3 (Caja/Comisiones).
-5. **Petición de frontend a backend: escritura en lote** (2026-07-25).
-   El alta de servicios desde catálogo y el guardado del horario semanal
-   de un empleado hacen hoy **N llamadas HTTP**, porque el contrato solo
-   expone creación de a uno (`POST /api/servicios/`, `POST
-   /api/agenda/horarios/`). Funciona pero no es atómico: si falla la
-   mitad queda estado parcial. Se pide evaluar un endpoint de lote —por
-   ejemplo un `POST` que acepte lista, o un `PUT
-   /api/agenda/horarios/semana/` que reemplace la semana completa de un
-   empleado en una transacción. Es cambio de contrato: lo decide y lo
-   implementa backend. Detalle en `frontend/ROADMAP-FRONTEND.md`.
+5. ~~Petición de frontend a backend: escritura en lote.~~ Resuelta el
+   2026-07-25 (la misma persona hizo ambos lados): se agregaron `PUT
+   /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`, ambos
+   transaccionales, y el frontend ya los consume. Ver `CONTRATO.md`
+   sección 5.5 e historial.
 
 ## Historial de fases
 

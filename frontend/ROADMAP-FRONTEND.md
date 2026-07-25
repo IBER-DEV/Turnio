@@ -261,60 +261,15 @@ clásico (es lo que le gustó de Goldie).
   reusar las acciones de estado que ya existían.
 
 ### Bloqueos o dudas abiertas para el humano / backend
-1. **Falta escritura en lote en el contrato.** Tanto el alta desde
-   catálogo como el guardado del horario semanal hacen **N llamadas
-   HTTP** (`POST /api/servicios/` y `POST|PATCH|DELETE
-   /api/agenda/horarios/` una por ítem), porque el contrato no expone
-   endpoints de lote. Funciona, pero **no es atómico**: si falla la
-   mitad, queda estado parcial — hoy se reporta cuántos fallaron y se
-   recarga, que es lo mejor que se puede hacer desde este lado. Sería
-   mejor un `POST` que acepte lista, o un `PUT
-   /api/agenda/horarios/semana/` que reemplace la semana de un empleado
-   en una transacción. **Es cambio de contrato: lo decide backend, no se
-   implementa unilateralmente desde acá.**
+1. ~~Falta escritura en lote en el contrato.~~ **Resuelto el mismo día**
+   (2026-07-25): como el humano hace también el backend, se agregaron
+   `PUT /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`,
+   ambos transaccionales. El frontend ya los consume: el guardado del
+   horario semanal pasó de N llamadas con diff manual a una sola, y el
+   alta desde catálogo de N POST a uno. Los mensajes de error se
+   ajustaron en consecuencia ("tu horario anterior quedó intacto", "no
+   se creó ninguno"), que ahora son ciertos. Ver `../CONTRATO.md` 5.5.
 2. Los precios del catálogo son estimaciones de mercado medio en Bogotá,
    sin fuente dura. Vale la pena contrastarlos con negocios reales
    cuando se haga la validación de campo anotada en
    `../ESTRATEGIA-COMPETITIVA.md`.
-
-## Fase 1 (histórico) — antes de empezar
-
-Alcance esperado (ver `../CLAUDE.md`): login + agenda + registrar
-servicio, para un negocio con varios empleados (calendario por
-empleado, no solo el caso de un operador único).
-
-Endpoints ya disponibles del lado backend (2026-07-24, backend de
-Fase 1 completo — ver `../CONTRATO.md` para el contrato completo y
-`../backend/openapi.yaml` para el detalle exacto de campos):
-- `POST /api/negocios/registro/`
-- `POST /api/auth/login/` / `POST /api/auth/refresh/`
-- **`GET /api/negocios/mi-membresia/`** — llamar justo después del
-  login (y al recuperar sesión desde tokens guardados): devuelve de
-  una vez las capacidades del usuario **y** los datos de su negocio
-  (`negocio` anidado). Es la base de "qué vista mostrar" sin roles
-  fijos: cada pantalla/botón se muestra u oculta preguntando por el
-  flag de capacidad puntual que necesita (`puede_gestionar_agenda`,
-  `puede_editar_precios`, etc.), no por un tipo de usuario. Ver
-  `../CONTRATO.md` sección 3.1 — **no** resolver esto listando
-  empleados y buscando por email, ese approach quedó descartado por
-  frágil (el login no devuelve el email, así que había que recordarlo
-  aparte).
-- `GET/POST /api/negocios/empleados/` y `GET/PATCH
-  /api/negocios/empleados/{id}/` (capacidades + `especialidad`) — para
-  la pantalla de *gestión* de empleados, no para autoidentificarse.
-- `GET/POST/PATCH/DELETE /api/servicios/`
-- `GET/POST/PATCH/DELETE /api/agenda/horarios/` (disponibilidad
-  semanal por empleado)
-- `GET/POST /api/agenda/citas/` + `POST
-  /api/agenda/citas/{id}/confirmar|completar|cancelar/` — al crear
-  una cita, el campo `empleado` es opcional: si se omite, el backend
-  asigna automáticamente el primer empleado disponible ("cualquiera
-  disponible"); la UI de agenda no necesita calcular disponibilidad
-  por su cuenta.
-
-Con esto, todas las pantallas del alcance de Fase 1 (login, registrar
-servicio, agenda por empleado) ya tienen contrato disponible: el
-frontend puede empezar.
-
-### Bloqueos o dudas abiertas para el humano
-(ninguna todavía — el frontend no ha empezado)

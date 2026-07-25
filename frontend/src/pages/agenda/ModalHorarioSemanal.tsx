@@ -3,7 +3,6 @@ import type { FormEvent } from "react";
 
 import { apiClient } from "../../api/client";
 import type { components } from "../../api/schema";
-import type { HorarioTrabajoInput } from "../../api/types";
 import { conReintentoDeAuth } from "../../auth/refresh";
 import { Button } from "../../ui/Button";
 import { cn } from "../../ui/cn";
@@ -181,74 +180,30 @@ export function ModalHorarioSemanal({
     setError(null);
     setGuardando(true);
 
-    const previos = horarios.filter((horario) => horario.miembro === miembroId);
-    const idsQueSiguen = new Set(
-      semana.flatMap((dia) =>
-        dia.activo ? dia.franjas.map((franja) => franja.id).filter(Boolean) : [],
-      ),
+    // `PUT .../semana/` reemplaza la semana entera en una transacción
+    // (ver CONTRATO.md 5.5). Antes esto eran N llamadas —un POST o
+    // DELETE por franja— y si fallaba a la mitad el empleado quedaba con
+    // media semana cargada.
+    const franjas = semana.flatMap((dia, indice) =>
+      dia.activo
+        ? dia.franjas.map((franja) => ({
+            dia_semana: indice as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+            hora_inicio: `${franja.inicio}:00`,
+            hora_fin: `${franja.fin}:00`,
+          }))
+        : [],
     );
 
-    // El contrato no tiene endpoint de escritura en lote (ver duda
-    // abierta en ROADMAP-FRONTEND.md); se resuelve con N llamadas.
-    const operaciones: Array<Promise<{ error?: unknown }>> = [];
+    const { error: errorRespuesta } = await conReintentoDeAuth(() =>
+      apiClient.PUT("/api/agenda/horarios/semana/", {
+        body: { miembro: miembroId, franjas },
+      }),
+    );
 
-    for (const previo of previos) {
-      if (!idsQueSiguen.has(previo.id)) {
-        operaciones.push(
-          conReintentoDeAuth(() =>
-            apiClient.DELETE("/api/agenda/horarios/{id}/", {
-              params: { path: { id: previo.id } },
-            }),
-          ),
-        );
-      }
-    }
-
-    for (const [indice, dia] of semana.entries()) {
-      if (!dia.activo) continue;
-      for (const franja of dia.franjas) {
-        const cuerpo: HorarioTrabajoInput = {
-          miembro: miembroId,
-          dia_semana: indice as HorarioTrabajoInput["dia_semana"],
-          hora_inicio: `${franja.inicio}:00`,
-          hora_fin: `${franja.fin}:00`,
-        };
-
-        if (franja.id === undefined) {
-          operaciones.push(
-            conReintentoDeAuth(() =>
-              apiClient.POST("/api/agenda/horarios/", { body: cuerpo as HorarioTrabajo }),
-            ),
-          );
-        } else {
-          const original = previos.find((previo) => previo.id === franja.id);
-          const cambio =
-            original &&
-            (original.hora_inicio.slice(0, 5) !== franja.inicio ||
-              original.hora_fin.slice(0, 5) !== franja.fin);
-          if (cambio) {
-            operaciones.push(
-              conReintentoDeAuth(() =>
-                apiClient.PATCH("/api/agenda/horarios/{id}/", {
-                  params: { path: { id: franja.id as number } },
-                  body: cuerpo,
-                }),
-              ),
-            );
-          }
-        }
-      }
-    }
-
-    const resultados = await Promise.all(operaciones);
     setGuardando(false);
 
-    const fallidos = resultados.filter((resultado) => resultado.error).length;
-    if (fallidos > 0) {
-      setError(
-        `Quedaron ${fallidos} ${fallidos === 1 ? "cambio" : "cambios"} sin guardar. Revisa el horario y reintenta.`,
-      );
-      await onCambio();
+    if (errorRespuesta) {
+      setError("No se pudo guardar el horario. Tu horario anterior quedó intacto.");
       return;
     }
 

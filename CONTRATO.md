@@ -193,6 +193,30 @@ usuario autenticado. Un usuario nunca puede ver ni deducir la
 existencia de datos de otro negocio: un recurso ajeno responde `404`,
 igual que uno inexistente.
 
+### 5.5 Escritura en lote: horario semanal y alta de servicios
+
+Dos operaciones tienen endpoint de lote **además** del CRUD de a uno,
+porque hacerlas con N requests no era atómico y dejaba estado parcial
+si fallaba a mitad de camino:
+
+- **`PUT /api/agenda/horarios/semana/`** — reemplaza el horario semanal
+  completo de un empleado en una transacción. Body: `{miembro, franjas:
+  [{dia_semana, hora_inicio, hora_fin}]}`. Semántica de **reemplazo, no
+  de agregado**: las franjas enviadas pasan a ser el horario completo y
+  lo que no venga en la lista se borra; mandar `franjas: []` deja al
+  empleado sin disponibilidad. Valida que `hora_inicio < hora_fin` y que
+  dos franjas del mismo día no se crucen; si algo falla responde `400` y
+  **no toca el horario existente**. Borrar horarios no afecta a las
+  citas ya agendadas (la `Cita` guarda su propia fecha/hora).
+- **`POST /api/servicios/lote/`** — crea varios servicios en una
+  transacción. Body: `{servicios: [{...}]}` con la misma forma de cada
+  servicio que el `POST` de a uno. Si **cualquiera** de los servicios es
+  inválido, responde `400` y no crea ninguno.
+
+El CRUD de a uno sigue existiendo y es el camino correcto para editar
+un solo elemento. Los endpoints de lote son para el alta inicial
+(catálogo de servicios) y la edición de la semana completa.
+
 ## 6. Historial de cambios al contrato
 
 > Quien cambie la forma de la API agrega una entrada acá (fecha,
@@ -250,3 +274,17 @@ igual que uno inexistente.
   texto humano sin código máquina. Ninguno es un cambio de contrato;
   son límites a tener en cuenta antes de construir UI que asuma lo
   contrario.
+- **2026-07-25** — Nuevos endpoints de **escritura en lote** (ver 5.5):
+  `PUT /api/agenda/horarios/semana/` (reemplaza el horario semanal
+  completo de un empleado en una transacción) y `POST
+  /api/servicios/lote/` (crea varios servicios, todos o ninguno).
+  Motivo: el frontend estaba resolviendo ambas cosas con N llamadas
+  HTTP —un POST/DELETE por franja al editar la semana, y un POST por
+  servicio al dar de alta desde el catálogo—, lo que no es atómico: si
+  fallaba la mitad, quedaba un empleado con media semana cargada o un
+  catálogo a medio crear, sin forma de saber qué reintentar. Ninguno
+  reemplaza al CRUD de a uno, que sigue siendo el camino correcto para
+  editar un solo elemento. Ambos respetan las capacidades que ya
+  aplicaban (`puede_gestionar_agenda` y `puede_editar_precios`
+  respectivamente) y el aislamiento por tenant: pasar el `miembro` de
+  otro negocio responde `400`, no toca datos ajenos.

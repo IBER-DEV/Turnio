@@ -6,7 +6,12 @@ from rest_framework.response import Response
 
 from apps.agenda import services
 from apps.agenda.models import Cita, HorarioTrabajo
-from apps.agenda.serializers import CitaCreateSerializer, CitaSerializer, HorarioTrabajoSerializer
+from apps.agenda.serializers import (
+    CitaCreateSerializer,
+    CitaSerializer,
+    HorarioSemanalSerializer,
+    HorarioTrabajoSerializer,
+)
 from apps.common.permissions import TieneMembresiaActiva, requiere_capacidad
 
 
@@ -29,6 +34,34 @@ class HorarioTrabajoViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(tenant=self.request.membresia.tenant)
+
+    @extend_schema(
+        request=HorarioSemanalSerializer,
+        responses={200: HorarioTrabajoSerializer(many=True)},
+        description=(
+            "Reemplaza de una vez el horario semanal completo de un empleado, "
+            "en una sola transacción.\n\n"
+            "Semántica de **reemplazo**: las franjas enviadas pasan a ser el "
+            "horario completo del empleado; lo que no venga en la lista se "
+            "borra. Enviar `franjas: []` lo deja sin disponibilidad.\n\n"
+            "Existe para que el frontend no tenga que emitir un DELETE/POST "
+            "por franja al editar la semana, que no era atómico."
+        ),
+    )
+    @action(detail=False, methods=["put"], url_path="semana")
+    def semana(self, request):
+        entrada = HorarioSemanalSerializer(data=request.data, context={"request": request})
+        entrada.is_valid(raise_exception=True)
+
+        try:
+            horarios = services.reemplazar_horario_semanal(
+                miembro=entrada.validated_data["miembro"],
+                franjas=entrada.validated_data["franjas"],
+            )
+        except (services.HorarioInvalido, services.FranjasSolapadas) as error:
+            raise drf_serializers.ValidationError({"non_field_errors": [str(error)]})
+
+        return Response(HorarioTrabajoSerializer(horarios, many=True).data)
 
 
 class CitaViewSet(viewsets.ModelViewSet):

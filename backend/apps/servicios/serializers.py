@@ -26,3 +26,15 @@ class ServicioSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("La duración debe ser mayor a cero.")
         return value
+
+
+class ServicioLoteSerializer(serializers.Serializer):
+    """Entrada de `POST /api/servicios/lote/`.
+
+    Se creó como endpoint aparte en vez de aceptar una lista en el `POST`
+    normal para no volver ambiguo el body de creación de a uno: el
+    schema OpenAPI quedaría con un `oneOf` que el frontend tendría que
+    desambiguar en cada llamada.
+    """
+
+    servicios = ServicioSerializer(many=True, allow_empty=False)

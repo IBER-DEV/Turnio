@@ -411,6 +411,40 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/agenda/horarios/semana/:
+    put:
+      operationId: agenda_horarios_semana_update
+      description: |-
+        Reemplaza de una vez el horario semanal completo de un empleado, en una sola transacción.
+
+        Semántica de **reemplazo**: las franjas enviadas pasan a ser el horario completo del empleado; lo que no venga en la lista se borra. Enviar `franjas: []` lo deja sin disponibilidad.
+
+        Existe para que el frontend no tenga que emitir un DELETE/POST por franja al editar la semana, que no era atómico.
+      tags:
+      - agenda
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HorarioSemanal'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HorarioSemanal'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HorarioSemanal'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HorarioTrabajo'
+          description: ''
   /api/auth/login/:
     post:
       operationId: auth_login_create
@@ -848,6 +882,38 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/servicios/lote/:
+    post:
+      operationId: servicios_lote_create
+      description: |-
+        Crea varios servicios en una sola transacción: entran todos o ninguno.
+
+        Pensado para el alta desde catálogo del frontend, que antes emitía un POST por servicio y podía quedar a medias si fallaba la red.
+      tags:
+      - servicios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServicioLote'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ServicioLote'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ServicioLote'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Servicio'
+          description: ''
 components:
   schemas:
     Cita:
@@ -989,6 +1055,41 @@ components:
         * `confirmada` - Confirmada
         * `completada` - Completada
         * `cancelada` - Cancelada
+    FranjaHorario:
+      type: object
+      description: |-
+        Una franja suelta dentro de la semana. Sin `miembro`: lo define el
+        contenedor, para no repetirlo en cada elemento de la lista.
+      properties:
+        dia_semana:
+          $ref: '#/components/schemas/DiaSemanaEnum'
+        hora_inicio:
+          type: string
+          format: time
+        hora_fin:
+          type: string
+          format: time
+      required:
+      - dia_semana
+      - hora_fin
+      - hora_inicio
+    HorarioSemanal:
+      type: object
+      description: |-
+        Entrada de `PUT /api/agenda/horarios/semana/`.
+
+        Semántica de reemplazo: la lista es el horario completo del empleado,
+        no un agregado. Mandar `franjas: []` lo deja sin disponibilidad.
+      properties:
+        miembro:
+          type: integer
+        franjas:
+          type: array
+          items:
+            $ref: '#/components/schemas/FranjaHorario'
+      required:
+      - franjas
+      - miembro
     HorarioTrabajo:
       type: object
       properties:
@@ -1325,6 +1426,22 @@ components:
       - id
       - nombre
       - precio
+    ServicioLote:
+      type: object
+      description: |-
+        Entrada de `POST /api/servicios/lote/`.
+
+        Se creó como endpoint aparte en vez de aceptar una lista en el `POST`
+        normal para no volver ambiguo el body de creación de a uno: el
+        schema OpenAPI quedaría con un `oneOf` que el frontend tendría que
+        desambiguar en cada llamada.
+      properties:
+        servicios:
+          type: array
+          items:
+            $ref: '#/components/schemas/Servicio'
+      required:
+      - servicios
     TokenObtainPair:
       type: object
       properties:

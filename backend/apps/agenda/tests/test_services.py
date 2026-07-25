@@ -196,3 +196,113 @@ def test_cambiar_estado_rechaza_transicion_invalida(negocio_con_dueno, servicio_
 
     with pytest.raises(services.TransicionEstadoInvalida):
         services.cambiar_estado_cita(cita=cita, nuevo_estado=Cita.Estado.CANCELADA)
+
+
+# --- Horario semanal en lote (reemplazo atómico) ---
+
+
+def _franja(dia, desde, hasta):
+    return {
+        "dia_semana": dia,
+        "hora_inicio": datetime.time(desde, 0),
+        "hora_fin": datetime.time(hasta, 0),
+    }
+
+
+def test_reemplazar_horario_semanal_crea_la_semana_completa(negocio_con_dueno):
+    _negocio, _dueno, membresia = negocio_con_dueno
+
+    services.reemplazar_horario_semanal(
+        miembro=membresia,
+        franjas=[_franja(dia, 9, 18) for dia in range(5)],
+    )
+
+    assert membresia.horarios.count() == 5
+
+
+def test_reemplazar_horario_semanal_borra_lo_anterior(negocio_con_dueno):
+    """Es reemplazo, no acumulación: lo que no viene en la lista se va."""
+    _negocio, _dueno, membresia = negocio_con_dueno
+    services.crear_horario(
+        miembro=membresia,
+        dia_semana=DiaSemana.DOMINGO,
+        hora_inicio=datetime.time(9, 0),
+        hora_fin=datetime.time(12, 0),
+    )
+
+    services.reemplazar_horario_semanal(
+        miembro=membresia, franjas=[_franja(DiaSemana.LUNES, 9, 18)]
+    )
+
+    dias = list(membresia.horarios.values_list("dia_semana", flat=True))
+    assert dias == [DiaSemana.LUNES]
+
+
+def test_reemplazar_horario_semanal_admite_dos_franjas_el_mismo_dia(negocio_con_dueno):
+    """El caso del almuerzo: mañana y tarde partidas."""
+    _negocio, _dueno, membresia = negocio_con_dueno
+
+    services.reemplazar_horario_semanal(
+        miembro=membresia,
+        franjas=[_franja(DiaSemana.LUNES, 8, 12), _franja(DiaSemana.LUNES, 14, 18)],
+    )
+
+    assert membresia.horarios.filter(dia_semana=DiaSemana.LUNES).count() == 2
+
+
+def test_reemplazar_horario_semanal_rechaza_franjas_cruzadas(negocio_con_dueno):
+    _negocio, _dueno, membresia = negocio_con_dueno
+
+    with pytest.raises(services.FranjasSolapadas):
+        services.reemplazar_horario_semanal(
+            miembro=membresia,
+            franjas=[_franja(DiaSemana.LUNES, 9, 14), _franja(DiaSemana.LUNES, 13, 18)],
+        )
+
+
+def test_reemplazar_horario_semanal_rechaza_hora_invertida(negocio_con_dueno):
+    _negocio, _dueno, membresia = negocio_con_dueno
+
+    with pytest.raises(services.HorarioInvalido):
+        services.reemplazar_horario_semanal(
+            miembro=membresia, franjas=[_franja(DiaSemana.LUNES, 18, 9)]
+        )
+
+
+def test_reemplazar_horario_semanal_no_deja_estado_parcial_si_falla(negocio_con_dueno):
+    """Lo que motivó el endpoint: o entra la semana entera, o nada."""
+    _negocio, _dueno, membresia = negocio_con_dueno
+    services.crear_horario(
+        miembro=membresia,
+        dia_semana=DiaSemana.VIERNES,
+        hora_inicio=datetime.time(9, 0),
+        hora_fin=datetime.time(18, 0),
+    )
+
+    with pytest.raises(services.FranjasSolapadas):
+        services.reemplazar_horario_semanal(
+            miembro=membresia,
+            franjas=[
+                _franja(DiaSemana.LUNES, 9, 18),
+                _franja(DiaSemana.MARTES, 9, 14),
+                _franja(DiaSemana.MARTES, 13, 18),  # se cruza con la anterior
+            ],
+        )
+
+    # El horario viejo sigue intacto: no se borró nada.
+    dias = list(membresia.horarios.values_list("dia_semana", flat=True))
+    assert dias == [DiaSemana.VIERNES]
+
+
+def test_reemplazar_horario_semanal_con_lista_vacia_deja_sin_disponibilidad(negocio_con_dueno):
+    _negocio, _dueno, membresia = negocio_con_dueno
+    services.crear_horario(
+        miembro=membresia,
+        dia_semana=DiaSemana.LUNES,
+        hora_inicio=datetime.time(9, 0),
+        hora_fin=datetime.time(18, 0),
+    )
+
+    services.reemplazar_horario_semanal(miembro=membresia, franjas=[])
+
+    assert membresia.horarios.count() == 0

@@ -186,3 +186,80 @@ def test_lista_de_citas_no_expone_las_de_otro_tenant(cliente_autenticado_dueno, 
     assert respuesta.status_code == 200
     nombres = {cita["nombre_cliente"] for cita in respuesta.data}
     assert nombres == {"Cliente Propio"}
+
+
+# --- PUT /api/agenda/horarios/semana/ ---
+
+
+def test_semana_reemplaza_el_horario_completo_de_un_empleado(
+    cliente_autenticado_dueno, negocio_con_dueno
+):
+    _negocio, _dueno, membresia = negocio_con_dueno
+
+    respuesta = cliente_autenticado_dueno.put(
+        "/api/agenda/horarios/semana/",
+        {
+            "miembro": membresia.id,
+            "franjas": [
+                {"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "13:00:00"},
+                {"dia_semana": 0, "hora_inicio": "14:00:00", "hora_fin": "18:00:00"},
+                {"dia_semana": 1, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"},
+            ],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    assert len(respuesta.data) == 3
+    assert membresia.horarios.count() == 3
+
+
+def test_semana_rechaza_franjas_cruzadas_sin_tocar_lo_existente(
+    cliente_autenticado_dueno, negocio_con_dueno
+):
+    _negocio, _dueno, membresia = negocio_con_dueno
+    cliente_autenticado_dueno.put(
+        "/api/agenda/horarios/semana/",
+        {
+            "miembro": membresia.id,
+            "franjas": [{"dia_semana": 4, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}],
+        },
+        format="json",
+    )
+
+    respuesta = cliente_autenticado_dueno.put(
+        "/api/agenda/horarios/semana/",
+        {
+            "miembro": membresia.id,
+            "franjas": [
+                {"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "14:00:00"},
+                {"dia_semana": 0, "hora_inicio": "13:00:00", "hora_fin": "18:00:00"},
+            ],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    # El horario del viernes que ya estaba cargado sigue intacto.
+    assert list(membresia.horarios.values_list("dia_semana", flat=True)) == [4]
+
+
+def test_semana_no_permite_editar_el_horario_de_otro_negocio(cliente_autenticado_dueno):
+    otro_negocio, _otro_dueno, otra_membresia = negocios_services.registrar_negocio(
+        nombre_negocio="Barbería Ajena",
+        email_dueno="ajeno@test.com",
+        password_dueno="claveSegura123",
+        nombre_dueno="Ajeno",
+    )
+
+    respuesta = cliente_autenticado_dueno.put(
+        "/api/agenda/horarios/semana/",
+        {
+            "miembro": otra_membresia.id,
+            "franjas": [{"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert otra_membresia.horarios.count() == 0

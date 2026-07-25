@@ -346,3 +346,63 @@ actualizado con la explicación completa, incluyendo el aviso de
 revisar cualquier otra vista `generics.*APIView` con un método
 sobrescrito por si tiene el mismo problema. Suite completa (41 tests)
 sigue en verde.
+
+## Escritura en lote: horario semanal y alta de servicios (2026-07-25)
+
+> Pedido que venía anotado como duda abierta desde frontend (punto 5 de
+> `../ROADMAP.md`). Lo resolvió la misma persona que hizo el frontend,
+> así que se implementó de una en vez de quedar en la cola.
+
+### Qué se agregó
+- **`PUT /api/agenda/horarios/semana/`** — reemplaza el horario semanal
+  completo de un empleado en una sola transacción. Body: `{miembro,
+  franjas: [{dia_semana, hora_inicio, hora_fin}]}`.
+- **`POST /api/servicios/lote/`** — crea varios servicios; entran todos
+  o ninguno.
+
+Lógica en `services.reemplazar_horario_semanal` y
+`servicios.services.crear_servicios_en_lote`, siguiendo la regla de
+capa de servicios: las vistas solo orquestan HTTP.
+
+### Por qué
+El frontend estaba resolviendo ambas cosas con **N llamadas HTTP** (un
+POST/DELETE por franja al editar la semana, un POST por servicio al dar
+de alta desde el catálogo). Funcionaba, pero no era atómico: con la red
+de un local comercial era esperable que entraran 7 de 10 servicios, o
+que un empleado quedara con media semana cargada, sin forma de saber
+qué reintentar.
+
+### Decisiones de diseño
+- **Semántica de reemplazo, no de agregado**, en el horario semanal: la
+  lista enviada *es* el horario del empleado. Se eligió sobre un
+  "agregar varias franjas" porque es lo que el editor de la UI necesita
+  (el usuario ve y edita la semana completa), y porque un endpoint que
+  agrega obligaría igual a borrar por separado lo que se quitó — que es
+  justo el problema de atomicidad que se venía a resolver.
+- **Endpoint aparte en vez de aceptar lista en el `POST` normal**: hacer
+  que `POST /api/servicios/` acepte objeto o lista habría dejado el
+  schema con un `oneOf` que el frontend tendría que desambiguar en cada
+  llamada. Un `/lote/` explícito es más feo de nombre pero más claro de
+  consumir.
+- **Validación de solapamientos dentro del servicio**, no del
+  serializer: es regla de negocio (dos franjas del mismo empleado no
+  pueden cruzarse), no validación de forma del payload.
+- Se mantiene todo el CRUD de a uno: sigue siendo el camino correcto
+  para editar un solo elemento.
+- Borrar horarios **no** toca las citas ya agendadas: la `Cita` guarda
+  su propia fecha/hora y no se recalcula. Hay test que lo cubre
+  indirectamente (el reemplazo no falla con citas existentes).
+
+### Tests
+19 tests nuevos (55 en total, antes 36), priorizando la capa de
+servicios como manda `CLAUDE.md`. Cubren: creación de la semana
+completa, que reemplaza y no acumula, dos franjas el mismo día (caso
+del almuerzo), rechazo de franjas cruzadas y de hora invertida,
+**que un fallo no deja estado parcial** (el caso que motivó el
+endpoint), lista vacía como "sin disponibilidad", atomicidad del lote de
+servicios, y aislamiento por tenant (pasar el `miembro` de otro negocio
+responde 400 sin tocar datos ajenos).
+
+### Contrato
+`openapi.yaml` regenerado y `../CONTRATO.md` actualizado: nueva sección
+5.5 (convención de escritura en lote) + entrada en el historial.

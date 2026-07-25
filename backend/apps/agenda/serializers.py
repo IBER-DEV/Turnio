@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.agenda.models import Cita, HorarioTrabajo
+from apps.agenda.models import Cita, DiaSemana, HorarioTrabajo
 from apps.servicios.models import Servicio
 from apps.usuarios.models import MiembroNegocio
 
@@ -14,6 +14,32 @@ class HorarioTrabajoSerializer(serializers.ModelSerializer):
         if datos["hora_inicio"] >= datos["hora_fin"]:
             raise serializers.ValidationError("hora_inicio debe ser anterior a hora_fin.")
         return datos
+
+    def validate_miembro(self, miembro):
+        request = self.context["request"]
+        if miembro.negocio_id != request.membresia.negocio_id:
+            raise serializers.ValidationError("Ese empleado no pertenece a tu negocio.")
+        return miembro
+
+
+class FranjaHorarioSerializer(serializers.Serializer):
+    """Una franja suelta dentro de la semana. Sin `miembro`: lo define el
+    contenedor, para no repetirlo en cada elemento de la lista."""
+
+    dia_semana = serializers.ChoiceField(choices=DiaSemana.choices)
+    hora_inicio = serializers.TimeField()
+    hora_fin = serializers.TimeField()
+
+
+class HorarioSemanalSerializer(serializers.Serializer):
+    """Entrada de `PUT /api/agenda/horarios/semana/`.
+
+    Semántica de reemplazo: la lista es el horario completo del empleado,
+    no un agregado. Mandar `franjas: []` lo deja sin disponibilidad.
+    """
+
+    miembro = serializers.PrimaryKeyRelatedField(queryset=MiembroNegocio.objects.all())
+    franjas = FranjaHorarioSerializer(many=True, allow_empty=True)
 
     def validate_miembro(self, miembro):
         request = self.context["request"]

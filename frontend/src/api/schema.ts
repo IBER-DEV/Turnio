@@ -185,6 +185,29 @@ export interface paths {
         patch: operations["agenda_horarios_partial_update"];
         trace?: never;
     };
+    "/api/agenda/horarios/semana/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description Reemplaza de una vez el horario semanal completo de un empleado, en una sola transacción.
+         *
+         *     Semántica de **reemplazo**: las franjas enviadas pasan a ser el horario completo del empleado; lo que no venga en la lista se borra. Enviar `franjas: []` lo deja sin disponibilidad.
+         *
+         *     Existe para que el frontend no tenga que emitir un DELETE/POST por franja al editar la semana, que no era atómico.
+         */
+        put: operations["agenda_horarios_semana_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login/": {
         parameters: {
             query?: never;
@@ -414,6 +437,27 @@ export interface paths {
         patch: operations["servicios_partial_update"];
         trace?: never;
     };
+    "/api/servicios/lote/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Crea varios servicios en una sola transacción: entran todos o ninguno.
+         *
+         *     Pensado para el alta desde catálogo del frontend, que antes emitía un POST por servicio y podía quedar a medias si fallaba la red.
+         */
+        post: operations["servicios_lote_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -486,6 +530,27 @@ export interface components {
          * @enum {string}
          */
         EstadoEnum: "agendada" | "confirmada" | "completada" | "cancelada";
+        /**
+         * @description Una franja suelta dentro de la semana. Sin `miembro`: lo define el
+         *     contenedor, para no repetirlo en cada elemento de la lista.
+         */
+        FranjaHorario: {
+            dia_semana: components["schemas"]["DiaSemanaEnum"];
+            /** Format: time */
+            hora_inicio: string;
+            /** Format: time */
+            hora_fin: string;
+        };
+        /**
+         * @description Entrada de `PUT /api/agenda/horarios/semana/`.
+         *
+         *     Semántica de reemplazo: la lista es el horario completo del empleado,
+         *     no un agregado. Mandar `franjas: []` lo deja sin disponibilidad.
+         */
+        HorarioSemanal: {
+            miembro: number;
+            franjas: components["schemas"]["FranjaHorario"][];
+        };
         HorarioTrabajo: {
             readonly id: number;
             miembro: number;
@@ -615,6 +680,17 @@ export interface components {
             /** Format: decimal */
             porcentaje_comision?: string;
             activo?: boolean;
+        };
+        /**
+         * @description Entrada de `POST /api/servicios/lote/`.
+         *
+         *     Se creó como endpoint aparte en vez de aceptar una lista en el `POST`
+         *     normal para no volver ambiguo el body de creación de a uno: el
+         *     schema OpenAPI quedaría con un `oneOf` que el frontend tendría que
+         *     desambiguar en cada llamada.
+         */
+        ServicioLote: {
+            servicios: components["schemas"]["Servicio"][];
         };
         TokenObtainPair: {
             email: string;
@@ -987,6 +1063,31 @@ export interface operations {
             };
         };
     };
+    agenda_horarios_semana_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HorarioSemanal"];
+                "application/x-www-form-urlencoded": components["schemas"]["HorarioSemanal"];
+                "multipart/form-data": components["schemas"]["HorarioSemanal"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HorarioTrabajo"][];
+                };
+            };
+        };
+    };
     auth_login_create: {
         parameters: {
             query?: never;
@@ -1339,6 +1440,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Servicio"];
+                };
+            };
+        };
+    };
+    servicios_lote_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServicioLote"];
+                "application/x-www-form-urlencoded": components["schemas"]["ServicioLote"];
+                "multipart/form-data": components["schemas"]["ServicioLote"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Servicio"][];
                 };
             };
         };
