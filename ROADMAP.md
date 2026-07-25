@@ -45,6 +45,17 @@
   contrato, tests) antes de darse por completa, en vez de descubrir
   los huecos después. Primer paso concreto: rediseño real de UI/UX
   del frontend (hoy solo tiene CSS mínimo funcional).
+- **Se mantiene multi-empleado desde el inicio, se descarta "operador
+  único por defecto"** (confirmado por el humano tras auditoría
+  competitiva, 2026-07-25): ver `ESTRATEGIA-COMPETITIVA.md`. La
+  evidencia de mercado (modelo de comisión 70/30 dueño/barbero,
+  alquiler de silla como modelo estructural, y la debilidad de Goldie
+  siendo justamente su manejo pobre de multi-staff) respalda la
+  decisión ya tomada arriba, no un brief posterior que pedía operador
+  único. El mismo documento fija el benchmark de producto en
+  AgendaPro (competidor regional real) en vez de Goldie, y prioriza
+  para Fase 3 conciliar pagos ya hechos por fuera (Nequi/Daviplata/
+  Bre-B/efectivo) en vez de procesar pagos propios.
 
 ## Estado por fase
 
@@ -68,10 +79,26 @@ NO hacer todavía.
 2. Falta decidir, del lado frontend, el generador de tipos TypeScript
    a partir de `backend/openapi.yaml` (ver dudas abiertas en
    `frontend/ROADMAP-FRONTEND.md`).
-3. CI de backend ya existe (`.github/workflows/backend-ci.yml`,
-   2026-07-24). Cuando el frontend tenga código, falta un workflow
-   equivalente para esa carpeta (lint/build/tests), a definir cuando
-   arranque.
+3. ~~CI de backend ya existe; falta el equivalente de frontend.~~
+   Resuelto el 2026-07-25: `.github/workflows/frontend-ci.yml` corre
+   lint, tests, build (`tsc -b`) y verifica que `src/api/schema.ts` esté
+   regenerado contra `backend/openapi.yaml` — el espejo del chequeo de
+   contrato que ya hacía el CI de backend.
+4. **Validación con negocios reales pendiente** (ver
+   `ESTRATEGIA-COMPETITIVA.md`): visitar ~10 barberías/salones locales
+   para confirmar cómo agendan hoy, cómo pagan comisión a fin de
+   semana, y qué pasa cuando se cae el internet, antes de comprometer
+   el detalle de Fase 3 (Caja/Comisiones).
+5. **Petición de frontend a backend: escritura en lote** (2026-07-25).
+   El alta de servicios desde catálogo y el guardado del horario semanal
+   de un empleado hacen hoy **N llamadas HTTP**, porque el contrato solo
+   expone creación de a uno (`POST /api/servicios/`, `POST
+   /api/agenda/horarios/`). Funciona pero no es atómico: si falla la
+   mitad queda estado parcial. Se pide evaluar un endpoint de lote —por
+   ejemplo un `POST` que acepte lista, o un `PUT
+   /api/agenda/horarios/semana/` que reemplace la semana completa de un
+   empleado en una transacción. Es cambio de contrato: lo decide y lo
+   implementa backend. Detalle en `frontend/ROADMAP-FRONTEND.md`.
 
 ## Historial de fases
 

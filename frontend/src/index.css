@@ -26,6 +26,21 @@
   :focus-visible {
     @apply outline-none ring-2 ring-primary/40 ring-offset-2 ring-offset-background;
   }
+
+  /* Quien pidió menos movimiento al sistema operativo no debería recibir
+     ninguna de nuestras animaciones. No se desactivan del todo (eso
+     rompería transiciones que comunican estado): se reducen a algo
+     instantáneo. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {

@@ -199,7 +199,7 @@ export function EmpleadosPage() {
                 empleado.puede_ver_reportes;
 
               return (
-                <li key={empleado.id}>
+                <li key={empleado.id} className="animate-slide-in-bottom">
                   <button
                     type="button"
                     onClick={() => setSeleccionadoId(empleado.id)}

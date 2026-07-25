@@ -56,8 +56,33 @@ nunca de leer o adivinar el código Django directamente.
   por pantalla. Suficiente para el volumen de Fase 1; revisar si hace
   falta algo más cuando el número de pantallas con caché compartida
   crezca.
-- **Sin librería de UI** (no Tailwind, no MUI): CSS plano en
-  `src/App.css`. Mínimo a propósito.
+- **Sistema de diseño propio sobre Tailwind** (revisado 2026-07-25; la
+  decisión original era "CSS plano en `src/App.css`, sin Tailwind", y
+  quedó obsoleta con el rediseño de UI/UX). Los tokens de
+  `tailwind.config.js` (colores, tipografías, espaciados, sombras) están
+  copiados de `ui-ux/turnio/DESIGN.md`: **no inventar valores nuevos
+  ahí** — si hace falta un color o espaciado que no existe, primero se
+  revisa el diseño. Los componentes compartidos viven en `src/ui/`.
+- **Sin librería de componentes con estilos propios** (no MUI, no
+  Chakra, no shadcn completo): pelearían con el sistema de diseño ya
+  definido. Lo que sí se usa son **primitivas headless de Radix**
+  (`@radix-ui/react-dialog`) para el comportamiento accesible que es
+  fácil de hacer mal a mano: focus trap, restauración de foco, scroll
+  lock, cableado de `aria-*`. Radix no trae estilos, así que el diseño
+  sigue siendo 100% nuestro. Si hace falta otro primitivo complejo
+  (select, popover, tabs), la preferencia es el equivalente de Radix
+  antes que escribirlo a mano.
+- **`cn()` usa `clsx` + `tailwind-merge`** (`src/ui/cn.ts`): sin
+  `tailwind-merge`, pasar `className="px-2"` a un componente que por
+  dentro trae `px-4` dejaba ambas clases y ganaba la que Tailwind
+  emitiera de último en el CSS — no la del call site. Los tokens propios
+  del proyecto están declarados en `extendTailwindMerge` ahí mismo; si
+  agregas un token de tipografía nuevo en `tailwind.config.js`, agrégalo
+  también a esa lista o los conflictos no se resolverán.
+- **Animaciones vía `tailwindcss-animate` + keyframes propios** en
+  `tailwind.config.js`. Nada por encima de ~250ms en interacciones. Hay
+  un bloque global de `prefers-reduced-motion` en `index.css`: cualquier
+  animación nueva lo respeta automáticamente, no hace falta repetirlo.
 - **Tipos generados desde el contrato**: `openapi-typescript` genera
   `src/api/schema.ts` desde `../backend/openapi.yaml`
   (`npm run generate:types`). El cliente HTTP es `openapi-fetch`
@@ -70,6 +95,35 @@ nunca de leer o adivinar el código Django directamente.
   devuelve exactamente ese tipo de unión. Si en algún punto parece que
   TypeScript "no está narrowing algo obvio", lo primero a revisar es
   que `strict` siga en `true` en `tsconfig.app.json`.
+
+## Trampa conocida de React en este código: efectos que dependen de callbacks inline
+El `Modal` original tenía un `useEffect` con `onCerrar` en su lista de
+dependencias, y todas las pantallas pasan ese prop como arrow function
+inline (`onCerrar={() => setAbierto(false)}`). Como esa función cambia
+de identidad en cada render, **cada tecla escrita en un input del modal
+re-ejecutaba el efecto**, y el `contenedor.focus()` que había adentro
+sacaba el foco del campo: se escribía una letra y había que volver a
+hacer clic. Se corrigió migrando a Radix Dialog, y hay un test de
+regresión en `src/ui/Modal.test.tsx` que falla contra la
+implementación vieja.
+
+Regla general que sale de ahí: **si un efecto depende de una función
+que viene por props, o la memoizas en el padre, o la guardas en un ref,
+o no la pones en las dependencias.** Antes de agregar un `useEffect`
+con una función en las deps, verifica quién la construye.
+
+## Testing
+`vitest` + `@testing-library/react` (`npm run test`, `npm run
+test:watch`). Setup en `src/test/setup.ts`, que incluye stubs de APIs
+del navegador que jsdom no trae y que Radix necesita (`matchMedia`,
+`ResizeObserver`, pointer capture) — si agregas un componente Radix y
+revienta en tests con un `TypeError` de alguna API del DOM, ese archivo
+es el lugar donde se agrega el stub.
+
+Criterio de qué testear (todavía no hay suite amplia): comportamiento
+que sea fácil de romper sin darse cuenta y caro de detectar a ojo —
+foco, accesibilidad, gating por capacidades, máquina de estados de
+`Cita`. No hace falta test de snapshot de cada pantalla.
 
 ## Wart conocido del contrato: serializers que mezclan lectura/escritura
 Algunos `ModelSerializer` del backend (`Servicio`, `HorarioTrabajo`,

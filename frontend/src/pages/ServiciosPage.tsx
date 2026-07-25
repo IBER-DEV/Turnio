@@ -14,6 +14,7 @@ import { Modal, ModalConfirmacion } from "../ui/Modal";
 import { Switch } from "../ui/Switch";
 import { useToast } from "../ui/Toast";
 import { cn } from "../ui/cn";
+import { ModalCatalogo } from "./servicios/ModalCatalogo";
 
 type Servicio = components["schemas"]["Servicio"];
 
@@ -54,6 +55,7 @@ export function ServiciosPage() {
   const [guardando, setGuardando] = useState(false);
 
   const [porDesactivar, setPorDesactivar] = useState<Servicio | null>(null);
+  const [catalogoAbierto, setCatalogoAbierto] = useState(false);
 
   async function cargar() {
     setCargando(true);
@@ -154,9 +156,19 @@ export function ServiciosPage() {
           </p>
         </div>
         {puedeEditar && (
-          <Button icono="add" onClick={abrirCreacion} className="shrink-0">
-            <span className="hidden sm:inline">Nuevo servicio</span>
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              variante="secondary"
+              icono="list_alt"
+              onClick={() => setCatalogoAbierto(true)}
+              aria-label="Agregar desde el catálogo"
+            >
+              <span className="hidden sm:inline">Catálogo</span>
+            </Button>
+            <Button icono="add" onClick={abrirCreacion} aria-label="Nuevo servicio">
+              <span className="hidden sm:inline">Nuevo</span>
+            </Button>
+          </div>
         )}
       </header>
 
@@ -171,15 +183,28 @@ export function ServiciosPage() {
         <EstadoVacio
           icono="content_cut"
           titulo="Aún no tienes servicios"
-          descripcion="Crea tu primer servicio para poder empezar a agendar citas con él."
-          accion={puedeEditar ? { etiqueta: "Crear el primero", onClick: abrirCreacion } : undefined}
+          descripcion="Empieza desde el catálogo y ajusta precios a tu gusto, o crea uno desde cero."
+          accion={
+            puedeEditar
+              ? { etiqueta: "Ver catálogo", onClick: () => setCatalogoAbierto(true) }
+              : undefined
+          }
+          accionSecundaria={
+            puedeEditar ? { etiqueta: "Crear desde cero", onClick: abrirCreacion } : undefined
+          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {servicios.map((servicio) => {
             const inactivo = !servicio.activo;
             return (
-              <Card key={servicio.id} className={cn("p-4", inactivo && "opacity-70")}>
+              <Card
+                key={servicio.id}
+                className={cn(
+                  "animate-slide-in-bottom p-4 transition-shadow hover:shadow-card",
+                  inactivo && "opacity-70",
+                )}
+              >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-container-high">
                     <Icon name="content_cut" className="text-primary" />
@@ -277,9 +302,15 @@ export function ServiciosPage() {
               label="Duración (min)"
               type="number"
               min="1"
-              value={datos.duracion_minutos}
+              // Se guarda el texto crudo mientras se edita: con
+              // `Number(e.target.value)` directo, borrar el campo lo
+              // repintaba en 0 y había que borrar ese 0 para escribir.
+              value={datos.duracion_minutos === 0 ? "" : datos.duracion_minutos}
               onChange={(e) =>
-                setDatos({ ...datos, duracion_minutos: Number(e.target.value) })
+                setDatos({
+                  ...datos,
+                  duracion_minutos: e.target.value === "" ? 0 : Number(e.target.value),
+                })
               }
               required
             />
@@ -317,6 +348,13 @@ export function ServiciosPage() {
           </div>
         </form>
       </Modal>
+
+      <ModalCatalogo
+        abierto={catalogoAbierto}
+        onCerrar={() => setCatalogoAbierto(false)}
+        yaExistentes={servicios.map((servicio) => servicio.nombre)}
+        onCreados={cargar}
+      />
 
       <ModalConfirmacion
         abierto={porDesactivar !== null}

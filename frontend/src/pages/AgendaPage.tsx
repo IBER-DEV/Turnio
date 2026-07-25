@@ -3,7 +3,6 @@ import type { FormEvent } from "react";
 
 import { apiClient } from "../api/client";
 import type { components } from "../api/schema";
-import type { HorarioTrabajoInput } from "../api/types";
 import { conReintentoDeAuth } from "../auth/refresh";
 import { useAuth } from "../auth/AuthContext";
 import { Button } from "../ui/Button";
@@ -14,6 +13,8 @@ import { Icon } from "../ui/Icon";
 import { Input, Select } from "../ui/Input";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
 import { useToast } from "../ui/Toast";
+import { ModalHorarioSemanal } from "./agenda/ModalHorarioSemanal";
+import { VistaSemana } from "./agenda/VistaSemana";
 
 type Cita = components["schemas"]["Cita"];
 type Servicio = components["schemas"]["Servicio"];
@@ -21,7 +22,6 @@ type MiembroNegocio = components["schemas"]["MiembroNegocio"];
 type HorarioTrabajo = components["schemas"]["HorarioTrabajo"];
 type AccionCita = "confirmar" | "completar" | "cancelar";
 
-const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const DIAS_CORTOS = ["LUN", "MAR", "MIE", "JUE", "VIE", "SAB", "DOM"];
 const CUALQUIERA = "cualquiera";
 
@@ -57,13 +57,6 @@ function paraInputFechaHora(dia: Date, horaTexto = "09:00"): string {
   return `${yyyy}-${mm}-${dd}T${horaTexto}`;
 }
 
-const HORARIO_VACIO: HorarioTrabajoInput = {
-  miembro: 0,
-  dia_semana: 0,
-  hora_inicio: "09:00:00",
-  hora_fin: "18:00:00",
-};
-
 export function AgendaPage() {
   const { membresia } = useAuth();
   const { mostrar } = useToast();
@@ -84,7 +77,7 @@ export function AgendaPage() {
   const [formularioCita, setFormularioCita] = useState(false);
   const [panelHorarios, setPanelHorarios] = useState(false);
   const [porCancelar, setPorCancelar] = useState<Cita | null>(null);
-  const [horarioPorBorrar, setHorarioPorBorrar] = useState<HorarioTrabajo | null>(null);
+  const [vista, setVista] = useState<"lista" | "semana">("lista");
 
   async function cargar() {
     setCargando(true);
@@ -209,8 +202,35 @@ export function AgendaPage() {
         ))}
       </div>
 
-      {/* Selector de día */}
-      <div className="hide-scrollbar -mx-margin-mobile flex gap-3 overflow-x-auto px-margin-mobile pb-1 md:mx-0 md:px-0">
+      {/* Selector de vista. La grilla semanal solo se ofrece donde cabe. */}
+      <div className="hidden justify-end lg:flex">
+        <div className="inline-flex rounded-lg border border-outline-variant bg-surface-container-lowest p-1">
+          {(["lista", "semana"] as const).map((modo) => (
+            <button
+              key={modo}
+              type="button"
+              onClick={() => setVista(modo)}
+              aria-pressed={vista === modo}
+              className={cn(
+                "rounded-md px-4 py-1.5 font-label-md text-label-md transition-colors",
+                vista === modo
+                  ? "bg-primary text-on-primary"
+                  : "text-on-surface-variant hover:bg-surface-container",
+              )}
+            >
+              {modo === "lista" ? "Lista" : "Semana"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Selector de día (la grilla semanal ya trae el suyo en su encabezado) */}
+      <div
+        className={cn(
+          "hide-scrollbar -mx-margin-mobile flex gap-3 overflow-x-auto px-margin-mobile pb-1 md:mx-0 md:px-0",
+          vista === "semana" && "lg:hidden",
+        )}
+      >
         {dias.map((dia) => {
           const activo = dia.toDateString() === diaSeleccionado.toDateString();
           const indiceDia = (dia.getDay() + 6) % 7; // JS: domingo=0 → lunes=0
@@ -236,7 +256,34 @@ export function AgendaPage() {
         })}
       </div>
 
+      {/* Grilla semanal: solo en pantallas anchas y si está elegida. */}
+      {vista === "semana" && !cargando && !error && (
+        <div className="hidden lg:block">
+          <VistaSemana
+            dias={dias}
+            citas={
+              empleadoFiltro === "todos"
+                ? citas
+                : citas.filter((cita) => cita.empleado === empleadoFiltro)
+            }
+            horarios={
+              empleadoFiltro === "todos"
+                ? horarios
+                : horarios.filter((horario) => horario.miembro === empleadoFiltro)
+            }
+            diaSeleccionado={diaSeleccionado}
+            onSeleccionarDia={setDiaSeleccionado}
+            onAbrirCita={(cita) => {
+              setDiaSeleccionado(new Date(cita.fecha_hora_inicio));
+              setCitaAbierta(cita.id);
+              setVista("lista");
+            }}
+          />
+        </div>
+      )}
+
       {/* Timeline de citas */}
+      <div className={cn(vista === "semana" && "lg:hidden")}>
       {cargando ? (
         <SkeletonLista />
       ) : error ? (
@@ -261,7 +308,7 @@ export function AgendaPage() {
             const abierta = citaAbierta === cita.id;
 
             return (
-              <li key={cita.id} className="flex gap-3">
+              <li key={cita.id} className="animate-slide-in-bottom flex gap-3">
                 <span className="w-[52px] shrink-0 pt-3 text-right font-label-md text-caption text-on-surface-variant opacity-70">
                   {hora(cita.fecha_hora_inicio)}
                 </span>
@@ -292,7 +339,7 @@ export function AgendaPage() {
                   </button>
 
                   {abierta && (
-                    <div className="mt-3 space-y-3 border-t border-outline-variant/40 pt-3">
+                    <div className="animate-fade-in mt-3 space-y-3 border-t border-outline-variant/40 pt-3">
                       <p className="font-caption text-caption text-on-surface-variant">
                         {hora(cita.fecha_hora_inicio)} – {hora(cita.fecha_hora_fin)}
                         {cita.telefono_cliente && ` · ${cita.telefono_cliente}`}
@@ -330,6 +377,7 @@ export function AgendaPage() {
           })}
         </ul>
       )}
+      </div>
 
       {formularioCita && (
         <ModalNuevaCita
@@ -345,15 +393,13 @@ export function AgendaPage() {
         />
       )}
 
-      {panelHorarios && (
-        <ModalHorarios
-          empleados={empleados}
-          horarios={horarios}
-          onCerrar={() => setPanelHorarios(false)}
-          onCambio={cargar}
-          onPedirBorrado={setHorarioPorBorrar}
-        />
-      )}
+      <ModalHorarioSemanal
+        abierto={panelHorarios}
+        onCerrar={() => setPanelHorarios(false)}
+        empleados={empleados}
+        horarios={horarios}
+        onCambio={cargar}
+      />
 
       <ModalConfirmacion
         abierto={porCancelar !== null}
@@ -367,28 +413,6 @@ export function AgendaPage() {
         }}
       />
 
-      <ModalConfirmacion
-        abierto={horarioPorBorrar !== null}
-        titulo="¿Eliminar este bloque de horario?"
-        mensaje="El empleado dejará de tener disponibilidad en esa franja para nuevas citas."
-        etiquetaConfirmar="Eliminar"
-        onCancelar={() => setHorarioPorBorrar(null)}
-        onConfirmar={async () => {
-          if (!horarioPorBorrar) return;
-          const { error: errorRespuesta } = await conReintentoDeAuth(() =>
-            apiClient.DELETE("/api/agenda/horarios/{id}/", {
-              params: { path: { id: horarioPorBorrar.id } },
-            }),
-          );
-          setHorarioPorBorrar(null);
-          if (errorRespuesta) {
-            mostrar("error", "No se pudo eliminar el horario.");
-            return;
-          }
-          mostrar("exito", "Horario eliminado.");
-          await cargar();
-        }}
-      />
     </div>
   );
 }
@@ -534,168 +558,6 @@ function ModalNuevaCita({
           </div>
         </form>
       )}
-    </Modal>
-  );
-}
-
-function ModalHorarios({
-  empleados,
-  horarios,
-  onCerrar,
-  onCambio,
-  onPedirBorrado,
-}: {
-  empleados: MiembroNegocio[];
-  horarios: HorarioTrabajo[];
-  onCerrar: () => void;
-  onCambio: () => Promise<void>;
-  onPedirBorrado: (horario: HorarioTrabajo) => void;
-}) {
-  const { mostrar } = useToast();
-  const [datos, setDatos] = useState<HorarioTrabajoInput>({
-    ...HORARIO_VACIO,
-    miembro: empleados[0]?.id ?? 0,
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [guardando, setGuardando] = useState(false);
-
-  async function handleSubmit(evento: FormEvent) {
-    evento.preventDefault();
-    setError(null);
-
-    if (!datos.miembro) {
-      setError("Elige un empleado.");
-      return;
-    }
-    if (datos.hora_inicio >= datos.hora_fin) {
-      setError("La hora de inicio debe ser anterior a la de fin.");
-      return;
-    }
-
-    setGuardando(true);
-    const { error: errorRespuesta } = await conReintentoDeAuth(() =>
-      apiClient.POST("/api/agenda/horarios/", { body: datos as HorarioTrabajo }),
-    );
-    setGuardando(false);
-
-    if (errorRespuesta) {
-      setError("No se pudo guardar el horario.");
-      return;
-    }
-
-    mostrar("exito", "Horario agregado.");
-    await onCambio();
-  }
-
-  return (
-    <Modal
-      abierto
-      onCerrar={onCerrar}
-      titulo="Horarios de trabajo"
-      descripcion="Disponibilidad semanal de cada empleado. Para un descanso al mediodía, crea dos bloques el mismo día."
-    >
-      <div className="space-y-md">
-        <form className="space-y-md rounded-xl bg-surface-container-low p-4" onSubmit={handleSubmit}>
-          <Select
-            label="Empleado"
-            value={datos.miembro}
-            onChange={(e) => setDatos({ ...datos, miembro: Number(e.target.value) })}
-            required
-          >
-            {empleados.map((empleado) => (
-              <option key={empleado.id} value={empleado.id}>
-                {empleado.nombre}
-              </option>
-            ))}
-          </Select>
-
-          <Select
-            label="Día"
-            value={datos.dia_semana}
-            onChange={(e) =>
-              setDatos({
-                ...datos,
-                dia_semana: Number(e.target.value) as HorarioTrabajoInput["dia_semana"],
-              })
-            }
-          >
-            {DIAS_SEMANA.map((dia, indice) => (
-              <option key={dia} value={indice}>
-                {dia}
-              </option>
-            ))}
-          </Select>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Desde"
-              type="time"
-              value={datos.hora_inicio.slice(0, 5)}
-              onChange={(e) => setDatos({ ...datos, hora_inicio: `${e.target.value}:00` })}
-              required
-            />
-            <Input
-              label="Hasta"
-              type="time"
-              value={datos.hora_fin.slice(0, 5)}
-              onChange={(e) => setDatos({ ...datos, hora_fin: `${e.target.value}:00` })}
-              required
-            />
-          </div>
-
-          {error && (
-            <p role="alert" className="flex items-center gap-xs font-caption text-caption text-error">
-              <Icon name="error" className="text-[18px]" />
-              {error}
-            </p>
-          )}
-
-          <Button type="submit" icono="add" anchoCompleto cargando={guardando}>
-            Agregar bloque
-          </Button>
-        </form>
-
-        <div>
-          <h3 className="mb-2 font-label-md text-label-md text-on-surface-variant">
-            Bloques cargados
-          </h3>
-          {horarios.length === 0 ? (
-            <p className="rounded-lg bg-surface-container-low p-4 text-center font-body-md text-body-md text-on-surface-variant">
-              Todavía no hay horarios. Sin ellos, no se puede agendar ninguna cita.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {horarios.map((horario) => {
-                const empleado = empleados.find((item) => item.id === horario.miembro);
-                return (
-                  <li
-                    key={horario.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-outline-variant p-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-label-md text-label-md text-primary">
-                        {empleado?.nombre ?? "Empleado"}
-                      </p>
-                      <p className="font-caption text-caption text-on-surface-variant">
-                        {DIAS_SEMANA[horario.dia_semana]} · {horario.hora_inicio.slice(0, 5)} –{" "}
-                        {horario.hora_fin.slice(0, 5)}
-                      </p>
-                    </div>
-                    <Button
-                      variante="ghost"
-                      onClick={() => onPedirBorrado(horario)}
-                      aria-label="Eliminar bloque de horario"
-                      className="px-2 text-error"
-                    >
-                      <Icon name="delete" />
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
     </Modal>
   );
 }

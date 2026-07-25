@@ -132,10 +132,150 @@ sobre el CSS actual.
   revisar cuando salgan parches upstream.
 
 ### Bloqueos o dudas abiertas para el humano
-1. ¿Se agrega Vitest + Testing Library ahora, o se espera a que el
-   compañero decida al retomar?
+1. ~~¿Se agrega Vitest + Testing Library ahora?~~ Resuelto el
+   2026-07-25: se agregó (ver entrada de esa fecha).
 2. ¿Vale la pena migrar tokens a `@capacitor/preferences` ya, o
    esperar a que se pruebe en un dispositivo/emulador real?
+
+## Rediseño de UI/UX + corrección de bugs de formularios (2026-07-25)
+
+> Misma rama `feature/frontend-fase1`. Sesión pedida por el humano tras
+> encontrar bugs usando los formularios de la app.
+
+### Bugs encontrados y corregidos
+1. **El input perdía el foco al escribir la primera letra** (reportado
+   por el humano; el más grave de los tres). Causa raíz: el `useEffect`
+   de `Modal` tenía `onCerrar` en sus dependencias, y todas las
+   pantallas pasan ese prop como arrow function inline — identidad nueva
+   en cada render. Cada tecla → re-render → efecto re-ejecutado →
+   `contenedor.focus()` robaba el foco del campo. Explicado en
+   `CLAUDE.md` como trampa a evitar en efectos futuros.
+2. **El campo "Duración (min)" de Servicios se repintaba en `0`** al
+   borrarlo, porque `Number("")` es `0`; había que borrar ese `0` para
+   poder escribir. Ahora acepta el vacío mientras se edita.
+3. **Los campos de hora de Horarios se atascaban** al borrarlos:
+   `` `${""}:00` `` producía `":00"`, que no es una hora válida, y el
+   input quedaba en un estado del que no se podía salir.
+
+Los bugs 2 y 3 no los reportó el humano; salieron de revisar el resto de
+formularios buscando el mismo tipo de falla.
+
+### Dependencias nuevas (justificación, según regla de `../CLAUDE.md`)
+- **`@radix-ui/react-dialog`**: se eligió sobre seguir manteniendo el
+  modal artesanal porque además del bug de foco le faltaba focus trap
+  real (el Tab se escapaba del modal), devolución del foco al elemento
+  que lo abrió, y `aria-describedby`. Es headless: no trae estilos ni
+  pelea con el sistema de diseño. Costo: ~22 kB gzip en el bundle.
+- **`clsx` + `tailwind-merge`**: `cn()` solo concatenaba, así que
+  `className="px-2"` sobre un componente con `px-4` interno dejaba las
+  dos clases y ganaba la del CSS emitido de último, no la del call
+  site. Ya había dos llamadas así en el código (`Button className="px-2"`
+  en Servicios y Agenda), o sea que el bug ya estaba latente.
+- **`tailwindcss-animate`**: animaciones declarativas atadas a los
+  `data-state` de Radix, sin JS de animación (se descartó Framer Motion
+  por peso: es una app Capacitor y las animaciones necesarias son
+  simples).
+- **`vitest` + `@testing-library/react` + `jsdom`**: cerraba el pendiente
+  "sin tests de frontend" que ya estaba anotado abajo.
+
+### Qué más se hizo
+- **Test de regresión** (`src/ui/Modal.test.tsx`, 4 tests). Se verificó
+  que **falla contra el `Modal` viejo** — un test que pasa en ambas
+  versiones no habría probado nada. Cubre: foco al escribir, focus trap,
+  cierre con Escape, y nombre/descripción accesibles.
+- **Animaciones**: entrada de modales (hoja desde abajo en móvil, zoom
+  en escritorio), toasts, filas de listas y detalle expandido de cita.
+  Con bloque global de `prefers-reduced-motion` en `index.css`.
+- **Fuga de timers en `Toast`**: los `setTimeout` de auto-cierre nunca
+  se limpiaban al desmontar el provider.
+- **CI de frontend** (`.github/workflows/frontend-ci.yml`): lint, tests,
+  build (que incluye `tsc -b`), y un chequeo de que `src/api/schema.ts`
+  esté regenerado respecto a `../backend/openapi.yaml` — el espejo del
+  chequeo de contrato que ya hacía el CI de backend. Cierra el pendiente
+  #3 de `../ROADMAP.md`.
+
+### Pendiente que sigue abierto
+- La suite de tests es mínima a propósito (solo `Modal`). Falta cubrir
+  el gating por capacidades y los flujos de creación de cada pantalla.
+- Sigue sin haber tests e2e.
+- Sigue pendiente migrar tokens a `@capacitor/preferences` y agregar
+  plataformas nativas de Capacitor.
+
+## Catálogo de servicios, horario semanal y vista de calendario (2026-07-25)
+
+> Misma rama. Pedido del humano tras revisar Goldie en vivo: le gustó que
+> la competencia traiga "maestros" listos (catálogo de servicios), que el
+> horario del empleado se defina de una vez para toda la semana en vez de
+> día por día, y su vista de calendario.
+
+### Catálogo de servicios
+Se investigó primero si existía una **API pública de catálogo de
+servicios de barbería/salón** para no mantener el dato a mano: **no
+existe**. Lo único disponible son APIs propietarias de plataformas
+competidoras (Vagaro, Phorest), no usables acá. Así que el catálogo es
+dato local en `src/data/catalogoServicios.ts` — lo cual además resultó
+preferible: los nombres son los que se usan en Colombia (no traducciones
+del inglés) y los precios están en COP con órdenes de magnitud reales.
+
+- 28 servicios en 4 categorías (Barbería, Peluquería, Uñas, Estética).
+- `ModalCatalogo` permite alta en lote con checkboxes; oculta los que ya
+  existen por nombre para no duplicar.
+- Son **valores de arranque, no verdad**: se editan al agregarlos y
+  después desde la pantalla. Si los precios envejecen, se actualiza ese
+  archivo y ya.
+- El estado vacío de Servicios ahora ofrece el catálogo como acción
+  principal y "crear desde cero" como secundaria (se agregó
+  `accionSecundaria` a `EstadoVacio`).
+
+### Horario semanal (`ModalHorarioSemanal`)
+Reemplaza al formulario anterior, que creaba **un bloque a la vez**:
+dejar listo a un barbero de lunes a sábado eran seis envíos separados.
+Ahora se edita la semana completa y se guarda de una.
+
+- Plantillas de un clic para el caso común ("Lun a Vie · 9–18", etc.).
+- **Se mantuvo la posibilidad de varias franjas por día** (el caso del
+  descanso de mediodía, que el diseño original resolvía creando dos
+  bloques el mismo día): cada día es una lista de franjas, no un rango
+  único. Un editor de un solo rango por día habría sido más simple pero
+  habría quitado una capacidad que el backend ya soporta y que está
+  explícitamente cubierta por un test suyo.
+- Valida solapamientos entre franjas del mismo día antes de enviar.
+- Al guardar hace diff contra lo existente: `DELETE` de lo que se quitó,
+  `PATCH` de lo que cambió de hora, `POST` de lo nuevo.
+
+### Vista de calendario semanal (`VistaSemana`)
+Grilla horaria con los días como columnas, al estilo de un calendario
+clásico (es lo que le gustó de Goldie).
+
+- **Convive con la vista de lista, no la reemplaza**: en un teléfono
+  —que es el caso principal de esta app— siete columnas quedan
+  ilegibles. La lista sigue siendo el default y el selector Lista/Semana
+  solo aparece desde `lg`.
+- El rango horario visible se deriva de los horarios cargados y las
+  citas, para no pintar 00:00–23:00 casi vacío.
+- Las franjas de trabajo se pintan de fondo: se ve de un vistazo cuándo
+  hay alguien disponible.
+- Las citas que se solapan (dos barberos a la misma hora) se reparten en
+  columnas dentro del día en vez de taparse.
+- Al hacer clic en una cita salta a la lista con esa cita abierta, para
+  reusar las acciones de estado que ya existían.
+
+### Bloqueos o dudas abiertas para el humano / backend
+1. **Falta escritura en lote en el contrato.** Tanto el alta desde
+   catálogo como el guardado del horario semanal hacen **N llamadas
+   HTTP** (`POST /api/servicios/` y `POST|PATCH|DELETE
+   /api/agenda/horarios/` una por ítem), porque el contrato no expone
+   endpoints de lote. Funciona, pero **no es atómico**: si falla la
+   mitad, queda estado parcial — hoy se reporta cuántos fallaron y se
+   recarga, que es lo mejor que se puede hacer desde este lado. Sería
+   mejor un `POST` que acepte lista, o un `PUT
+   /api/agenda/horarios/semana/` que reemplace la semana de un empleado
+   en una transacción. **Es cambio de contrato: lo decide backend, no se
+   implementa unilateralmente desde acá.**
+2. Los precios del catálogo son estimaciones de mercado medio en Bogotá,
+   sin fuente dura. Vale la pena contrastarlos con negocios reales
+   cuando se haga la validación de campo anotada en
+   `../ESTRATEGIA-COMPETITIVA.md`.
 
 ## Fase 1 (histórico) — antes de empezar
 

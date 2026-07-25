@@ -65,11 +65,13 @@ export function EstadoVacio({
   titulo,
   descripcion,
   accion,
+  accionSecundaria,
 }: {
   icono: string;
   titulo: string;
   descripcion: string;
   accion?: { etiqueta: string; onClick: () => void };
+  accionSecundaria?: { etiqueta: string; onClick: () => void };
 }) {
   return (
     <div className="flex flex-col items-center gap-md rounded-2xl border border-dashed border-outline-variant bg-surface-container-low/50 px-md py-xl text-center">
@@ -82,10 +84,19 @@ export function EstadoVacio({
           {descripcion}
         </p>
       </div>
-      {accion && (
-        <Button icono="add" onClick={accion.onClick}>
-          {accion.etiqueta}
-        </Button>
+      {(accion || accionSecundaria) && (
+        <div className="flex flex-col gap-xs sm:flex-row">
+          {accion && (
+            <Button icono="add" onClick={accion.onClick}>
+              {accion.etiqueta}
+            </Button>
+          )}
+          {accionSecundaria && (
+            <Button variante="ghost" onClick={accionSecundaria.onClick}>
+              {accionSecundaria.etiqueta}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
