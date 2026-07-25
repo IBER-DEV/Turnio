@@ -273,3 +273,30 @@ clásico (es lo que le gustó de Goldie).
    sin fuente dura. Vale la pena contrastarlos con negocios reales
    cuando se haga la validación de campo anotada en
    `../ESTRATEGIA-COMPETITIVA.md`.
+
+## Gating por capacidad en rutas de gestión (2026-07-25)
+
+Pregunta del humano: si un empleado no puede gestionar el equipo, ¿debería
+poder entrar a esa pantalla aunque sea en modo lectura? Respuesta: no, y
+además el problema de fondo estaba en el backend (ver
+`../backend/ROADMAP-BACKEND.md` — el endpoint exponía email y permisos de
+todo el equipo a cualquier miembro).
+
+Del lado frontend:
+- `RutaProtegida` acepta ahora una prop `capacidad` opcional. `/empleados`
+  la usa con `puede_gestionar_empleados`; quien no la tenga es redirigido
+  a `/`. El tipo `Capacidad` se deriva del schema (`puede_${string}` sobre
+  `MiMembresia`), así que un flag mal escrito no compila.
+- El ítem "Equipo" desaparece del menú (drawer y bottom nav) para quien no
+  tiene la capacidad.
+- Agenda y `ModalHorarioSemanal` pasaron a consumir el nuevo
+  `GET /api/negocios/equipo/`, que devuelve solo `id`, `nombre`,
+  `especialidad` y `activo`.
+
+**Criterio adoptado** (documentado también en el docstring de
+`RutaProtegida`): el gating por ruta se aplica solo a pantallas que son de
+gestión de punta a punta, donde no queda nada útil en modo lectura. En
+Servicios y Agenda la lectura sí sirve a cualquier miembro, así que esas
+siguen abiertas y ocultan únicamente sus acciones de escritura. El guard
+de ruta no es la barrera de seguridad —esa está en el backend— sino la
+forma de no ofrecer una pantalla que respondería 403.

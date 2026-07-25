@@ -5,11 +5,19 @@ import { useAuth } from "../auth/AuthContext";
 import { cn } from "../ui/cn";
 import { Icon } from "../ui/Icon";
 
+/** `capacidad` presente = el ítem solo se muestra a quien la tiene. Se
+ * usa únicamente en pantallas de gestión pura (Equipo): las demás son
+ * útiles en modo lectura para cualquier miembro. */
 const NAVEGACION = [
   { to: "/", etiqueta: "Inicio", icono: "dashboard" },
   { to: "/agenda", etiqueta: "Agenda", icono: "calendar_today" },
   { to: "/servicios", etiqueta: "Servicios", icono: "content_cut" },
-  { to: "/empleados", etiqueta: "Equipo", icono: "group" },
+  {
+    to: "/empleados",
+    etiqueta: "Equipo",
+    icono: "group",
+    capacidad: "puede_gestionar_empleados",
+  },
 ] as const;
 
 /** Iniciales del usuario para el avatar: el diseño usa una foto, pero
@@ -26,6 +34,10 @@ function iniciales(nombre: string): string {
 
 export function Layout({ children }: { children: ReactNode }) {
   const { membresia, logout } = useAuth();
+
+  const navegacion = NAVEGACION.filter(
+    (item) => !("capacidad" in item) || Boolean(membresia?.[item.capacidad]),
+  );
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -65,7 +77,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* NavigationDrawer (escritorio) */}
         <aside className="sticky top-[88px] hidden h-[calc(100dvh-88px)] w-[240px] shrink-0 flex-col border-r border-outline-variant bg-surface-container-low lg:flex">
           <nav className="flex-1 space-y-1 p-2 pt-6" aria-label="Navegación principal">
-            {NAVEGACION.map(({ to, etiqueta, icono }) => (
+            {navegacion.map(({ to, etiqueta, icono }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -101,7 +113,7 @@ export function Layout({ children }: { children: ReactNode }) {
         aria-label="Navegación principal"
         className="fixed bottom-0 left-0 z-50 flex w-full items-center justify-around bg-surface px-4 pb-4 pt-2 shadow-nav safe-bottom lg:hidden"
       >
-        {NAVEGACION.map(({ to, etiqueta, icono }) => (
+        {navegacion.map(({ to, etiqueta, icono }) => (
           <NavLink
             key={to}
             to={to}

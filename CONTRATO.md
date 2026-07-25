@@ -186,14 +186,37 @@ encimada). Si no hay ningún empleado disponible, responde `400` con
 disponibilidad por su cuenta ni elegir un empleado "al azar": siempre
 delega esa decisión al backend omitiendo el campo.
 
-### 5.4 Aislamiento por tenant
+### 5.4 Directorio del equipo vs. gestión de empleados
+
+Hay **dos** endpoints para listar personas del negocio, a propósito:
+
+- **`GET /api/negocios/equipo/`** — directorio mínimo (`id`, `nombre`,
+  `especialidad`, `activo`). Lo puede pedir **cualquier miembro**. Es lo
+  que necesita la agenda: filtrar el calendario por empleado, ofrecer
+  "cualquiera disponible" y cargar horarios.
+- **`GET /api/negocios/empleados/`** (y `.../{id}/`) — vista de
+  **gestión**: incluye `email` y la matriz de capacidades. Exige
+  `puede_gestionar_empleados` **tanto para leer como para escribir**.
+
+La separación es deliberada: el email y los permisos de un compañero son
+datos de administración, no información que todo el equipo necesite. Se
+prefirió partir en dos endpoints —cada uno con una forma honesta en el
+schema— antes que un solo endpoint que devuelva más o menos campos
+según quién pregunte, que habría quedado ambiguo de tipar.
+
+Para el frontend esto significa: si solo necesitas nombres de
+empleados, usa `/equipo/`. `/empleados/` es únicamente para la pantalla
+de gestión de equipo, que además debería estar oculta a quien no tenga
+la capacidad (si no, verá un 403).
+
+### 5.5 Aislamiento por tenant
 
 Todo endpoint de negocio filtra automáticamente por el tenant del
 usuario autenticado. Un usuario nunca puede ver ni deducir la
 existencia de datos de otro negocio: un recurso ajeno responde `404`,
 igual que uno inexistente.
 
-### 5.5 Escritura en lote: horario semanal y alta de servicios
+### 5.6 Escritura en lote: horario semanal y alta de servicios
 
 Dos operaciones tienen endpoint de lote **además** del CRUD de a uno,
 porque hacerlas con N requests no era atómico y dejaba estado parcial
@@ -288,3 +311,18 @@ un solo elemento. Los endpoints de lote son para el alta inicial
   aplicaban (`puede_gestionar_agenda` y `puede_editar_precios`
   respectivamente) y el aislamiento por tenant: pasar el `miembro` de
   otro negocio responde `400`, no toca datos ajenos.
+- **2026-07-25** — **Cambio con ruptura**: `GET
+  /api/negocios/empleados/` y `GET /api/negocios/empleados/{id}/` ahora
+  exigen `puede_gestionar_empleados` **también para leer** (antes
+  bastaba con pertenecer al negocio). Motivo: ese endpoint devuelve el
+  email y la matriz completa de capacidades de cada miembro, así que
+  cualquier empleado sin permisos podía consultar los correos y los
+  permisos de todo el equipo. En su lugar se agregó `GET
+  /api/negocios/equipo/` (ver 5.4), un directorio mínimo —`id`,
+  `nombre`, `especialidad`, `activo`— accesible a cualquier miembro,
+  que es lo que la agenda realmente necesitaba para filtrar el
+  calendario y asignar citas. **Quien consuma `/empleados/` solo para
+  obtener nombres debe migrar a `/equipo/`**; el frontend ya lo hizo en
+  Agenda y en el editor de horarios. La pantalla de gestión de equipo
+  quedó además detrás de un guard de ruta por capacidad, para no
+  mostrar una vista que respondería 403.

@@ -505,6 +505,12 @@ paths:
       description: |-
         Lista o agrega empleados del negocio del usuario autenticado.
 
+        Endpoint de **gestión**: expone email y capacidades de cada miembro,
+        así que exige `puede_gestionar_empleados` también para listar, no
+        solo para crear. Quien solo necesita saber quiénes son sus
+        compañeros (la agenda) usa `GET /api/negocios/equipo/`, que
+        devuelve una vista mínima sin datos personales.
+
         El queryset se filtra siempre por el negocio de la membresía activa
         del solicitante: nunca se exponen empleados de otro tenant.
       tags:
@@ -524,6 +530,12 @@ paths:
       operationId: negocios_empleados_create
       description: |-
         Lista o agrega empleados del negocio del usuario autenticado.
+
+        Endpoint de **gestión**: expone email y capacidades de cada miembro,
+        así que exige `puede_gestionar_empleados` también para listar, no
+        solo para crear. Quien solo necesita saber quiénes son sus
+        compañeros (la agenda) usa `GET /api/negocios/equipo/`, que
+        devuelve una vista mínima sin datos personales.
 
         El queryset se filtra siempre por el negocio de la membresía activa
         del solicitante: nunca se exponen empleados de otro tenant.
@@ -556,11 +568,10 @@ paths:
       description: |-
         Detalle y edición de un empleado puntual del negocio.
 
-        Editar (capacidades, especialidad, activo) requiere
-        `puede_gestionar_empleados`; ver el detalle solo requiere
-        pertenecer al negocio. Nunca expone empleados de otro tenant: el
-        queryset ya viene acotado al negocio de la membresía del
-        solicitante.
+        Tanto ver como editar requieren `puede_gestionar_empleados`: el
+        detalle incluye email y capacidades, que son datos de gestión. Nunca
+        expone empleados de otro tenant: el queryset ya viene acotado al
+        negocio de la membresía del solicitante.
       parameters:
       - in: path
         name: id
@@ -583,11 +594,10 @@ paths:
       description: |-
         Detalle y edición de un empleado puntual del negocio.
 
-        Editar (capacidades, especialidad, activo) requiere
-        `puede_gestionar_empleados`; ver el detalle solo requiere
-        pertenecer al negocio. Nunca expone empleados de otro tenant: el
-        queryset ya viene acotado al negocio de la membresía del
-        solicitante.
+        Tanto ver como editar requieren `puede_gestionar_empleados`: el
+        detalle incluye email y capacidades, que son datos de gestión. Nunca
+        expone empleados de otro tenant: el queryset ya viene acotado al
+        negocio de la membresía del solicitante.
       parameters:
       - in: path
         name: id
@@ -621,11 +631,10 @@ paths:
       description: |-
         Detalle y edición de un empleado puntual del negocio.
 
-        Editar (capacidades, especialidad, activo) requiere
-        `puede_gestionar_empleados`; ver el detalle solo requiere
-        pertenecer al negocio. Nunca expone empleados de otro tenant: el
-        queryset ya viene acotado al negocio de la membresía del
-        solicitante.
+        Tanto ver como editar requieren `puede_gestionar_empleados`: el
+        detalle incluye email y capacidades, que son datos de gestión. Nunca
+        expone empleados de otro tenant: el queryset ya viene acotado al
+        negocio de la membresía del solicitante.
       parameters:
       - in: path
         name: id
@@ -653,6 +662,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MiembroNegocio'
+          description: ''
+  /api/negocios/equipo/:
+    get:
+      operationId: negocios_equipo_list
+      description: |-
+        Directorio mínimo del equipo, para cualquier miembro del negocio.
+
+        Devuelve solo `id`, `nombre`, `especialidad` y `activo`: lo que la
+        agenda necesita para filtrar el calendario, ofrecer "cualquiera
+        disponible" y cargar horarios, sin exponer email ni capacidades.
+
+        Separado de `/empleados/` a propósito: así cada endpoint tiene una
+        forma honesta en el schema, en vez de un mismo endpoint que devuelve
+        más o menos campos según quién pregunte.
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MiembroEquipo'
           description: ''
   /api/negocios/mi-membresia/:
     get:
@@ -1171,6 +1206,38 @@ components:
       - puede_gestionar_agenda
       - puede_gestionar_empleados
       - puede_ver_reportes
+    MiembroEquipo:
+      type: object
+      description: |-
+        Vista mínima de un compañero de trabajo, para quien NO gestiona
+        el equipo.
+
+        Existe porque la agenda necesita listar empleados (filtrar el
+        calendario, elegir a quién asignar una cita, cargar horarios), pero
+        eso no justifica exponerle a cualquier miembro el email y la matriz
+        de capacidades de todos sus compañeros — que es lo que hacía
+        `MiembroNegocioSerializer` cuando se usaba para listar sin exigir
+        `puede_gestionar_empleados`.
+
+        Deliberadamente sin `email` ni flags `puede_*`.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          readOnly: true
+        especialidad:
+          type: string
+          readOnly: true
+        activo:
+          type: boolean
+          readOnly: true
+      required:
+      - activo
+      - especialidad
+      - id
+      - nombre
     MiembroNegocio:
       type: object
       properties:

@@ -258,6 +258,12 @@ export interface paths {
         /**
          * @description Lista o agrega empleados del negocio del usuario autenticado.
          *
+         *     Endpoint de **gestión**: expone email y capacidades de cada miembro,
+         *     así que exige `puede_gestionar_empleados` también para listar, no
+         *     solo para crear. Quien solo necesita saber quiénes son sus
+         *     compañeros (la agenda) usa `GET /api/negocios/equipo/`, que
+         *     devuelve una vista mínima sin datos personales.
+         *
          *     El queryset se filtra siempre por el negocio de la membresía activa
          *     del solicitante: nunca se exponen empleados de otro tenant.
          */
@@ -265,6 +271,12 @@ export interface paths {
         put?: never;
         /**
          * @description Lista o agrega empleados del negocio del usuario autenticado.
+         *
+         *     Endpoint de **gestión**: expone email y capacidades de cada miembro,
+         *     así que exige `puede_gestionar_empleados` también para listar, no
+         *     solo para crear. Quien solo necesita saber quiénes son sus
+         *     compañeros (la agenda) usa `GET /api/negocios/equipo/`, que
+         *     devuelve una vista mínima sin datos personales.
          *
          *     El queryset se filtra siempre por el negocio de la membresía activa
          *     del solicitante: nunca se exponen empleados de otro tenant.
@@ -286,21 +298,19 @@ export interface paths {
         /**
          * @description Detalle y edición de un empleado puntual del negocio.
          *
-         *     Editar (capacidades, especialidad, activo) requiere
-         *     `puede_gestionar_empleados`; ver el detalle solo requiere
-         *     pertenecer al negocio. Nunca expone empleados de otro tenant: el
-         *     queryset ya viene acotado al negocio de la membresía del
-         *     solicitante.
+         *     Tanto ver como editar requieren `puede_gestionar_empleados`: el
+         *     detalle incluye email y capacidades, que son datos de gestión. Nunca
+         *     expone empleados de otro tenant: el queryset ya viene acotado al
+         *     negocio de la membresía del solicitante.
          */
         get: operations["negocios_empleados_retrieve"];
         /**
          * @description Detalle y edición de un empleado puntual del negocio.
          *
-         *     Editar (capacidades, especialidad, activo) requiere
-         *     `puede_gestionar_empleados`; ver el detalle solo requiere
-         *     pertenecer al negocio. Nunca expone empleados de otro tenant: el
-         *     queryset ya viene acotado al negocio de la membresía del
-         *     solicitante.
+         *     Tanto ver como editar requieren `puede_gestionar_empleados`: el
+         *     detalle incluye email y capacidades, que son datos de gestión. Nunca
+         *     expone empleados de otro tenant: el queryset ya viene acotado al
+         *     negocio de la membresía del solicitante.
          */
         put: operations["negocios_empleados_update"];
         post?: never;
@@ -310,13 +320,39 @@ export interface paths {
         /**
          * @description Detalle y edición de un empleado puntual del negocio.
          *
-         *     Editar (capacidades, especialidad, activo) requiere
-         *     `puede_gestionar_empleados`; ver el detalle solo requiere
-         *     pertenecer al negocio. Nunca expone empleados de otro tenant: el
-         *     queryset ya viene acotado al negocio de la membresía del
-         *     solicitante.
+         *     Tanto ver como editar requieren `puede_gestionar_empleados`: el
+         *     detalle incluye email y capacidades, que son datos de gestión. Nunca
+         *     expone empleados de otro tenant: el queryset ya viene acotado al
+         *     negocio de la membresía del solicitante.
          */
         patch: operations["negocios_empleados_partial_update"];
+        trace?: never;
+    };
+    "/api/negocios/equipo/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Directorio mínimo del equipo, para cualquier miembro del negocio.
+         *
+         *     Devuelve solo `id`, `nombre`, `especialidad` y `activo`: lo que la
+         *     agenda necesita para filtrar el calendario, ofrecer "cualquiera
+         *     disponible" y cargar horarios, sin exponer email ni capacidades.
+         *
+         *     Separado de `/empleados/` a propósito: así cada endpoint tiene una
+         *     forma honesta en el schema, en vez de un mismo endpoint que devuelve
+         *     más o menos campos según quién pregunte.
+         */
+        get: operations["negocios_equipo_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/negocios/mi-membresia/": {
@@ -579,6 +615,25 @@ export interface components {
             readonly puede_editar_precios: boolean;
             readonly puede_gestionar_empleados: boolean;
             readonly puede_gestionar_agenda: boolean;
+            readonly activo: boolean;
+        };
+        /**
+         * @description Vista mínima de un compañero de trabajo, para quien NO gestiona
+         *     el equipo.
+         *
+         *     Existe porque la agenda necesita listar empleados (filtrar el
+         *     calendario, elegir a quién asignar una cita, cargar horarios), pero
+         *     eso no justifica exponerle a cualquier miembro el email y la matriz
+         *     de capacidades de todos sus compañeros — que es lo que hacía
+         *     `MiembroNegocioSerializer` cuando se usaba para listar sin exigir
+         *     `puede_gestionar_empleados`.
+         *
+         *     Deliberadamente sin `email` ni flags `puede_*`.
+         */
+        MiembroEquipo: {
+            readonly id: number;
+            readonly nombre: string;
+            readonly especialidad: string;
             readonly activo: boolean;
         };
         MiembroNegocio: {
@@ -1253,6 +1308,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MiembroNegocio"];
+                };
+            };
+        };
+    };
+    negocios_equipo_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiembroEquipo"][];
                 };
             };
         };

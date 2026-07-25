@@ -84,6 +84,28 @@ class MiembroNegocioSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "email", "nombre"]
 
 
+class MiembroEquipoSerializer(serializers.ModelSerializer):
+    """Vista mínima de un compañero de trabajo, para quien NO gestiona
+    el equipo.
+
+    Existe porque la agenda necesita listar empleados (filtrar el
+    calendario, elegir a quién asignar una cita, cargar horarios), pero
+    eso no justifica exponerle a cualquier miembro el email y la matriz
+    de capacidades de todos sus compañeros — que es lo que hacía
+    `MiembroNegocioSerializer` cuando se usaba para listar sin exigir
+    `puede_gestionar_empleados`.
+
+    Deliberadamente sin `email` ni flags `puede_*`.
+    """
+
+    nombre = serializers.CharField(source="usuario.nombre", read_only=True)
+
+    class Meta:
+        model = MiembroNegocio
+        fields = ["id", "nombre", "especialidad", "activo"]
+        read_only_fields = fields
+
+
 class MiMembresiaSerializer(serializers.ModelSerializer):
     """Forma de la respuesta de GET /api/negocios/mi-membresia/.
 

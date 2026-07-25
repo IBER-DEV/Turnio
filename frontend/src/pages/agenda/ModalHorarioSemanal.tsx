@@ -12,7 +12,7 @@ import { Modal } from "../../ui/Modal";
 import { Switch } from "../../ui/Switch";
 import { useToast } from "../../ui/Toast";
 
-type MiembroNegocio = components["schemas"]["MiembroNegocio"];
+type MiembroEquipo = components["schemas"]["MiembroEquipo"];
 type HorarioTrabajo = components["schemas"]["HorarioTrabajo"];
 
 const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
@@ -81,7 +81,7 @@ export function ModalHorarioSemanal({
 }: {
   abierto: boolean;
   onCerrar: () => void;
-  empleados: MiembroNegocio[];
+  empleados: MiembroEquipo[];
   horarios: HorarioTrabajo[];
   onCambio: () => Promise<void>;
 }) {

@@ -406,3 +406,45 @@ responde 400 sin tocar datos ajenos).
 ### Contrato
 `openapi.yaml` regenerado y `../CONTRATO.md` actualizado: nueva sección
 5.5 (convención de escritura en lote) + entrada en el historial.
+
+## Cierre de fuga de datos: directorio de equipo vs. gestión (2026-07-25)
+
+> Salió de una pregunta del humano sobre la UI ("si un empleado no puede
+> gestionar equipo, ¿debería siquiera ver esa pantalla?"). Al revisarlo,
+> el problema real no era la pantalla sino el endpoint.
+
+### El problema
+`GET /api/negocios/empleados/` exigía solo `TieneMembresiaActiva`, y
+`MiembroNegocioSerializer` devuelve `email` + los cinco flags `puede_*`
+de cada miembro. Es decir: **cualquier empleado sin permisos podía
+consultar los correos y la matriz de permisos de todo el equipo.**
+Ocultar la pantalla en el frontend no habría arreglado nada — el dato
+seguía a un `curl` de distancia. Mismo problema en
+`GET /api/negocios/empleados/{id}/`.
+
+No se podía simplemente cerrar el endpoint: la agenda lo usa
+legítimamente para el filtro por empleado, el selector de "a quién
+asignar" y el editor de horarios.
+
+### La solución
+Partirlo en dos endpoints con responsabilidades distintas:
+- **`GET /api/negocios/equipo/`** (nuevo) — `MiembroEquipoSerializer`:
+  solo `id`, `nombre`, `especialidad`, `activo`. Cualquier miembro.
+- **`/empleados/`** — sigue con datos completos, pero ahora exige
+  `puede_gestionar_empleados` para leer, no solo para escribir.
+
+Se prefirió dos endpoints sobre un solo endpoint que devuelva más o
+menos campos según quién pregunte: esto último habría dejado el schema
+OpenAPI mintiendo (una forma declarada, dos formas reales) y obligaría
+al frontend a defenderse de campos ausentes en cada uso.
+
+### Es un cambio con ruptura
+Cualquier consumidor que usara `/empleados/` solo para obtener nombres
+debe migrar a `/equipo/`. El frontend ya lo hizo (Agenda y editor de
+horarios). Anotado como tal en `../CONTRATO.md`.
+
+### Tests
+5 nuevos (60 en total): que listar y ver detalle de empleados ahora dan
+403 sin la capacidad, que `/equipo/` sí lo puede ver cualquier miembro,
+que `/equipo/` **no** expone email ni capacidades (se afirma el set
+exacto de claves, no solo la ausencia), y que no cruza tenants.

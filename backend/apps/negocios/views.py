@@ -9,6 +9,7 @@ from apps.common.permissions import TieneMembresiaActiva, requiere_capacidad
 from apps.negocios import services
 from apps.negocios.serializers import (
     EmpleadoAltaSerializer,
+    MiembroEquipoSerializer,
     MiembroNegocioSerializer,
     MiMembresiaSerializer,
     NegocioSerializer,
@@ -75,16 +76,18 @@ class RegistroNegocioView(APIView):
 class EmpleadoListCreateView(generics.ListCreateAPIView):
     """Lista o agrega empleados del negocio del usuario autenticado.
 
+    Endpoint de **gestión**: expone email y capacidades de cada miembro,
+    así que exige `puede_gestionar_empleados` también para listar, no
+    solo para crear. Quien solo necesita saber quiénes son sus
+    compañeros (la agenda) usa `GET /api/negocios/equipo/`, que
+    devuelve una vista mínima sin datos personales.
+
     El queryset se filtra siempre por el negocio de la membresía activa
     del solicitante: nunca se exponen empleados de otro tenant.
     """
 
     serializer_class = MiembroNegocioSerializer
-
-    def get_permissions(self):
-        if self.request.method == "POST":
-            return [requiere_capacidad("puede_gestionar_empleados")()]
-        return [TieneMembresiaActiva()]
+    permission_classes = [requiere_capacidad("puede_gestionar_empleados")]
 
     def get_queryset(self):
         return self.request.membresia.negocio.miembros.select_related("usuario").all()
@@ -126,19 +129,33 @@ class MiMembresiaView(generics.RetrieveAPIView):
 class EmpleadoDetailView(generics.RetrieveUpdateAPIView):
     """Detalle y edición de un empleado puntual del negocio.
 
-    Editar (capacidades, especialidad, activo) requiere
-    `puede_gestionar_empleados`; ver el detalle solo requiere
-    pertenecer al negocio. Nunca expone empleados de otro tenant: el
-    queryset ya viene acotado al negocio de la membresía del
-    solicitante.
+    Tanto ver como editar requieren `puede_gestionar_empleados`: el
+    detalle incluye email y capacidades, que son datos de gestión. Nunca
+    expone empleados de otro tenant: el queryset ya viene acotado al
+    negocio de la membresía del solicitante.
     """
 
     serializer_class = MiembroNegocioSerializer
+    permission_classes = [requiere_capacidad("puede_gestionar_empleados")]
 
-    def get_permissions(self):
-        if self.request.method in ("PUT", "PATCH"):
-            return [requiere_capacidad("puede_gestionar_empleados")()]
-        return [TieneMembresiaActiva()]
+    def get_queryset(self):
+        return self.request.membresia.negocio.miembros.select_related("usuario").all()
+
+
+class EquipoListView(generics.ListAPIView):
+    """Directorio mínimo del equipo, para cualquier miembro del negocio.
+
+    Devuelve solo `id`, `nombre`, `especialidad` y `activo`: lo que la
+    agenda necesita para filtrar el calendario, ofrecer "cualquiera
+    disponible" y cargar horarios, sin exponer email ni capacidades.
+
+    Separado de `/empleados/` a propósito: así cada endpoint tiene una
+    forma honesta en el schema, en vez de un mismo endpoint que devuelve
+    más o menos campos según quién pregunte.
+    """
+
+    serializer_class = MiembroEquipoSerializer
+    permission_classes = [TieneMembresiaActiva]
 
     def get_queryset(self):
         return self.request.membresia.negocio.miembros.select_related("usuario").all()

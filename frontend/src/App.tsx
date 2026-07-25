@@ -52,7 +52,7 @@ function App() {
             <Route
               path="/empleados"
               element={
-                <RutaProtegida>
+                <RutaProtegida capacidad="puede_gestionar_empleados">
                   <Layout>
                     <EmpleadosPage />
                   </Layout>

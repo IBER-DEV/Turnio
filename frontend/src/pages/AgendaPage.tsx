@@ -18,7 +18,7 @@ import { VistaSemana } from "./agenda/VistaSemana";
 
 type Cita = components["schemas"]["Cita"];
 type Servicio = components["schemas"]["Servicio"];
-type MiembroNegocio = components["schemas"]["MiembroNegocio"];
+type MiembroEquipo = components["schemas"]["MiembroEquipo"];
 type HorarioTrabajo = components["schemas"]["HorarioTrabajo"];
 type AccionCita = "confirmar" | "completar" | "cancelar";
 
@@ -67,7 +67,7 @@ export function AgendaPage() {
   const [empleadoFiltro, setEmpleadoFiltro] = useState<number | "todos">("todos");
 
   const [citas, setCitas] = useState<Cita[]>([]);
-  const [empleados, setEmpleados] = useState<MiembroNegocio[]>([]);
+  const [empleados, setEmpleados] = useState<MiembroEquipo[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [horarios, setHorarios] = useState<HorarioTrabajo[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -84,7 +84,7 @@ export function AgendaPage() {
     setError(false);
     const [citasResp, empleadosResp, serviciosResp, horariosResp] = await Promise.all([
       conReintentoDeAuth(() => apiClient.GET("/api/agenda/citas/")),
-      conReintentoDeAuth(() => apiClient.GET("/api/negocios/empleados/")),
+      conReintentoDeAuth(() => apiClient.GET("/api/negocios/equipo/")),
       conReintentoDeAuth(() => apiClient.GET("/api/servicios/")),
       conReintentoDeAuth(() => apiClient.GET("/api/agenda/horarios/")),
     ]);
@@ -425,7 +425,7 @@ function ModalNuevaCita({
   onCreada,
 }: {
   servicios: Servicio[];
-  empleados: MiembroNegocio[];
+  empleados: MiembroEquipo[];
   diaSeleccionado: Date;
   onCerrar: () => void;
   onCreada: () => void;
