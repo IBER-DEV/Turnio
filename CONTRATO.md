@@ -80,6 +80,29 @@ este endpoint dedicado resuelve la membresía directamente desde el
 JWT del solicitante, sin ambigüedad y sin depender de que el frontend
 recuerde el email con el que se logueó.
 
+### 3.2 Lo que la autenticación NO cubre todavía (a propósito, no un olvido)
+
+Documentado para que ninguna pantalla se construya asumiendo que
+existen — si el frontend los necesita, es una conversación de
+contrato nueva, no una suposición:
+
+- **No hay "olvidé mi contraseña"**: ningún endpoint de reset de
+  contraseña existe hoy. No agregues un link "¿Olvidaste tu
+  contraseña?" que apunte a algo que no está implementado.
+- **No hay rate-limiting en `/api/auth/login/`**: no hay protección
+  contra fuerza bruta todavía. Cuando se agregue, la API empezará a
+  responder `429 Too Many Requests` (probablemente con header
+  `Retry-After`) — el frontend deberá manejar ese código, pero hoy no
+  puede pasar.
+- **No hay verificación de email** al registrar un negocio o agregar
+  un empleado: la cuenta queda activa de inmediato con el primer
+  login.
+
+Estos tres son huecos reconocidos (ver `plan-accion.md` sección 0.3),
+no decisiones de diseño definitivas — se espera que se resuelvan en
+una fase de endurecimiento de seguridad antes de un lanzamiento real,
+no en Fase 1.
+
 ## 4. Convenciones de la API
 
 - **Idioma y formato de campos JSON: español, `snake_case`**
@@ -94,6 +117,15 @@ recuerde el email con el que se logueó.
     (ver sección 5).
   - `404`: recurso no existe o no pertenece al tenant del solicitante
     (ver sección 5.4: nunca se distingue "no existe" de "no es tuyo").
+  - **Limitación reconocida**: los mensajes de error son texto humano
+    en español (`"El precio debe ser mayor a cero."`), no códigos de
+    error legibles por máquina (ej. `PRECIO_INVALIDO`). Sirve para
+    mostrar el mensaje tal cual, pero no permite que el frontend
+    reaccione distinto según el tipo de error, ni traducir a otro
+    idioma. Aceptable para Fase 1; si el frontend necesita distinguir
+    programáticamente entre tipos de error (no solo mostrarlos), es un
+    cambio de contrato a proponer, no algo a inferir parseando el
+    string del mensaje.
 - **IDs**: `Tenant` usa UUID; el resto de modelos (`Negocio`,
   `MiembroNegocio`, etc.) usan enteros autoincrementales. El frontend
   no debe asumir un formato único de ID entre entidades.
@@ -209,3 +241,12 @@ igual que uno inexistente.
   derivados de mixins. Si algún otro endpoint usa
   `generics.*APIView` con un método sobrescrito (`create`, `update`,
   etc.) en vez de un `ViewSet`, revisar que use el mismo patrón.
+- **2026-07-24** — Sin cambio de forma, solo documentación de huecos
+  reconocidos (ver `plan-accion.md` sección 0.3, corrección de enfoque
+  de MVP a proyecto profesional): se documentaron explícitamente en
+  3.2 los tres huecos de autenticación que no existen todavía
+  (reset de contraseña, rate-limiting en login, verificación de
+  email), y en la sección 4 la limitación de que los errores son
+  texto humano sin código máquina. Ninguno es un cambio de contrato;
+  son límites a tener en cuenta antes de construir UI que asuma lo
+  contrario.

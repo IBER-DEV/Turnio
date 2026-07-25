@@ -93,6 +93,16 @@ en una vista `generics.ListCreateAPIView` (a diferencia de un
   vez, y Empleados ya estaba soportado al 100% en el backend — dejarlo
   sin UI habría sido un hueco arbitrario, no una fase real.
 
+### Rediseño de UI/UX (2026-07-24) — próximo paso antes de seguir sumando pantallas
+El frontend actual es funcional pero no profesional (CSS mínimo, sin
+sistema de diseño, sin estados de carga/vacío/error diseñados, sin
+confirmaciones, sin accesibilidad) — ver `../plan-accion.md` sección
+0.3. Se dejó [`diseno-ui-ux-prompt.md`](diseno-ui-ux-prompt.md) listo
+para correr en una herramienta de diseño (Claude, Figma AI, v0,
+Lovable, etc.) y usar el resultado como base para reconstruir las
+pantallas existentes, en vez de seguir agregando pantallas nuevas
+sobre el CSS actual.
+
 ### Pendiente / a medio hacer
 - **Tokens en localStorage, no en storage nativo**: para la versión
   Capacitor real (no solo navegador) conviene migrar

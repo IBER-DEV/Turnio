@@ -38,6 +38,13 @@
   Claude Code en paralelo, sin verse el código mutuamente, harían que
   un contrato manual se desincronizara del backend real tarde o
   temprano (confirmado por el humano, 2026-07-24).
+- **De "MVP que funciona" a proyecto profesional** (confirmado por el
+  humano, 2026-07-24): ver `plan-accion.md` sección 0.3. Cada feature
+  nueva pasa por un checklist explícito (seguridad, estados de
+  carga/vacío/error, accesibilidad básica, responsive/mobile-first,
+  contrato, tests) antes de darse por completa, en vez de descubrir
+  los huecos después. Primer paso concreto: rediseño real de UI/UX
+  del frontend (hoy solo tiene CSS mínimo funcional).
 
 ## Estado por fase
 
