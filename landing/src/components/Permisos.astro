@@ -1,0 +1,32 @@
+---
+import { MatrizPermisos } from "./MatrizPermisos";
+---
+
+<section id="permisos" class="border-y border-borde bg-superficie py-20 md:py-28">
+  <div class="contenedor-landing">
+    <div class="mx-auto max-w-2xl text-center">
+      <span
+        class="inline-block rounded-full bg-indigo/5 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo"
+      >
+        Seguridad total en tu equipo
+      </span>
+      <h2 class="mt-5 text-3xl font-extrabold tracking-tight text-indigo sm:text-4xl">
+        Aquí no hay "administrador" ni "empleado"
+      </h2>
+      <p class="mt-4 text-lg leading-relaxed text-texto-suave">
+        Cinco permisos independientes que enciendes uno por uno. Tu recepcionista puede agendar sin
+        ver cuánto factura el negocio; tu barbero de confianza puede cobrar sin poder cambiar
+        precios.
+      </p>
+    </div>
+
+    <div class="mt-14">
+      <MatrizPermisos client:visible />
+    </div>
+
+    <p class="mx-auto mt-10 max-w-2xl text-center text-sm leading-relaxed text-texto-suave">
+      Cada persona ve exactamente lo que le corresponde — y nada más. Sin plantillas de rol que
+      obligan a dar de más para poder dar lo justo.
+    </p>
+  </div>
+</section>

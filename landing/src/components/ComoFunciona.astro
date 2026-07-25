@@ -1,0 +1,51 @@
+---
+const PASOS = [
+  {
+    numero: "01",
+    titulo: "Registra tu negocio",
+    detalle:
+      "Nombre, ciudad y tus datos. Dos pasos, sin tarjeta de crédito. Quedas con todos los permisos activos.",
+  },
+  {
+    numero: "02",
+    titulo: "Arma tu carta desde el catálogo",
+    detalle:
+      "Marca los servicios que ofreces de una lista con precios en pesos ya sugeridos, y ajusta lo que quieras. No tienes que teclear tu carta entera.",
+  },
+  {
+    numero: "03",
+    titulo: "Agrega a tu equipo",
+    detalle:
+      "Cada persona con su especialidad y sus permisos. Define el horario semanal completo de una vez, no día por día.",
+  },
+  {
+    numero: "04",
+    titulo: "Empieza a agendar",
+    detalle:
+      "Elige el barbero o deja que Turnio asigne al primero disponible. Confirmas y completas desde el teléfono, entre cliente y cliente.",
+  },
+];
+---
+
+<section id="como-funciona" class="contenedor-landing py-20 md:py-28">
+  <div class="mx-auto max-w-2xl text-center">
+    <h2 class="text-3xl font-extrabold tracking-tight text-indigo sm:text-4xl">
+      De cero a agendando
+    </h2>
+    <p class="mt-4 text-lg leading-relaxed text-texto-suave">
+      Sin capacitación, sin instalador, sin visita técnica.
+    </p>
+  </div>
+
+  <ol class="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+    {
+      PASOS.map((paso) => (
+        <li class="relative rounded-2xl border border-borde bg-superficie p-7 shadow-suave">
+          <span class="text-3xl font-extrabold tracking-tight text-menta/30">{paso.numero}</span>
+          <h3 class="mt-3 text-base font-extrabold text-indigo">{paso.titulo}</h3>
+          <p class="mt-2 text-sm leading-relaxed text-texto-suave">{paso.detalle}</p>
+        </li>
+      ))
+    }
+  </ol>
+</section>

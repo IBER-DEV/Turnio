@@ -1,0 +1,147 @@
+---
+import Proximamente from "./Proximamente.astro";
+
+/** Estados en el orden de la máquina real del backend. Los colores son
+ * los de marketing (más saturados, legibles en un diagrama), no los de
+ * la app: acá se explica un concepto, no se simula la pantalla. */
+const FLUJO = [
+  { estado: "Agendada", color: "bg-agendada", clase: "text-amber-700 bg-amber-50 border-amber-200" },
+  {
+    estado: "Confirmada",
+    color: "bg-confirmada",
+    clase: "text-blue-700 bg-blue-50 border-blue-200",
+  },
+  {
+    estado: "Completada",
+    color: "bg-completada",
+    clase: "text-emerald-700 bg-emerald-50 border-emerald-200",
+  },
+];
+---
+
+<section id="caracteristicas" class="contenedor-landing py-20 md:py-28">
+  <div class="mx-auto max-w-2xl text-center">
+    <h2 class="text-3xl font-extrabold tracking-tight text-indigo sm:text-4xl">
+      La agenda de 30 segundos
+    </h2>
+    <p class="mt-4 text-lg leading-relaxed text-texto-suave">
+      Todo lo que haces entre un cliente y el siguiente, en la menor cantidad de toques posible.
+    </p>
+  </div>
+
+  <div class="mt-14 grid gap-6 lg:grid-cols-3">
+    <!-- 1. Asignación automática -->
+    <article
+      class="rounded-2xl border border-borde bg-superficie p-7 shadow-suave transition-shadow hover:shadow-tarjeta"
+    >
+      <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-menta/10">
+        <svg viewBox="0 0 24 24" fill="none" class="h-6 w-6 text-menta" aria-hidden="true">
+          <path
+            d="M12 2v4m0 12v4M2 12h4m12 0h4M6 6l2.8 2.8M15.2 15.2 18 18M6 18l2.8-2.8M15.2 8.8 18 6"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"></path>
+        </svg>
+      </div>
+      <h3 class="text-lg font-extrabold text-indigo">Asignación automática</h3>
+      <p class="mt-2 text-sm leading-relaxed text-texto-suave">
+        El cliente elige "Cualquiera disponible" y Turnio le asigna el primer barbero con cupo real
+        ese día y a esa hora. Tú no calculas nada.
+      </p>
+
+      <div class="mt-5 space-y-2 rounded-xl bg-lienzo p-4">
+        <div class="rounded-lg border border-menta bg-superficie px-3 py-2 text-xs font-bold text-indigo">
+          ✨ Cualquiera disponible
+        </div>
+        <div class="flex items-center gap-2 pl-3 text-xs text-texto-suave">
+          <span class="text-menta">↓</span> Turnio revisa horarios y citas
+        </div>
+        <div class="rounded-lg border border-borde bg-superficie px-3 py-2 text-xs text-texto">
+          Asignado a <strong class="text-indigo">Mateo G.</strong> · 3:30 PM
+        </div>
+      </div>
+    </article>
+
+    <!-- 2. Máquina de estados -->
+    <article
+      class="rounded-2xl border border-borde bg-superficie p-7 shadow-suave transition-shadow hover:shadow-tarjeta"
+    >
+      <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo/10">
+        <svg viewBox="0 0 24 24" fill="none" class="h-6 w-6 text-indigo" aria-hidden="true">
+          <path
+            d="M9 12l2 2 4-4"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"></path>
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
+        </svg>
+      </div>
+      <h3 class="text-lg font-extrabold text-indigo">Transiciones sin errores</h3>
+      <p class="mt-2 text-sm leading-relaxed text-texto-suave">
+        Una cita completada no se puede cancelar por accidente. El sistema solo ofrece las acciones
+        que son válidas en cada momento.
+      </p>
+
+      <div class="mt-5 rounded-xl bg-lienzo p-4">
+        <div class="flex items-center justify-between gap-1">
+          {
+            FLUJO.map((paso, indice) => (
+              <>
+                <span
+                  class={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${paso.clase}`}
+                >
+                  {paso.estado}
+                </span>
+                {indice < FLUJO.length - 1 && (
+                  <span class="text-xs text-slate-300" aria-hidden="true">
+                    →
+                  </span>
+                )}
+              </>
+            ))
+          }
+        </div>
+        <p class="mt-3 border-t border-borde pt-3 text-[11px] leading-relaxed text-texto-suave">
+          <span class="font-bold text-rose-600">Cancelada</span> solo se alcanza desde
+          <em>agendada</em> o <em>confirmada</em>. Nunca desde una cita ya completada.
+        </p>
+      </div>
+    </article>
+
+    <!-- 3. Cobro — todavía no construido -->
+    <article
+      class="relative rounded-2xl border border-dashed border-borde bg-superficie/60 p-7 shadow-suave"
+    >
+      <div class="mb-5 flex items-start justify-between gap-3">
+        <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100">
+          <svg viewBox="0 0 24 24" fill="none" class="h-6 w-6 text-slate-400" aria-hidden="true">
+            <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2"
+            ></rect>
+            <path d="M2 10h20" stroke="currentColor" stroke-width="2"></path>
+          </svg>
+        </div>
+        <Proximamente />
+      </div>
+      <h3 class="text-lg font-extrabold text-slate-500">Cobro y cierre de caja</h3>
+      <p class="mt-2 text-sm leading-relaxed text-texto-suave">
+        Registrar lo que entró por Nequi, Daviplata o efectivo y saber en un toque cuánto le
+        corresponde a cada barbero al final del día.
+      </p>
+
+      <div class="mt-5 space-y-2 rounded-xl bg-lienzo p-4 opacity-60">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-texto-suave">Entró hoy</span>
+          <span class="font-bold text-slate-400">$340.000</span>
+        </div>
+        <div class="flex items-center justify-between border-t border-borde pt-2 text-xs">
+          <span class="text-texto-suave">Comisión Mateo (70%)</span>
+          <span class="font-bold text-slate-400">$119.000</span>
+        </div>
+      </div>
+      <p class="mt-4 text-[11px] font-semibold text-amber-700">
+        En construcción. Déjanos tu correo y te avisamos cuando esté.
+      </p>
+    </article>
+  </div>
+</section>

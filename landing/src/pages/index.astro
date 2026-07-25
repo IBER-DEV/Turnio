@@ -1,0 +1,25 @@
+---
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Hero from "../components/Hero.astro";
+import Caracteristicas from "../components/Caracteristicas.astro";
+import Permisos from "../components/Permisos.astro";
+import ComoFunciona from "../components/ComoFunciona.astro";
+import Planes from "../components/Planes.astro";
+import Footer from "../components/Footer.astro";
+---
+
+<Base
+  titulo="Turnio — Agenda y equipo para barberías y salones en Colombia"
+  descripcion="Software de gestión para barberías, salones de belleza y centros estéticos en Colombia. Agenda por empleado, permisos granulares y asignación automática de turnos. Sin cargo por empleado."
+>
+  <Header />
+  <main id="contenido">
+    <Hero />
+    <Caracteristicas />
+    <Permisos />
+    <ComoFunciona />
+    <Planes />
+  </main>
+  <Footer />
+</Base>

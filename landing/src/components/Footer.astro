@@ -1,0 +1,70 @@
+---
+/**
+ * El formulario apunta a `action` vacío porque todavía no hay backend
+ * de captura de correos (`POST` a un servicio de listas o un endpoint
+ * propio). Antes de publicar hay que conectarlo: hoy no guarda nada.
+ * Ver "Pendiente" en `ROADMAP-LANDING.md`.
+ */
+const anio = new Date().getFullYear();
+---
+
+<section id="acceso" class="bg-pizarra py-20 md:py-28">
+  <div class="contenedor-landing">
+    <div class="mx-auto max-w-2xl text-center">
+      <h2 class="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+        ¿Listo para dejar el cuaderno de papel?
+      </h2>
+      <p class="mt-4 text-lg leading-relaxed text-slate-400">
+        Estamos terminando Turnio con un grupo pequeño de barberías y salones en Bogotá. Déjanos tu
+        correo y te escribimos cuando abramos cupos.
+      </p>
+
+      <form class="mx-auto mt-9 flex max-w-md flex-col gap-3 sm:flex-row" data-captura-correo>
+        <label for="correo" class="sr-only">Tu correo</label>
+        <input
+          id="correo"
+          type="email"
+          name="correo"
+          required
+          placeholder="tu@barberia.com"
+          class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3.5 text-sm text-white placeholder:text-slate-500 focus:border-menta focus:outline-none"
+        />
+        <button
+          type="submit"
+          class="rounded-xl bg-menta px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-menta-oscura active:scale-[0.98]"
+        >
+          Quiero mi cupo
+        </button>
+      </form>
+      <p class="mt-3 text-xs text-slate-500">
+        Sin spam. Solo te escribimos cuando haya algo real que probar.
+      </p>
+    </div>
+
+    <div
+      class="mt-16 flex flex-col items-center justify-between gap-6 border-t border-slate-800 pt-10 sm:flex-row"
+    >
+      <a href="#" class="flex items-center gap-2 text-lg font-extrabold tracking-tight">
+        <span
+          class="flex h-8 w-8 items-center justify-center rounded-lg bg-menta text-sm text-white"
+          aria-hidden="true">T</span
+        >
+        <span class="text-white">Turn<span class="text-menta">io</span></span>
+      </a>
+
+      <nav aria-label="Pie de página">
+        <ul class="flex flex-wrap items-center justify-center gap-x-7 gap-y-3 text-sm text-slate-400">
+          <li><a href="#caracteristicas" class="transition-colors hover:text-white">Características</a></li>
+          <li><a href="#permisos" class="transition-colors hover:text-white">Permisos</a></li>
+          <li><a href="#planes" class="transition-colors hover:text-white">Planes</a></li>
+          <li><a href="/terminos" class="transition-colors hover:text-white">Términos</a></li>
+          <li><a href="/privacidad" class="transition-colors hover:text-white">Privacidad</a></li>
+        </ul>
+      </nav>
+    </div>
+
+    <p class="mt-8 text-center text-xs text-slate-500">
+      © {anio} Turnio · Hecho en Colombia para barberías, salones y centros estéticos.
+    </p>
+  </div>
+</section>

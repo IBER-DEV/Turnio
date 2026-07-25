@@ -1,0 +1,144 @@
+---
+import Proximamente from "./Proximamente.astro";
+
+/**
+ * Precios: sección informativa, NO transaccional.
+ *
+ * No hay módulo de suscripción ni pasarela (Fase 5 del `../ROADMAP.md`,
+ * sin empezar), así que no existe forma de cobrarle a nadie todavía.
+ * Los CTA piden correo en vez de simular un checkout que no existe, y
+ * las cifras se presentan como intención de precio, no como tarifa
+ * vigente.
+ */
+const PLANES = [
+  {
+    nombre: "Barbería",
+    resumen: "Para un local con su equipo completo.",
+    precio: "$49.000",
+    periodo: "/mes",
+    destacado: true,
+    incluye: [
+      { texto: "Empleados ilimitados, sin cargo por persona", listo: true },
+      { texto: "Agenda por empleado y horarios semanales", listo: true },
+      { texto: "Los 5 permisos granulares", listo: true },
+      { texto: "Catálogo de servicios", listo: true },
+      { texto: "Caja y comisiones automáticas", listo: false },
+      { texto: "Reportes de ingresos", listo: false },
+    ],
+  },
+  {
+    nombre: "Multisede",
+    resumen: "Para cadenas con varios locales.",
+    precio: "A definir",
+    periodo: "",
+    destacado: false,
+    incluye: [
+      { texto: "Todo lo del plan Barbería", listo: true },
+      { texto: "Varias sedes en una cuenta", listo: false },
+      { texto: "Reportes consolidados", listo: false },
+      { texto: "Soporte prioritario por WhatsApp", listo: false },
+    ],
+  },
+];
+---
+
+<section id="planes" class="contenedor-landing py-20 md:py-28">
+  <div class="mx-auto max-w-2xl text-center">
+    <div class="flex items-center justify-center gap-3">
+      <h2 class="text-3xl font-extrabold tracking-tight text-indigo sm:text-4xl">
+        Precios sin letra chica
+      </h2>
+      <Proximamente tamano="md" />
+    </div>
+    <p class="mt-4 text-lg leading-relaxed text-texto-suave">
+      Todavía no estamos cobrando: estamos terminando el producto con los primeros negocios. Estos
+      son los precios que tenemos en mente, en pesos y sin cargo por empleado.
+    </p>
+  </div>
+
+  <div class="mx-auto mt-14 grid max-w-4xl gap-6 md:grid-cols-2">
+    {
+      PLANES.map((plan) => (
+        <article
+          class:list={[
+            "relative rounded-2xl border p-8",
+            plan.destacado
+              ? "border-menta bg-superficie shadow-tarjeta"
+              : "border-borde bg-superficie/60",
+          ]}
+        >
+          {plan.destacado && (
+            <span class="absolute -top-3 left-8 rounded-full bg-menta px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+              El que estamos construyendo
+            </span>
+          )}
+
+          <h3 class="text-xl font-extrabold text-indigo">{plan.nombre}</h3>
+          <p class="mt-1 text-sm text-texto-suave">{plan.resumen}</p>
+
+          <p class="mt-6 flex items-baseline gap-1">
+            <span class="text-4xl font-extrabold tracking-tight text-indigo">{plan.precio}</span>
+            <span class="text-sm font-medium text-texto-suave">{plan.periodo}</span>
+          </p>
+          <p class="mt-1 text-xs text-texto-suave">Precio previsto · COP</p>
+
+          <ul class="mt-7 space-y-3">
+            {plan.incluye.map((item) => (
+              <li class="flex items-start gap-3 text-sm">
+                {item.listo ? (
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    class="mt-0.5 h-5 w-5 shrink-0 text-menta"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    class="mt-0.5 h-5 w-5 shrink-0 text-amber-500"
+                    aria-hidden="true"
+                  >
+                    <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.6" />
+                    <path
+                      d="M10 6.5V10l2.2 2.2"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                )}
+                <span class:list={[item.listo ? "text-texto" : "text-texto-suave"]}>
+                  {item.texto}
+                  {!item.listo && (
+                    <span class="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                      pronto
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <a
+            href="#acceso"
+            class:list={[
+              "mt-8 block rounded-xl px-6 py-3.5 text-center text-sm font-bold transition-all active:scale-[0.98]",
+              plan.destacado
+                ? "bg-menta text-white shadow-suave hover:bg-menta-oscura hover:shadow-tarjeta"
+                : "border border-borde bg-superficie text-indigo hover:bg-lienzo",
+            ]}
+          >
+            Avísame cuando salga
+          </a>
+        </article>
+      ))
+    }
+  </div>
+</section>

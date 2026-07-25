@@ -1,0 +1,52 @@
+---
+const enlaces = [
+  { href: "#caracteristicas", texto: "Características" },
+  { href: "#permisos", texto: "Matriz de Permisos" },
+  { href: "#como-funciona", texto: "Cómo Funciona" },
+  { href: "#planes", texto: "Planes" },
+];
+---
+
+<header
+  class="sticky top-0 z-50 border-b border-borde bg-white/80 backdrop-blur-md"
+>
+  <nav class="contenedor-landing flex h-16 items-center justify-between gap-6" aria-label="Principal">
+    <a href="#" class="flex shrink-0 items-center gap-2 text-lg font-extrabold tracking-tight">
+      <span
+        class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo text-sm text-white"
+        aria-hidden="true">T</span
+      >
+      <span class="text-indigo">Turn<span class="text-menta">io</span></span>
+    </a>
+
+    <ul class="hidden items-center gap-8 lg:flex">
+      {
+        enlaces.map((enlace) => (
+          <li>
+            <a
+              href={enlace.href}
+              class="text-sm font-medium text-texto-suave transition-colors hover:text-indigo"
+            >
+              {enlace.texto}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="flex shrink-0 items-center gap-3">
+      <a
+        href="#acceso"
+        class="hidden text-sm font-semibold text-texto-suave transition-colors hover:text-indigo sm:block"
+      >
+        Iniciar Sesión
+      </a>
+      <a
+        href="#acceso"
+        class="rounded-xl bg-menta px-4 py-2.5 text-sm font-bold text-white shadow-suave transition-all hover:bg-menta-oscura hover:shadow-tarjeta active:scale-[0.98]"
+      >
+        Quiero probarlo
+      </a>
+    </div>
+  </nav>
+</header>
