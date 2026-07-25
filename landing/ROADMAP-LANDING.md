@@ -173,3 +173,36 @@ Cambios respecto al original:
   panel real (`Layout.tsx`).
 - Los presets son de una barbería real: dueña con todo, barbero solo con
   lo suyo, recepción agendando y cobrando, estilista senior con precios.
+
+### `Agenda.astro`
+Reemplaza a la rejilla de tres tarjetas ("Asignación automática",
+"Transiciones sin errores", "Cobro exprés") por el showcase de agenda
+multi-columna que hizo el humano: una columna por barbero, filtro por
+persona, y botones de acción que aplican la máquina de estados en vivo.
+El visitante puede confirmar y completar una cita y ver que al llegar a
+`completada` desaparecen los botones.
+
+Correcciones respecto al original:
+- **No es balanceo de carga.** El original elegía al barbero con menos
+  citas y lo vendía como "balanceo automático de carga". El backend real
+  (`services.agendar_cita`) recorre los miembros activos y toma **el
+  primero con disponibilidad efectiva** —horario cargado ese día y sin
+  cita encimada—, no el menos ocupado. Se corrigió el texto y la
+  simulación: la cita se asigna a Carlos porque tiene las 12:00 libres,
+  no porque tenga menos trabajo. Es un argumento igual de vendedor y
+  tiene la ventaja de ser cierto si alguien lo prueba.
+- **`[Cobrar]` → `[Completar]`**, que es la acción que expone el
+  backend. El cobro sigue apareciendo solo como próximo, en una franja
+  al pie de la sección.
+- Sin avatares de stock: iniciales en círculo.
+
+El JS revalida las transiciones antes de aplicarlas aunque el botón ya
+esté oculto por CSS, replicando que la regla vive en el servidor y no en
+la pantalla.
+
+### Nota de mantenimiento
+Se encontró una clase inventada (`hide-scroll`) que no existía en
+Tailwind ni en el proyecto: no rompía el build, simplemente no hacía
+nada. Se reemplazó por una utilidad real `sin-barra` declarada en
+`global.css`. Vale la pena revisar el CSS compilado cuando se agregue
+una clase que uno "cree que existe".

@@ -145,6 +145,16 @@
   }
 }
 
+/* Scroll horizontal sin barra visible: el filtro de barberos se
+   desliza en móvil y una barra nativa encima de las fichas se ve mal. */
+@utility sin-barra {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility contenedor-landing {
   margin-inline: auto;
   width: 100%;

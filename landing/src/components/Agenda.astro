@@ -1,0 +1,480 @@
+---
+import Proximamente from "./Proximamente.astro";
+
+/**
+ * Agenda multi-columna: una columna por empleado, con la máquina de
+ * estados real y el botón de "cualquiera disponible".
+ *
+ * Port a Astro (sin React ni framer-motion) del componente del humano,
+ * con tres correcciones de fondo:
+ *
+ * 1. **No es balanceo de carga.** El original elegía al barbero con
+ *    menos citas y lo anunciaba como "balanceo automático de carga". El
+ *    backend real (`services.agendar_cita`) toma **el primero con
+ *    disponibilidad efectiva** —que tenga horario ese día y no tenga
+ *    otra cita encimada—, no el menos ocupado. Es un argumento igual de
+ *    bueno y tiene la ventaja de ser cierto.
+ * 2. **`[Cobrar]` → `[Completar]`.** La acción del backend es
+ *    `completar`; el cobro es Fase 3 y no existe.
+ * 3. **Sin avatares de stock**: iniciales en círculo, como el panel real.
+ *
+ * La máquina de estados se respeta al pie de la letra: desde
+ * `completada` no hay ninguna acción (por eso el sello "Inmutable"), y
+ * `cancelada` solo se alcanza desde `agendada` o `confirmada`.
+ */
+
+const EMPLEADOS = [
+  { id: "carlos", nombre: "Carlos Mendoza", puesto: "Dueño", iniciales: "CM" },
+  { id: "mateo", nombre: "Mateo Restrepo", puesto: "Barbero Senior", iniciales: "MR" },
+  { id: "valentina", nombre: "Valentina Gómez", puesto: "Especialista capilar", iniciales: "VG" },
+  { id: "sebastian", nombre: "Sebastián Silva", puesto: "Barbero Junior", iniciales: "SS" },
+];
+
+const CITAS = [
+  {
+    id: "c1",
+    empleado: "carlos",
+    hora: "10:00",
+    duracion: 40,
+    precio: "35.000",
+    cliente: "Andrés Camilo Torres",
+    servicio: "Corte tradicional",
+    estado: "confirmada",
+  },
+  {
+    id: "c2",
+    empleado: "mateo",
+    hora: "09:00",
+    duracion: 60,
+    precio: "55.000",
+    cliente: "Juan Diego Pérez",
+    servicio: "Combo ejecutivo (corte + barba)",
+    estado: "completada",
+  },
+  {
+    id: "c3",
+    empleado: "mateo",
+    hora: "14:00",
+    duracion: 40,
+    precio: "35.000",
+    cliente: "Alejandro Osorio",
+    servicio: "Corte tradicional",
+    estado: "agendada",
+  },
+  {
+    id: "c4",
+    empleado: "valentina",
+    hora: "10:30",
+    duracion: 30,
+    precio: "28.000",
+    cliente: "Felipe Jaramillo",
+    servicio: "Ritual de barba con toalla caliente",
+    estado: "agendada",
+  },
+  {
+    id: "c5",
+    empleado: "valentina",
+    hora: "15:30",
+    duracion: 25,
+    precio: "25.000",
+    cliente: "Nicolás Morales",
+    servicio: "Mascarilla facial",
+    estado: "agendada",
+  },
+  {
+    id: "c6",
+    empleado: "sebastian",
+    hora: "11:00",
+    duracion: 60,
+    precio: "55.000",
+    cliente: "Santiago Villegas",
+    servicio: "Combo ejecutivo (corte + barba)",
+    estado: "agendada",
+  },
+  {
+    id: "c7",
+    empleado: "sebastian",
+    hora: "16:00",
+    duracion: 40,
+    precio: "35.000",
+    cliente: "Daniel Castrillón",
+    servicio: "Corte tradicional",
+    estado: "cancelada",
+  },
+];
+
+/** Cita que aparece al simular "cualquiera disponible". Va a Carlos
+ * porque es quien tiene libre la franja de las 12:00, no porque tenga
+ * menos citas. */
+const CITA_AUTO = {
+  id: "auto",
+  empleado: "carlos",
+  hora: "12:00",
+  duracion: 40,
+  precio: "35.000",
+  cliente: "Camilo Echeverry",
+  servicio: "Corte tradicional",
+  estado: "agendada",
+};
+---
+
+<section id="agenda" class="border-t border-borde bg-superficie py-20 md:py-28">
+  <div class="contenedor-landing">
+    <!-- Encabezado -->
+    <div class="mx-auto mb-12 max-w-3xl text-center">
+      <span
+        class="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-100 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-wider text-blue-800"
+      >
+        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
+          <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+        </svg>
+        La agenda de 30 segundos
+      </span>
+      <h2 class="text-3xl font-extrabold tracking-tight text-indigo sm:text-4xl">
+        Pensada para la prisa de la barbería:
+        <span class="text-blue-600">un toque para todo</span>
+      </h2>
+      <p class="mt-4 text-base text-texto-suave sm:text-lg">
+        Una columna por barbero, asignación automática al primero con cupo libre, y botones que solo
+        ofrecen lo que se puede hacer en ese momento.
+      </p>
+    </div>
+
+    <!-- Aviso de asignación automática -->
+    <div
+      class="mx-auto mb-6 hidden max-w-2xl items-center justify-between gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm font-bold text-emerald-900 shadow-md"
+      data-aviso-auto
+      role="status"
+    >
+      <span class="flex items-center gap-2.5">
+        <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true">
+          <path
+            d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"></path>
+        </svg>
+        <span data-texto-aviso></span>
+      </span>
+      <button type="button" data-cerrar-aviso aria-label="Cerrar aviso" class="text-emerald-700 hover:text-emerald-950">
+        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Controles -->
+    <div
+      class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-borde bg-lienzo p-4"
+    >
+      <div class="sin-barra flex items-center gap-2 overflow-x-auto pb-1">
+        <span class="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-500">Filtrar:</span>
+        <button
+          type="button"
+          data-filtro="todos"
+          aria-selected="true"
+          class="shrink-0 rounded-xl border border-borde bg-superficie px-3.5 py-1.5 text-xs font-bold text-texto transition-all hover:bg-slate-200 aria-selected:border-indigo aria-selected:bg-indigo aria-selected:text-white aria-selected:shadow-md"
+        >
+          Todos ({EMPLEADOS.length})
+        </button>
+        {
+          EMPLEADOS.map((persona) => (
+            <button
+              type="button"
+              data-filtro={persona.id}
+              aria-selected="false"
+              class="flex shrink-0 items-center gap-1.5 rounded-xl border border-borde bg-superficie px-3.5 py-1.5 text-xs font-bold text-texto transition-all hover:bg-slate-200 aria-selected:border-indigo aria-selected:bg-indigo aria-selected:text-white aria-selected:shadow-md"
+            >
+              <span class="flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-[7px] font-extrabold text-indigo">
+                {persona.iniciales}
+              </span>
+              {persona.nombre.split(" ")[0]}
+            </button>
+          ))
+        }
+      </div>
+
+      <button
+        type="button"
+        data-simular
+        class="flex shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-r from-menta to-teal-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg transition-all hover:scale-[1.02] hover:from-menta-oscura active:scale-95"
+      >
+        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+          <path
+            d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7 3 2 2 4-4"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"></path>
+        </svg>
+        <span data-texto-simular>Simular "Cualquiera disponible"</span>
+      </button>
+    </div>
+
+    <!-- Columnas por empleado -->
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {
+        EMPLEADOS.map((persona) => {
+          const suyas = CITAS.filter((cita) => cita.empleado === persona.id);
+          const conAuto = persona.id === CITA_AUTO.empleado ? [...suyas, CITA_AUTO] : suyas;
+
+          return (
+            <div
+              class="flex flex-col justify-between rounded-3xl border border-borde bg-lienzo p-4 shadow-suave"
+              data-columna={persona.id}
+            >
+              <div>
+                <div class="mb-4 flex items-center justify-between gap-2 border-b border-borde pb-3">
+                  <div class="flex min-w-0 items-center gap-2.5">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-superficie text-[10px] font-extrabold text-indigo ring-2 ring-menta/40">
+                      {persona.iniciales}
+                    </span>
+                    <div class="min-w-0">
+                      <h3 class="truncate text-sm font-extrabold text-indigo">{persona.nombre}</h3>
+                      <p class="truncate text-[10px] font-medium text-texto-suave">{persona.puesto}</p>
+                    </div>
+                  </div>
+                  <span
+                    class="shrink-0 rounded-xl border border-borde bg-superficie px-2.5 py-1 text-xs font-bold text-texto"
+                    data-contador={persona.id}
+                  >
+                    {suyas.length} citas
+                  </span>
+                </div>
+
+                <div class="flex-1 space-y-3.5">
+                  {conAuto.map((cita) => (
+                    <div
+                      data-cita={cita.id}
+                      data-estado={cita.estado}
+                      class:list={[
+                        "group rounded-2xl border p-3.5 shadow-sm transition-all duration-300",
+                        "data-[estado=agendada]:border-amber-200 data-[estado=agendada]:bg-amber-50/90",
+                        "data-[estado=confirmada]:border-blue-200 data-[estado=confirmada]:bg-blue-50/90",
+                        "data-[estado=completada]:border-emerald-200 data-[estado=completada]:bg-emerald-50/90",
+                        "data-[estado=cancelada]:border-rose-200 data-[estado=cancelada]:bg-rose-50/90 data-[estado=cancelada]:opacity-75",
+                        cita.id === "auto" && "hidden animate-[aparecer_0.45s_cubic-bezier(0.16,1,0.3,1)]",
+                      ]}
+                    >
+                      <div class="mb-1.5 flex items-center justify-between text-xs font-bold">
+                        <span class="flex items-center gap-1 text-texto">
+                          <svg viewBox="0 0 24 24" fill="none" class="h-3.5 w-3.5" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" />
+                            <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                          </svg>
+                          {cita.hora} ({cita.duracion}m)
+                        </span>
+                        <span class="font-extrabold text-slate-900">${cita.precio}</span>
+                      </div>
+
+                      <p class="text-sm font-extrabold text-slate-900">{cita.cliente}</p>
+                      <p class="text-xs font-medium text-texto-suave">{cita.servicio}</p>
+
+                      <div class="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-200/60 pt-2">
+                        {/* Insignia de estado: se renderizan las cuatro y
+                            se muestra la que corresponda, para no armar
+                            clases desde JS. */}
+                        <span class="hidden rounded-md bg-amber-200/80 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-900 group-data-[estado=agendada]:inline">
+                          Agendada
+                        </span>
+                        <span class="hidden rounded-md bg-blue-200/80 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-900 group-data-[estado=confirmada]:inline">
+                          Confirmada
+                        </span>
+                        <span class="hidden rounded-md bg-emerald-200/80 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-900 group-data-[estado=completada]:inline">
+                          Completada
+                        </span>
+                        <span class="hidden rounded-md bg-rose-200/80 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-rose-900 group-data-[estado=cancelada]:inline">
+                          Cancelada
+                        </span>
+
+                        <span class="flex items-center gap-1.5">
+                          {/* Desde agendada: confirmar o cancelar */}
+                          <button
+                            type="button"
+                            data-accion="confirmada"
+                            class="hidden items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white transition-all hover:bg-blue-700 group-data-[estado=agendada]:flex"
+                          >
+                            <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3" aria-hidden="true">
+                              <path
+                                fill-rule="evenodd"
+                                d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+                                clip-rule="evenodd"
+                              />
+                            </svg>
+                            Confirmar
+                          </button>
+
+                          {/* Desde confirmada: completar o cancelar */}
+                          <button
+                            type="button"
+                            data-accion="completada"
+                            class="hidden items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white transition-all hover:bg-emerald-700 group-data-[estado=confirmada]:flex"
+                          >
+                            <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3" aria-hidden="true">
+                              <path
+                                fill-rule="evenodd"
+                                d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+                                clip-rule="evenodd"
+                              />
+                            </svg>
+                            Completar
+                          </button>
+
+                          <button
+                            type="button"
+                            data-accion="cancelada"
+                            aria-label="Cancelar cita"
+                            class="hidden rounded-lg bg-rose-100 px-2 py-1 text-[10px] font-bold text-rose-800 transition-all hover:bg-rose-200 group-data-[estado=agendada]:block group-data-[estado=confirmada]:block"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" class="h-3 w-3" aria-hidden="true">
+                              <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                            </svg>
+                          </button>
+
+                          {/* Terminales: sin acciones, por diseño */}
+                          <span class="hidden items-center gap-1 text-[10px] font-bold text-emerald-700 group-data-[estado=completada]:flex">
+                            <svg viewBox="0 0 24 24" fill="none" class="h-3 w-3" aria-hidden="true">
+                              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2" />
+                              <path d="M8 11V7a4 4 0 1 1 8 0v4" stroke="currentColor" stroke-width="2" />
+                            </svg>
+                            Inmutable
+                          </span>
+                          <span class="hidden text-[10px] font-bold text-rose-600 group-data-[estado=cancelada]:inline">
+                            Sin cambios
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <p class="mt-4 border-t border-borde pt-3 text-center text-[11px] font-medium text-texto-suave">
+                Horario: 9:00 AM – 7:00 PM
+              </p>
+            </div>
+          );
+        })
+      }
+    </div>
+
+    <!-- Nota sobre la máquina de estados -->
+    <p
+      class="mx-auto mt-8 flex max-w-2xl items-start gap-2.5 rounded-2xl border border-borde bg-lienzo p-4 text-xs leading-relaxed text-texto-suave"
+    >
+      <svg viewBox="0 0 24 24" fill="none" class="mt-0.5 h-4 w-4 shrink-0 text-indigo" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
+        <path d="M12 8h.01M11 12h1v4h1" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      </svg>
+      <span>
+        Prueba a confirmar y completar una cita. Al llegar a <strong>completada</strong> desaparecen
+        los botones: no se puede cancelar algo que ya se cobró. Es el mismo bloqueo que aplica el
+        servidor, no solo la pantalla.
+      </span>
+    </p>
+
+    <!-- Lo que viene -->
+    <div class="mx-auto mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-3 text-xs text-texto-suave">
+      <Proximamente />
+      <span>Cierre de caja, comisiones automáticas por barbero y reportes de ingresos.</span>
+    </div>
+  </div>
+</section>
+
+<script>
+  const seccion = document.querySelector<HTMLElement>("#agenda");
+
+  if (seccion) {
+    const citas = seccion.querySelectorAll<HTMLElement>("[data-cita]");
+    const columnas = seccion.querySelectorAll<HTMLElement>("[data-columna]");
+    const filtros = seccion.querySelectorAll<HTMLElement>("[data-filtro]");
+    const botonSimular = seccion.querySelector<HTMLElement>("[data-simular]");
+    const textoSimular = seccion.querySelector<HTMLElement>("[data-texto-simular]");
+    const aviso = seccion.querySelector<HTMLElement>("[data-aviso-auto]");
+    const textoAviso = seccion.querySelector<HTMLElement>("[data-texto-aviso]");
+    const cerrarAviso = seccion.querySelector<HTMLElement>("[data-cerrar-aviso]");
+    const citaAuto = seccion.querySelector<HTMLElement>('[data-cita="auto"]');
+
+    /** Estado inicial, para poder reiniciar la demo. */
+    const INICIAL = new Map<HTMLElement, string>();
+    citas.forEach((cita) => INICIAL.set(cita, cita.dataset.estado ?? "agendada"));
+
+    // Transiciones válidas — las mismas que valida el backend.
+    const PERMITIDAS: Record<string, string[]> = {
+      agendada: ["confirmada", "cancelada"],
+      confirmada: ["completada", "cancelada"],
+      completada: [],
+      cancelada: [],
+    };
+
+    citas.forEach((cita) => {
+      cita.querySelectorAll<HTMLElement>("[data-accion]").forEach((boton) => {
+        boton.addEventListener("click", () => {
+          const actual = cita.dataset.estado ?? "agendada";
+          const destino = boton.dataset.accion!;
+          // Aunque el botón esté oculto por CSS en estados terminales,
+          // se revalida acá: es la misma regla que aplica el servidor.
+          if (!PERMITIDAS[actual]?.includes(destino)) return;
+          cita.dataset.estado = destino;
+        });
+      });
+    });
+
+    function contar() {
+      columnas.forEach((columna) => {
+        const id = columna.dataset.columna!;
+        const visibles = columna.querySelectorAll<HTMLElement>("[data-cita]:not(.hidden)").length;
+        const contador = seccion!.querySelector<HTMLElement>(`[data-contador="${id}"]`);
+        if (contador) contador.textContent = `${visibles} ${visibles === 1 ? "cita" : "citas"}`;
+      });
+    }
+
+    // --- Filtro por empleado ---
+    filtros.forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const objetivo = boton.dataset.filtro!;
+        filtros.forEach((otro) =>
+          otro.setAttribute("aria-selected", String(otro.dataset.filtro === objetivo)),
+        );
+        columnas.forEach((columna) => {
+          columna.classList.toggle(
+            "hidden",
+            objetivo !== "todos" && columna.dataset.columna !== objetivo,
+          );
+        });
+      });
+    });
+
+    // --- Simular "cualquiera disponible" ---
+    let simulado = false;
+    botonSimular?.addEventListener("click", () => {
+      if (!simulado) {
+        citaAuto?.classList.remove("hidden");
+        if (textoAviso) {
+          textoAviso.textContent =
+            "Asignada a Carlos Mendoza: es el primero con las 12:00 libres en su horario.";
+        }
+        aviso?.classList.remove("hidden");
+        aviso?.classList.add("flex");
+        if (textoSimular) textoSimular.textContent = "Reiniciar demostración";
+        simulado = true;
+      } else {
+        citaAuto?.classList.add("hidden");
+        aviso?.classList.add("hidden");
+        aviso?.classList.remove("flex");
+        INICIAL.forEach((estado, cita) => (cita.dataset.estado = estado));
+        if (textoSimular) textoSimular.textContent = 'Simular "Cualquiera disponible"';
+        simulado = false;
+      }
+      contar();
+    });
+
+    cerrarAviso?.addEventListener("click", () => {
+      aviso?.classList.add("hidden");
+      aviso?.classList.remove("flex");
+    });
+
+    contar();
+  }
+</script>
