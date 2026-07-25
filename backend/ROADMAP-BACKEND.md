@@ -448,3 +448,55 @@ horarios). Anotado como tal en `../CONTRATO.md`.
 403 sin la capacidad, que `/equipo/` sí lo puede ver cualquier miembro,
 que `/equipo/` **no** expone email ni capacidades (se afirma el set
 exacto de claves, no solo la ausencia), y que no cruza tenants.
+
+## Citas propias: cerrar el hueco de "veo mis citas pero no puedo confirmarlas" (2026-07-25)
+
+> Lo detectó el humano usando la app: un empleado sin
+> `puede_gestionar_agenda` veía sus citas del día pero no podía
+> confirmarlas. Preguntó si lo arreglaba el frontend — no: el backend
+> respondía 403, así que ocultar los botones era lo correcto dado ese
+> backend. El hueco estaba en el modelo de permisos.
+
+### Diagnóstico
+`puede_gestionar_agenda` se estaba usando para dos cosas distintas:
+administrar la agenda del negocio (crear citas, editar horarios de
+cualquiera) y tocar una cita puntual. Un barbero raso necesita lo
+segundo sobre lo suyo sin tener lo primero.
+
+### Decisión: propiedad implícita, sin capacidad nueva
+Se evaluó agregar `puede_gestionar_agenda_propia` como sexto flag. Se
+descartó (decisión del humano) porque sería un flag en `true` para
+prácticamente todo empleado: ruido en la matriz de capacidades, una
+migración y un switch más en la UI, a cambio de nada. El razonamiento
+de fondo: **no es un permiso que el dueño conceda, es propiedad** — uno
+siempre puede actuar sobre su propio trabajo.
+
+Se incluyeron las tres transiciones, `cancelar` incluida (también
+decisión del humano): cubre "me enfermé" y "el cliente no llegó" sin
+depender de que el dueño esté disponible.
+
+### Implementación
+Nueva factory `requiere_capacidad_o_ser_titular(capacidad, campo)` en
+`apps/common/permissions.py`, que resuelve en `has_object_permission`:
+pasa si tiene la capacidad, o si el objeto es suyo. Se dejó genérica
+porque el mismo patrón va a hacer falta en Fase 3 (un empleado
+consultando su propia comisión).
+
+`CitaViewSet.get_permissions` la usa **solo** para
+`confirmar`/`completar`/`cancelar`. `create`/`update`/`destroy` siguen
+con `requiere_capacidad`, y está documentado por qué: en `create` no
+hay objeto contra el cual comprobar propiedad, así que usar ahí la
+factory dejaría crear citas a cualquier miembro.
+
+### Tests
+5 nuevos (65 en total). Se verificó que **3 de ellos fallan con
+`403 == 200`** contra los permisos anteriores (los otros 2, los de
+restricción, ya pasaban) — o sea que la suite mide el hueco real y no
+algo trivialmente cierto. Cubren: confirmar/completar/cancelar la
+propia cita sin la capacidad, que la cita de otro empleado sigue dando
+403, y que crear citas sigue exigiendo la capacidad.
+
+### Contrato
+Ampliación, no ruptura: quien antes podía, sigue pudiendo. `CONTRATO.md`
+sección 5.3 reescrita + entrada en el historial. `openapi.yaml`
+regenerado (cambia la descripción del endpoint).

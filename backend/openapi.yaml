@@ -15,6 +15,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       tags:
       - agenda
       security:
@@ -36,6 +42,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       tags:
       - agenda
       requestBody:
@@ -68,6 +80,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       parameters:
       - in: path
         name: id
@@ -94,6 +112,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       parameters:
       - in: path
         name: id
@@ -132,6 +156,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       parameters:
       - in: path
         name: id
@@ -169,6 +199,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       parameters:
       - in: path
         name: id
@@ -192,6 +228,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       parameters:
       - in: path
         name: id
@@ -219,6 +261,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       parameters:
       - in: path
         name: id
@@ -246,6 +294,12 @@ paths:
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
         crear: si se omite, el servicio de agenda asigna automáticamente el
         primer empleado disponible ("cualquiera disponible").
+
+        Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+        tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+        cualquier miembro sobre **sus propias** citas: marcar que el cliente
+        llegó no es un acto administrativo, es el empleado haciendo su
+        trabajo. Ver `CONTRATO.md` sección 5.6.
       parameters:
       - in: path
         name: id

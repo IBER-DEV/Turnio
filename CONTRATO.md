@@ -177,6 +177,24 @@ es una capacidad ni afecta permisos).
 
 ### 5.3 Agendar una cita: "cualquiera disponible"
 
+**Transicionar el estado de una cita** (`confirmar`/`completar`/
+`cancelar`) lo puede hacer:
+- quien tenga `puede_gestionar_agenda`, sobre **cualquier** cita del
+  negocio; o
+- **cualquier miembro, sobre sus propias citas** (aquellas donde él es
+  el `empleado` asignado), sin necesitar esa capacidad.
+
+Lo segundo no se modeló como una capacidad nueva a propósito: marcar
+que el propio cliente llegó o que ya se le atendió no es un acto
+administrativo que el dueño conceda, es el empleado registrando su
+trabajo. `puede_gestionar_agenda` sigue significando "administrar la
+agenda **del negocio**" — crear citas, editar horarios y tocar las
+citas de otros, todo lo cual sigue exigiéndola.
+
+Para el frontend: los botones de confirmar/completar/cancelar se
+muestran si `membresia.puede_gestionar_agenda` **o** si
+`cita.empleado === membresia.id`.
+
 `POST /api/agenda/citas/` acepta `empleado` como **opcional**. Si se
 omite (o se envía `null`), el backend asigna automáticamente el
 primer empleado del negocio con disponibilidad real para ese servicio
@@ -326,3 +344,13 @@ un solo elemento. Los endpoints de lote son para el alta inicial
   Agenda y en el editor de horarios. La pantalla de gestión de equipo
   quedó además detrás de un guard de ruta por capacidad, para no
   mostrar una vista que respondería 403.
+- **2026-07-25** — Las transiciones de estado de una cita
+  (`POST /api/agenda/citas/{id}/confirmar|completar|cancelar/`) ahora
+  las puede ejecutar **cualquier miembro sobre sus propias citas**, sin
+  `puede_gestionar_agenda` (ver 5.3). Antes exigían esa capacidad
+  siempre, lo que dejaba a un barbero viendo sus citas del día sin
+  poder marcar que el cliente llegó — un hueco del modelo, no una
+  restricción buscada. Es una **ampliación**, no una ruptura: quien
+  antes podía, sigue pudiendo. Crear citas y editar horarios siguen
+  exigiendo `puede_gestionar_agenda`, y tocar la cita de otro empleado
+  sigue respondiendo `403`.

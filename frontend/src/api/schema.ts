@@ -17,6 +17,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         get: operations["agenda_citas_list"];
         put?: never;
@@ -26,6 +32,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         post: operations["agenda_citas_create"];
         delete?: never;
@@ -47,6 +59,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         get: operations["agenda_citas_retrieve"];
         /**
@@ -55,6 +73,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         put: operations["agenda_citas_update"];
         post?: never;
@@ -64,6 +88,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         delete: operations["agenda_citas_destroy"];
         options?: never;
@@ -74,6 +104,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         patch: operations["agenda_citas_partial_update"];
         trace?: never;
@@ -93,6 +129,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         post: operations["agenda_citas_cancelar_create"];
         delete?: never;
@@ -116,6 +158,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         post: operations["agenda_citas_completar_create"];
         delete?: never;
@@ -139,6 +187,12 @@ export interface paths {
          *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
          *     crear: si se omite, el servicio de agenda asigna automáticamente el
          *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
          */
         post: operations["agenda_citas_confirmar_create"];
         delete?: never;

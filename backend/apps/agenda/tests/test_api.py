@@ -263,3 +263,118 @@ def test_semana_no_permite_editar_el_horario_de_otro_negocio(cliente_autenticado
 
     assert respuesta.status_code == 400
     assert otra_membresia.horarios.count() == 0
+
+
+# --- Transiciones sobre citas propias, sin puede_gestionar_agenda ---
+
+
+def _barbero_sin_gestion_de_agenda(negocio):
+    """Un barbero raso: atiende clientes, no administra la agenda."""
+    _usuario, membresia = negocios_services.agregar_empleado(
+        negocio=negocio,
+        email="raso@test.com",
+        password="claveSegura123",
+        nombre="Barbero Raso",
+    )
+    client = APIClient()
+    login = client.post(
+        "/api/auth/login/",
+        {"email": "raso@test.com", "password": "claveSegura123"},
+        format="json",
+    )
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+    return membresia, client
+
+
+def _cita_para(negocio, membresia, servicio, dia_semana=0, hora=LUNES_10AM):
+    from apps.agenda import services as agenda_services
+
+    agenda_services.crear_horario(
+        miembro=membresia,
+        dia_semana=dia_semana,
+        hora_inicio=datetime.time(9, 0),
+        hora_fin=datetime.time(18, 0),
+    )
+    return agenda_services.agendar_cita(
+        negocio=negocio,
+        servicio=servicio,
+        empleado=membresia,
+        fecha_hora_inicio=hora,
+        nombre_cliente="Cliente de Prueba",
+    )
+
+
+def test_empleado_sin_gestionar_agenda_puede_confirmar_su_propia_cita(
+    negocio_con_dueno, servicio_de_prueba
+):
+    """El hueco que cerró este cambio: antes daba 403 sobre su propia cita."""
+    negocio, _dueno, _membresia = negocio_con_dueno
+    membresia_raso, client = _barbero_sin_gestion_de_agenda(negocio)
+    cita = _cita_para(negocio, membresia_raso, servicio_de_prueba)
+
+    respuesta = client.post(f"/api/agenda/citas/{cita.id}/confirmar/")
+
+    assert respuesta.status_code == 200, respuesta.data
+    assert respuesta.data["estado"] == "confirmada"
+
+
+def test_empleado_sin_gestionar_agenda_puede_completar_lo_suyo(
+    negocio_con_dueno, servicio_de_prueba
+):
+    negocio, _dueno, _membresia = negocio_con_dueno
+    membresia_raso, client = _barbero_sin_gestion_de_agenda(negocio)
+    cita = _cita_para(negocio, membresia_raso, servicio_de_prueba)
+
+    client.post(f"/api/agenda/citas/{cita.id}/confirmar/")
+    respuesta = client.post(f"/api/agenda/citas/{cita.id}/completar/")
+
+    assert respuesta.status_code == 200, respuesta.data
+    assert respuesta.data["estado"] == "completada"
+
+
+def test_empleado_sin_gestionar_agenda_puede_cancelar_lo_suyo(
+    negocio_con_dueno, servicio_de_prueba
+):
+    negocio, _dueno, _membresia = negocio_con_dueno
+    membresia_raso, client = _barbero_sin_gestion_de_agenda(negocio)
+    cita = _cita_para(negocio, membresia_raso, servicio_de_prueba)
+
+    respuesta = client.post(f"/api/agenda/citas/{cita.id}/cancelar/")
+
+    assert respuesta.status_code == 200, respuesta.data
+    assert respuesta.data["estado"] == "cancelada"
+
+
+def test_empleado_sin_gestionar_agenda_no_puede_tocar_la_cita_de_otro(
+    negocio_con_dueno, servicio_de_prueba
+):
+    """La propiedad habilita solo lo propio: la agenda ajena sigue cerrada."""
+    negocio, _dueno, membresia_dueno = negocio_con_dueno
+    _membresia_raso, client = _barbero_sin_gestion_de_agenda(negocio)
+    cita_del_dueno = _cita_para(negocio, membresia_dueno, servicio_de_prueba)
+
+    respuesta = client.post(f"/api/agenda/citas/{cita_del_dueno.id}/confirmar/")
+
+    assert respuesta.status_code == 403
+
+
+def test_empleado_sin_gestionar_agenda_sigue_sin_poder_crear_citas(
+    negocio_con_dueno, servicio_de_prueba
+):
+    """Crear es administrar la agenda del negocio: no hay 'cita propia'
+    que justifique agendarla uno mismo."""
+    negocio, _dueno, _membresia = negocio_con_dueno
+    membresia_raso, client = _barbero_sin_gestion_de_agenda(negocio)
+    _cita_para(negocio, membresia_raso, servicio_de_prueba, hora=LUNES_10AM)
+
+    respuesta = client.post(
+        "/api/agenda/citas/",
+        {
+            "servicio": servicio_de_prueba.id,
+            "fecha_hora_inicio": (LUNES_10AM + datetime.timedelta(hours=2)).isoformat(),
+            "nombre_cliente": "Cliente",
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 403

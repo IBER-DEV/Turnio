@@ -306,6 +306,10 @@ export function AgendaPage() {
             const estilo = ESTILO_ESTADO[cita.estado];
             const acciones = ACCIONES_POR_ESTADO[cita.estado];
             const abierta = citaAbierta === cita.id;
+            // Un empleado sin `puede_gestionar_agenda` igual transiciona
+            // sus propias citas: marcar que su cliente llegó es su
+            // trabajo, no administración (ver CONTRATO.md 5.6).
+            const puedeTransicionar = puedeGestionar || cita.empleado === membresia?.id;
 
             return (
               <li key={cita.id} className="animate-slide-in-bottom flex gap-3">
@@ -345,7 +349,7 @@ export function AgendaPage() {
                         {cita.telefono_cliente && ` · ${cita.telefono_cliente}`}
                       </p>
 
-                      {puedeGestionar && acciones.length > 0 ? (
+                      {puedeTransicionar && acciones.length > 0 ? (
                         <div className="flex gap-2">
                           {acciones.map(({ accion, etiqueta, icono }) => (
                             <Button
@@ -366,7 +370,7 @@ export function AgendaPage() {
                         <p className="font-caption text-caption text-on-surface-variant">
                           {acciones.length === 0
                             ? "Esta cita ya no admite cambios de estado."
-                            : "No tienes permiso para gestionar la agenda."}
+                            : "Esta cita es de otro empleado. Solo puedes cambiar el estado de las tuyas."}
                         </p>
                       )}
                     </div>

@@ -12,7 +12,11 @@ from apps.agenda.serializers import (
     HorarioSemanalSerializer,
     HorarioTrabajoSerializer,
 )
-from apps.common.permissions import TieneMembresiaActiva, requiere_capacidad
+from apps.common.permissions import (
+    TieneMembresiaActiva,
+    requiere_capacidad,
+    requiere_capacidad_o_ser_titular,
+)
 
 
 class HorarioTrabajoViewSet(viewsets.ModelViewSet):
@@ -70,13 +74,26 @@ class CitaViewSet(viewsets.ModelViewSet):
     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
     crear: si se omite, el servicio de agenda asigna automáticamente el
     primer empleado disponible ("cualquiera disponible").
+
+    Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+    tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+    cualquier miembro sobre **sus propias** citas: marcar que el cliente
+    llegó no es un acto administrativo, es el empleado haciendo su
+    trabajo. Ver `CONTRATO.md` sección 5.6.
     """
 
     serializer_class = CitaSerializer
 
+    # Transiciones de estado: la propiedad de la cita habilita por sí sola.
+    ACCIONES_DE_ESTADO = ("confirmar", "completar", "cancelar")
+
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             return [TieneMembresiaActiva()]
+        if self.action in self.ACCIONES_DE_ESTADO:
+            return [requiere_capacidad_o_ser_titular("puede_gestionar_agenda", "empleado")()]
+        # Crear/editar/borrar sigue siendo administración de la agenda del
+        # negocio: no hay "cita propia" que justifique crearla uno mismo.
         return [requiere_capacidad("puede_gestionar_agenda")()]
 
     def get_queryset(self):
