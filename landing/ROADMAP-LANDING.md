@@ -206,3 +206,30 @@ Tailwind ni en el proyecto: no rompía el build, simplemente no hacía
 nada. Se reemplazó por una utilidad real `sin-barra` declarada en
 `global.css`. Vale la pena revisar el CSS compilado cuando se agregue
 una clase que uno "cree que existe".
+
+### `ComoFunciona.astro` — reescrita
+Era la única sección que solo contaba en vez de mostrar: cuatro
+tarjetas de texto plano. Ahora es un recorrido: se toca cada paso y el
+teléfono de al lado muestra la pantalla real que le corresponde.
+
+Los cuatro pasos existen de verdad en el panel, no son aspiracionales
+—por eso esta sección se pudo hacer sin marcar nada como próximo:
+1. `RegistroNegocioPage` (formulario de dos pasos, con su barra).
+2. `ModalCatalogo` (alta en lote con precios en COP sugeridos).
+3. `ModalHorarioSemanal` (plantillas + semana completa).
+4. `ModalNuevaCita` (con "cualquiera disponible").
+
+Detalles de comportamiento:
+- Avanza sola cada 3,8 s **hasta el primer clic**; a partir de ahí cede
+  el control. Una pantalla que se mueve sola mientras la lees es de las
+  cosas más molestas que puede hacer una landing.
+- Se pausa fuera de viewport y respeta `prefers-reduced-motion`.
+- El estado activo se maneja con `aria-current` y variantes
+  `aria-[current=true]:` / `group-aria-[current=true]:` — atributo con
+  semántica real en vez de una clase inventada, así el lector de
+  pantalla también sabe cuál paso está activo. Las 8 reglas se
+  verificaron contra el CSS compilado.
+
+El claim de tiempo ("menos de 5 minutos") sale de sumar los estimados
+por paso (1 + 1 + 2 min + 30 s) con holgura. Si al validar con negocios
+reales resulta optimista, se ajusta acá.
