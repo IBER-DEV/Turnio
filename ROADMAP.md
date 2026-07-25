@@ -44,7 +44,7 @@
 | Fase | Estado | Detalle |
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
-| Fase 1 — Núcleo operativo multi-empleado | 🟡 Backend completado (2026-07-24), frontend sin empezar | Backend: Servicios, Empleados (capacidades + especialidad), Agenda por empleado con máquina de estados de `Cita`. Ver `backend/ROADMAP-BACKEND.md`. Frontend: app Capacitor mínima (login + agenda + registrar servicio) — pendiente, ver `frontend/ROADMAP-FRONTEND.md`. La fase no se cierra en este archivo hasta que el frontend entregue lo suyo. |
+| Fase 1 — Núcleo operativo multi-empleado | 🟡 Backend completo; frontend primera pasada completa en rama `feature/frontend-fase1` (2026-07-24), sin mergear ni revisada por el compañero todavía | Backend: Servicios, Empleados (capacidades + especialidad), Agenda por empleado con máquina de estados de `Cita`. Frontend: login, registro de negocio, dashboard, Servicios, Agenda (horarios+citas), Empleados — ver `frontend/ROADMAP-FRONTEND.md` para pendientes (tests, edición completa de Servicios, storage nativo). La fase no se marca ✅ hasta que se mergee y el compañero la retome/valide. |
 | Fase 2 — Descubrimiento y reserva de clientes | Sin empezar | |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
@@ -91,3 +91,24 @@ completo y decisiones técnicas en `backend/ROADMAP-BACKEND.md`.
 
 Frontend de esta fase (app Capacitor mínima) todavía no ha empezado;
 la fase queda en estado mixto hasta que se entregue.
+
+### Fase 1 — frontend, primera pasada (2026-07-24, rama `feature/frontend-fase1`)
+App Vite + React + TypeScript + Capacitor (sin plataformas nativas
+agregadas aún) con las pantallas de login, registro de negocio,
+dashboard, Servicios, Agenda (horarios y citas con "cualquiera
+disponible" y máquina de estados) y Empleados. Tipos generados desde
+`backend/openapi.yaml` con `openapi-typescript` + `openapi-fetch`, sin
+librería de estado ni de UI (ver justificación en
+`frontend/CLAUDE.md`). Se corrigió también un bug real de contrato
+encontrado en el proceso (`POST /api/negocios/empleados/` documentaba
+mal su body — ver `CONTRATO.md`).
+
+Registro de negocio y Empleados se agregaron más allá del alcance
+textual original de Fase 1 ("login + agenda + registrar servicio"),
+a pedido explícito del humano tras detectar que sin registro la app
+no era usable de punta a punta, y que el backend ya soportaba
+Empleados por completo sin UI que lo expusiera.
+
+Queda en rama sin mergear: el compañero de frontend la retoma mañana
+para revisar, pulir pendientes (ver `frontend/ROADMAP-FRONTEND.md`) y
+decidir si añade tests antes de mergear a `main`.

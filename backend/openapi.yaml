@@ -499,13 +499,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MiembroNegocio'
+              $ref: '#/components/schemas/EmpleadoAlta'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/MiembroNegocio'
+              $ref: '#/components/schemas/EmpleadoAlta'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/MiembroNegocio'
+              $ref: '#/components/schemas/EmpleadoAlta'
+        required: true
       security:
       - jwtAuth: []
       responses:

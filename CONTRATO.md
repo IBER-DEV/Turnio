@@ -194,3 +194,18 @@ igual que uno inexistente.
   con token inválido/expirado) a esos endpoints ahora responde `401`
   de forma consistente, como ya documentaba la sección 4 pero no se
   cumplía en la práctica.
+- **2026-07-24** — Corrección de schema (sin cambio de comportamiento):
+  `POST /api/negocios/empleados/` documentaba mal su body de entrada
+  como `MiembroNegocio` (incluyendo campos de solo lectura, y sin
+  `password`). El comportamiento real siempre fue el de
+  `EmpleadoAlta`, pero `@extend_schema` estaba puesto sobre el método
+  `create()` en vez de sobre `post` — en `generics.ListCreateAPIView`
+  (a diferencia de un `ViewSet`), el método que DRF invoca por el
+  verbo HTTP es `post` (definido por el propio DRF, que internamente
+  llama a `create()`); decorar `create()` no lo intercepta y
+  drf-spectacular cae a inferencia automática. Se corrigió con
+  `@extend_schema_view(post=extend_schema(...))` a nivel de clase, que
+  es el patrón que recomienda drf-spectacular para anotar métodos
+  derivados de mixins. Si algún otro endpoint usa
+  `generics.*APIView` con un método sobrescrito (`create`, `update`,
+  etc.) en vez de un `ViewSet`, revisar que use el mismo patrón.

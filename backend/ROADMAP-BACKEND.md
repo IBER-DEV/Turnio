@@ -315,3 +315,34 @@ construyera sobre el workaround.
 - No requiere ninguna capacidad especial (solo pertenecer a un negocio
   activo): es información sobre uno mismo, no una acción sobre el
   negocio.
+
+---
+
+## Fase 1 — ajuste posterior: schema mal documentado en creación de empleados (2026-07-24)
+
+Detectado por el frontend (rama `feature/frontend-fase1`) al generar
+tipos TypeScript desde `openapi.yaml`: `POST /api/negocios/empleados/`
+documentaba su body de entrada como `MiembroNegocio` (con campos de
+solo lectura, sin `password`), cuando el comportamiento real siempre
+usó `EmpleadoAltaSerializer`.
+
+**Causa raíz**: `@extend_schema` estaba puesto sobre el método
+`create()` de `EmpleadoListCreateView`, una `generics.ListCreateAPIView`.
+A diferencia de un `ViewSet` (donde el router mapea el verbo HTTP
+directamente al método `create`), en las vistas genéricas de DRF el
+método que efectivamente resuelve el POST es `post` — definido por
+`ListCreateAPIView` y que internamente llama a `self.create(...)`.
+drf-spectacular inspecciona `post`, no `create`, así que la anotación
+nunca se aplicaba y caía a inferencia automática desde
+`serializer_class`.
+
+**Fix**: `@extend_schema_view(post=extend_schema(...))` a nivel de
+clase — el patrón que la propia documentación de drf-spectacular
+recomienda para anotar "métodos derivados" de mixins que no están
+directamente expuestos como el verbo HTTP. Sin cambio de
+comportamiento (el endpoint siempre aceptó `EmpleadoAlta`; solo el
+schema estaba mal). `openapi.yaml` regenerado y `CONTRATO.md`
+actualizado con la explicación completa, incluyendo el aviso de
+revisar cualquier otra vista `generics.*APIView` con un método
+sobrescrito por si tiene el mismo problema. Suite completa (41 tests)
+sigue en verde.

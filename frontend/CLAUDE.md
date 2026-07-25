@@ -46,11 +46,44 @@ nunca de leer o adivinar el código Django directamente.
   llegar a Fase 2, la búsqueda/reserva básica de negocios tiene la
   misma prioridad que las pantallas del lado negocio.
 
-## Stack
-- React + Capacitor (decidido 2026-07-24; ver `../ROADMAP.md`).
-- Pendiente por decidir (anotado en `ROADMAP-FRONTEND.md`): librería
-  de data-fetching/estado, librería de UI, generador de tipos
-  TypeScript a partir de `../backend/openapi.yaml`.
+## Stack (decidido 2026-07-24, ver justificación en `ROADMAP-FRONTEND.md`)
+- Vite + React + TypeScript + React Router. Capacitor inicializado
+  (`capacitor.config.ts`), sin plataformas nativas agregadas todavía
+  (`npx cap add android/ios` queda para cuando haga falta compilar a
+  dispositivo — no bloquea el desarrollo web).
+- **Sin librería de estado/data-fetching** (no React Query, no Redux):
+  Context de React (`src/auth/AuthContext.tsx`) + `useState`/`useEffect`
+  por pantalla. Suficiente para el volumen de Fase 1; revisar si hace
+  falta algo más cuando el número de pantallas con caché compartida
+  crezca.
+- **Sin librería de UI** (no Tailwind, no MUI): CSS plano en
+  `src/App.css`. Mínimo a propósito.
+- **Tipos generados desde el contrato**: `openapi-typescript` genera
+  `src/api/schema.ts` desde `../backend/openapi.yaml`
+  (`npm run generate:types`). El cliente HTTP es `openapi-fetch`
+  (`src/api/client.ts`), tipado contra ese mismo schema — nunca se
+  escriben a mano los tipos de request/response.
+- **`tsconfig` con `strict: true`**: el scaffold de Vite NO lo trae por
+  defecto. Sin `strictNullChecks`, TypeScript no discrimina bien
+  uniones con discriminante booleano (`{ok:true}|{ok:false,error}`) ni
+  la mayoría del narrowing útil — se detectó porque `AuthContext.login`
+  devuelve exactamente ese tipo de unión. Si en algún punto parece que
+  TypeScript "no está narrowing algo obvio", lo primero a revisar es
+  que `strict` siga en `true` en `tsconfig.app.json`.
+
+## Wart conocido del contrato: serializers que mezclan lectura/escritura
+Algunos `ModelSerializer` del backend (`Servicio`, `HorarioTrabajo`,
+y los serializers de simplejwt como `TokenObtainPair`) exponen `id`
+(o `access`/`refresh`) como `readonly` en el schema, pero el mismo
+componente sirve de request Y de response — el schema no los separa.
+Eso hace que el tipo de body de creación incluya campos que en
+realidad no se envían. Patrón usado para no pelear con esto en cada
+pantalla: `src/api/types.ts` define alias `Omit<.... , "id">` para los
+casos de `ModelSerializer` (`ServicioInput`, `HorarioTrabajoInput`), y
+para los de simplejwt se castea el body con `as never` en el único
+punto de llamada (`AuthContext.tsx`). Si agregas un nuevo
+`ModelSerializer` con este mismo problema, sigue el patrón de
+`src/api/types.ts` en vez de repetir `as never` sueltos.
 
 ## Roadmap
 Ver [`ROADMAP-FRONTEND.md`](ROADMAP-FRONTEND.md) para el estado

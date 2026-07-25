@@ -26,7 +26,108 @@ negocio). No hay todavía código de frontend en este repo.
   partir de `../backend/openapi.yaml` (ej. `openapi-typescript` u
   `orval`) para no transcribir a mano los tipos del contrato.
 
-## Fase 1 — App Capacitor mínima para el negocio (próxima, sin empezar)
+## Fase 1 — App Capacitor mínima para el negocio — primera pasada completa (2026-07-24)
+
+> Rama `feature/frontend-fase1`. Construido en la misma sesión que
+> terminó el backend de Fase 1, para dejar algo funcional con lo que
+> retomar. Falta pulido y las mejoras listadas en "Pendiente" abajo.
+
+### Qué se completó
+- Scaffold Vite + React + TypeScript en esta carpeta, con Capacitor
+  inicializado (`capacitor.config.ts`, sin plataformas nativas
+  agregadas todavía). Ver decisiones de stack en `CLAUDE.md`.
+- `src/api/schema.ts` generado con `openapi-typescript` desde
+  `../backend/openapi.yaml` (`npm run generate:types`), consumido con
+  `openapi-fetch` (`src/api/client.ts`) — nunca se escribieron tipos de
+  request/response a mano.
+- Auth: `src/auth/tokenStore.ts` (tokens en localStorage — pendiente
+  migrar a `@capacitor/preferences`, ver abajo), `src/auth/refresh.ts`
+  (`conReintentoDeAuth`: reintenta una vez con refresh token en 401),
+  `src/auth/AuthContext.tsx` (`login`, `registrarNegocio`, `logout`,
+  `membresia` resuelta vía `GET /api/negocios/mi-membresia/`).
+- Pantallas:
+  - **Login** (`/login`) y **Registro de negocio** (`/registro`,
+    pública) — sin esta última, nadie podía crear un negocio desde la
+    UI, solo por API directa; se agregó aunque no estaba en el
+    alcance textual de Fase 1 porque sin ella la app no es usable de
+    punta a punta.
+  - **Dashboard** (`/`) — nombre del negocio + lista de las propias
+    capacidades (para verificar visualmente el modelo sin roles).
+  - **Servicios** (`/servicios`) — listar, crear (si
+    `puede_editar_precios`), activar/desactivar.
+  - **Agenda** (`/agenda`) — horarios por empleado (listar, crear,
+    borrar; si `puede_gestionar_agenda`) y citas (listar, agendar con
+    `empleado` opcional = "cualquiera disponible", y las acciones
+    confirmar/completar/cancelar según el estado actual).
+  - **Empleados** (`/empleados`) — listar (cualquier miembro), crear y
+    editar capacidades/especialidad por checkbox (si
+    `puede_gestionar_empleados`). No estaba en el texto original de
+    Fase 1 pero el backend ya lo soportaba completo desde antes; se
+    agregó a pedido explícito del humano tras notar el hueco.
+- Todas las pantallas de escritura siguen el mismo patrón: se
+  muestran/habilitan según la capacidad puntual (`membresia.puede_*`),
+  nunca según un "tipo de usuario".
+- `tsconfig.app.json`/`tsconfig.node.json`: se agregó `"strict": true`
+  (el scaffold de Vite no lo trae). Sin esto, TypeScript no discrimina
+  bien la unión `{ok:true}|{ok:false,error}` que devuelve
+  `AuthContext.login` — ver detalle en `CLAUDE.md`.
+- Build (`npm run build`) verificado limpio (`tsc -b && vite build`).
+
+### Bug de contrato encontrado y corregido en el camino (backend)
+Al tipar la creación de empleados se notó que `POST
+/api/negocios/empleados/` documentaba mal su body de entrada
+(`MiembroNegocio` en vez de `EmpleadoAlta`, sin `password`). Causa:
+`@extend_schema` estaba puesto sobre `create()` en vez de sobre `post`
+en una vista `generics.ListCreateAPIView` (a diferencia de un
+`ViewSet`, ahí el método que resuelve el verbo HTTP es `post`, no
+`create`). Corregido con `extend_schema_view` a nivel de clase. Ver
+`../CONTRATO.md` historial y `../backend/ROADMAP-BACKEND.md`.
+
+### Decisiones y su justificación
+- Ver `CLAUDE.md` para las decisiones de stack (sin librería de
+  estado/data-fetching, sin librería de UI, tipos generados del
+  contrato) y el wart de serializers lectura/escritura mezclada.
+- Registro de negocio y gestión de Empleados se agregaron aunque el
+  texto original de Fase 1 solo mencionaba "login + agenda + registrar
+  servicio": sin registro no hay forma de entrar a la app por primera
+  vez, y Empleados ya estaba soportado al 100% en el backend — dejarlo
+  sin UI habría sido un hueco arbitrario, no una fase real.
+
+### Pendiente / a medio hacer
+- **Tokens en localStorage, no en storage nativo**: para la versión
+  Capacitor real (no solo navegador) conviene migrar
+  `src/auth/tokenStore.ts` a `@capacitor/preferences`, más apropiado
+  para una app empaquetada. No se hizo porque añadir la dependencia y
+  el flujo async que implica no se justificaba solo para probar en
+  navegador.
+- **Servicios**: solo se puede activar/desactivar desde la tabla, no
+  editar precio/duración/categoría/comisión ya creados (solo al
+  crear). Falta un formulario de edición completa.
+- **Horarios**: cualquiera con `puede_gestionar_agenda` edita el
+  horario de cualquier empleado, incluyendo el propio — no hay modo
+  "autogestión" restringido a el propio horario (mismo pendiente que
+  ya tenía anotado el backend en `ROADMAP-BACKEND.md`).
+- **Sin tests de frontend todavía** (ni unitarios ni e2e). Se verificó
+  manualmente (build limpio + smoke test descrito abajo), no hay
+  suite automatizada. Evaluar Vitest + Testing Library si el
+  compañero lo considera necesario antes de seguir sumando pantallas.
+- No se agregaron plataformas nativas de Capacitor (`cap add
+  android/ios`) — requieren Android Studio/Xcode que no están en este
+  entorno; es el siguiente paso natural cuando haga falta probar en
+  dispositivo/emulador real.
+- Vulnerabilidades de `npm audit` en `brace-expansion`/`js-yaml`
+  (transitivas de `openapi-typescript`, solo se usan al generar tipos,
+  nunca en el bundle) y en `react-router` (aplica a "RSC Mode", que
+  esta SPA no usa). No se forzó el fix porque implicaba downgrades;
+  revisar cuando salgan parches upstream.
+
+### Bloqueos o dudas abiertas para el humano
+1. ¿Se agrega Vitest + Testing Library ahora, o se espera a que el
+   compañero decida al retomar?
+2. ¿Vale la pena migrar tokens a `@capacitor/preferences` ya, o
+   esperar a que se pruebe en un dispositivo/emulador real?
+
+## Fase 1 (histórico) — antes de empezar
 
 Alcance esperado (ver `../CLAUDE.md`): login + agenda + registrar
 servicio, para un negocio con varios empleados (calendario por
