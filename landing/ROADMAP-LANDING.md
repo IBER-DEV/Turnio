@@ -25,8 +25,9 @@ contenido de marketing dentro del APK.
 ## Primera versión (2026-07-25)
 
 ### Stack
-- **Astro 7** + islas de React. Astro envía cero JS por defecto; solo se
-  hidrata lo interactivo.
+- **Astro 7**, sin framework de UI. Ver la entrada "Se quita React por
+  completo" más abajo: la primera versión usaba islas de React y se
+  descartaron.
 - **Tailwind 4** vía `@tailwindcss/vite` (el plugin `@astrojs/tailwind`
   no soporta Astro 7). Config CSS-first en `src/styles/global.css`.
 - **Plus Jakarta Sans autoalojada, subset latino**. Se descartó el CDN
@@ -65,8 +66,8 @@ Consecuencias concretas:
   días: no hay pasarela ni módulo de suscripción con qué cumplirla.
 - La tarjeta de cobro y el plan Multisede se muestran atenuados y
   marcados, no ocultos: sirven para medir interés sin mentir.
-- En la matriz de permisos, `puede_cobrar` y `puede_ver_reportes` se
-  marcan como próximas — la capacidad ya existe en el modelo, pero su
+- En el demostrador de permisos, `puede_cobrar` y `puede_ver_reportes`
+  se marcan como próximas — la capacidad ya existe en el modelo, pero su
   módulo no.
 
 **No se escribió la prueba social del spec** ("Más de 100+ barberías
@@ -80,8 +81,7 @@ Los mockups respetan las reglas verificadas contra el backend:
 - La demo del teléfono recorre `agendada → confirmada → completada`, y
   nunca ofrece "Completar" sobre una cita agendada, porque
   `TRANSICIONES_VALIDAS` en `apps/agenda/services.py` lo rechaza.
-- La matriz usa las cinco capacidades reales de `MiembroNegocio`, con
-  sus nombres de campo visibles.
+- El demostrador usa las cinco capacidades reales de `MiembroNegocio`.
 - "Cualquiera disponible" aparece como lo que es: asignación que
   resuelve el backend, no algo que el usuario calcule.
 
@@ -99,17 +99,77 @@ el cobro no existe y la acción real del backend es `completar`.
    smartphone". Se construyó el teléfono en CSS con la pantalla
    animada —que es donde está el valor— pero la mano requiere un asset
    de diseño (render o foto) que no se puede generar desde código.
-4. **React pesa 55,9 kB gzip** para dos islas que suman 4 kB. Ver
-   sección siguiente.
-5. Sin favicon ni imagen de Open Graph.
-6. Sin analítica.
+4. Sin favicon ni imagen de Open Graph.
+5. Sin analítica.
 
 ### Peso actual
-`dist` = 408 kB. Sobre la red (gzip): HTML 9,0 kB + CSS 7,1 kB + JS
-63 kB. De ese JS, **55,9 kB son el runtime de React** y solo 4 kB son
-código propio (`TelefonoDemo` 2,0 + `MatrizPermisos` 2,0).
+`dist` = 224 kB. Sobre la red (gzip): HTML 10,4 kB (con el script
+inline) + CSS 8,7 kB + 47 kB de fuentes. **Cero archivos JavaScript.**
 
-Las dos islas son triviales —un bucle de estados con
-`IntersectionObserver` y cinco booleanos que muestran/ocultan
-bloques—: reescribirlas en JS sin framework dejaría el JS en ~4 kB.
-Queda como decisión pendiente del humano.
+## Se quita React por completo (2026-07-25)
+
+El humano rehízo el teléfono y el demostrador de permisos en React y
+pidió portarlos. Se portaron a Astro con `<script>` inline en vez de
+islas, y se desinstaló `@astrojs/react`.
+
+| | Antes | Ahora |
+|---|---|---|
+| Runtime de React | 58,2 kB gzip | **0** |
+| Código propio | 4,1 kB | 1,4 kB inline |
+| Archivos `.js` en el deploy | 3 | **0** |
+
+El marcado llega renderizado, así que ambas piezas se ven en el primer
+paint en vez de esperar hidratación — que en el héroe de una landing es
+justo donde se paga.
+
+Detalle que costó encontrar: al quitar el último `.tsx` el build seguía
+emitiendo un `client.js` de 191 kB. El HTML no lo cargaba (no costaba
+nada al visitante) pero quedaba de basura en el deploy: lo emitía la
+integración `@astrojs/react` por estar declarada, aunque ya nadie la
+usara. Se quitó de `astro.config.mjs`.
+
+### Regla adoptada para el estilado dinámico
+Todo el cambio de estado se resuelve con variantes
+`data-[activo=true]:` y `group-data-[activo=true]:` **escritas en el
+marcado**, no construyendo clases en JS. Motivo: Tailwind escanea
+archivos como texto plano; una clase que solo existe concatenada en
+tiempo de ejecución no se genera y falla en silencio en producción. El
+script solo cambia atributos `data-*` y contenido de texto.
+
+Cuando sí hubo clases en strings de JS (`Telefono3D.astro`), se
+verificaron una por una contra el CSS compilado.
+
+## Componentes portados desde React (2026-07-25)
+
+### `Telefono3D.astro`
+Reemplaza al teléfono pequeño de la primera versión, que el humano
+descartó por ilegible. Tamaño real (540×266), inclinación 3D siguiendo
+el puntero, flotación, etiquetas despegadas con `translateZ(60px)` y
+mano estilizada.
+
+Mejoras sobre el original de React:
+- Se pausa fuera de viewport (el original dejaba un `setInterval` vivo).
+- Respeta `prefers-reduced-motion`.
+- El tilt solo se activa en `pointer: fine`: en táctil no aporta y
+  dispara reflows al hacer scroll con el dedo encima.
+- **Sin cobro**: el original mostraba "CAJA DE HOY $842.000" y
+  "Servicio cobrado · $45.000". Se cambió por pendientes/completadas,
+  que son las dos métricas que el dashboard real muestra hoy, y por
+  "Servicio completado", que es la acción que el backend acepta.
+
+### `Permisos.astro`
+Reemplaza a la `MatrizPermisos` de la primera versión. El humano señaló
+que "matriz" suena a documentación técnica y que su versión vendía
+mejor: selector de personas con presets, iconos por capacidad, y un
+panel oscuro que muestra Habilitado/Bloqueado módulo por módulo.
+
+Cambios respecto al original:
+- **Cobro y reportes marcados como próximos.** El original mostraba
+  "Cobrar $55.000 (Nequi/Efectivo)" e "Ingresos del día $485.000 · +18%
+  vs ayer" como si funcionaran. La *capacidad* existe en
+  `MiembroNegocio`; el módulo que habilita no. Los bloques explican qué
+  pasará "cuando exista", sin fingir que ya pasa.
+- **Sin avatares de stock.** Se usan iniciales en círculo, igual que el
+  panel real (`Layout.tsx`).
+- Los presets son de una barbería real: dueña con todo, barbero solo con
+  lo suyo, recepción agendando y cobrando, estilista senior con precios.

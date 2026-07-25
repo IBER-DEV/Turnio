@@ -66,6 +66,50 @@
   --shadow-suave: 0 1px 3px rgba(15, 23, 42, 0.06);
   --shadow-tarjeta: 0 4px 16px rgba(15, 23, 42, 0.08);
   --shadow-elevada: 0 20px 45px -15px rgba(30, 27, 75, 0.25);
+  --shadow-equipo: 0 40px 80px -20px rgba(15, 23, 42, 0.45);
+
+  --animate-flotar: flotar 6s ease-in-out infinite;
+  --animate-toque: toque 2.6s ease-out;
+  --animate-aparecer: aparecer 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes flotar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+/* Onda del "dedo" que toca el botón principal. */
+@keyframes toque {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @layer base {
