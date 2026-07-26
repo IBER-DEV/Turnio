@@ -1,0 +1,323 @@
+---
+/**
+ * Teléfono 3D con la agenda de Turnio corriendo dentro.
+ *
+ * Port a Astro del componente React del humano, con cuatro cambios
+ * deliberados:
+ *
+ * 1. **Sin React.** Es el héroe de la página: hacerlo esperar 56 kB de
+ *    runtime antes de animarse penaliza el LCP justo donde más duele.
+ *    El marcado llega renderizado y el script son ~2 kB.
+ * 2. **Se pausa fuera de viewport y respeta `prefers-reduced-motion`.**
+ *    El original dejaba un `setInterval` vivo para siempre.
+ * 3. **Colores reales del panel** dentro de la pantalla (tokens `app-*`),
+ *    según la decisión de que el mockup se parezca a lo que el visitante
+ *    encuentra al registrarse. El marco, el halo y las etiquetas
+ *    flotantes sí usan la paleta de marketing.
+ * 4. **Sin cobro.** El original mostraba "CAJA DE HOY $842.000" y
+ *    "Servicio cobrado · $45.000": ese módulo es Fase 3 y no existe. En
+ *    su lugar van las dos métricas que el dashboard real sí muestra
+ *    (pendientes y completadas del día).
+ *
+ * La secuencia respeta `TRANSICIONES_VALIDAS` del backend:
+ * agendada → confirmada → completada. La cita cancelada que se ve abajo
+ * es estática y llegó ahí desde `agendada`, que es válido.
+ */
+---
+
+<div
+  class="relative mx-auto flex w-full max-w-md items-center justify-center py-6"
+  style="perspective: 1400px;"
+  data-escena
+>
+  <!-- Halo de marca -->
+  <div aria-hidden="true" class="absolute inset-6 rounded-[3rem] bg-menta/20 blur-3xl"></div>
+
+  <div class="relative" style="transform-style: preserve-3d;" data-flotante>
+    <div
+      class="relative h-[540px] w-[266px] rounded-[2.6rem] border border-slate-700 bg-slate-900 p-2.5 shadow-equipo transition-transform duration-300 ease-out"
+      style="transform: rotateX(-8deg) rotateY(14deg); transform-style: preserve-3d;"
+      data-marco
+    >
+      <!-- Botones laterales -->
+      <div
+        aria-hidden="true"
+        class="absolute -left-1 top-28 h-16 w-1 rounded-l bg-slate-700"
+      >
+      </div>
+      <div aria-hidden="true" class="absolute -right-1 top-36 h-20 w-1 rounded-r bg-slate-700"></div>
+
+      <!-- Pantalla -->
+      <div class="h-full overflow-hidden rounded-[2.1rem] bg-app-surface">
+        <div class="flex h-full flex-col">
+          <!-- Barra de estado -->
+          <div
+            class="flex items-center justify-between px-4 pb-2 pt-3 text-[10px] font-bold text-app-on-surface-variant"
+          >
+            <span>9:41</span>
+            <span class="flex items-center gap-1">
+              <span class="size-1.5 rounded-full bg-menta"></span> Turnio
+            </span>
+          </div>
+
+          <div class="px-4">
+            <p class="text-[10px] font-bold tracking-[0.18em] text-app-on-surface-variant">
+              HOY · MARTES 14
+            </p>
+            <h3 class="mt-0.5 text-base font-extrabold text-app-primary">Mi agenda</h3>
+          </div>
+
+          <div class="mt-3 space-y-2 px-4">
+            <!-- Cita en vivo: cambia de estado en bucle -->
+            <div
+              class="rounded-2xl border p-3 transition-all duration-500 data-[estado=agendada]:border-app-primary-fixed-dim data-[estado=agendada]:bg-app-surface-variant data-[estado=completada]:scale-[1.02] data-[estado=completada]:border-green-500/50 data-[estado=completada]:bg-green-50 data-[estado=confirmada]:border-app-secondary-container data-[estado=confirmada]:bg-app-secondary-fixed/50"
+              data-tarjeta
+              data-estado="agendada"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-xs font-extrabold text-app-primary">Juan Pérez</p>
+                  <p class="text-[10px] font-semibold text-app-on-surface-variant">
+                    Corte y Barba · 3:00 PM
+                  </p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide transition-colors duration-500"
+                  data-badge>Agendada</span
+                >
+              </div>
+
+              <div class="relative mt-2.5">
+                <button
+                  type="button"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  class="w-full rounded-xl py-2 text-[11px] font-extrabold transition-colors duration-500"
+                  data-accion>Confirmar cita</button
+                >
+                <span
+                  aria-hidden="true"
+                  class="pointer-events-none absolute left-1/2 top-1/2 size-8 rounded-full border-2 border-menta"
+                  data-onda></span
+                >
+              </div>
+            </div>
+
+            <!-- Citas de contexto -->
+            <div class="rounded-2xl border border-app-outline-variant bg-app-surface-lowest p-3">
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="truncate text-xs font-bold text-app-primary">Andrés Gómez</p>
+                  <p class="truncate text-[10px] font-semibold text-app-on-surface-variant">
+                    Corte clásico · 3:40 PM
+                  </p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full bg-app-surface-variant px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-app-primary-fixed-dim"
+                  >Agendada</span
+                >
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-app-outline-variant bg-app-surface-low p-3">
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="truncate text-xs font-bold text-app-on-surface-variant line-through">
+                    Sofía C.
+                  </p>
+                  <p class="truncate text-[10px] font-semibold text-app-on-surface-variant">
+                    Keratina · 4:20 PM
+                  </p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full bg-app-surface-container px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-app-on-surface-variant"
+                  >Cancelada</span
+                >
+              </div>
+            </div>
+
+            <!-- Resumen del día: las dos métricas que el dashboard real
+                 muestra hoy. Nada de caja: ese módulo no existe. -->
+            <div class="grid grid-cols-2 gap-2">
+              <div class="rounded-2xl bg-app-primary p-3">
+                <p
+                  class="text-[8px] font-extrabold tracking-[0.14em] text-app-on-primary/70"
+                >
+                  PENDIENTES
+                </p>
+                <p class="text-sm font-extrabold text-app-on-primary">3 citas</p>
+              </div>
+              <div class="rounded-2xl border border-app-outline-variant bg-app-surface-lowest p-3">
+                <p
+                  class="text-[8px] font-extrabold tracking-[0.14em] text-app-on-surface-variant"
+                >
+                  COMPLETADAS
+                </p>
+                <p class="text-sm font-extrabold text-green-700">24 servicios</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Aviso de reserva nueva -->
+          <div class="mt-auto px-4 pb-4">
+            <div
+              class="rounded-2xl border border-menta/40 bg-emerald-50 p-3 opacity-0 transition-opacity"
+              data-aviso
+            >
+              <p class="text-[9px] font-extrabold tracking-[0.16em] text-emerald-700">
+                NUEVA RESERVA EN LÍNEA
+              </p>
+              <p class="mt-1 text-xs font-extrabold text-app-primary">Juan Pérez · Corte y Barba</p>
+              <p class="text-[10px] font-semibold text-app-on-surface-variant">
+                Hoy 3:00 PM · asignado a Carlos
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Brillo del vidrio -->
+      <div
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-0 rounded-[2.6rem] bg-gradient-to-tr from-transparent via-white/10 to-transparent"
+        style="transform: translateZ(2px);"
+      >
+      </div>
+
+      <!-- Etiquetas flotantes, despegadas del plano -->
+      <span
+        class="absolute -left-8 -top-6 rounded-2xl border border-menta/30 bg-emerald-50 px-3 py-2 text-[10px] font-extrabold text-emerald-700 shadow-tarjeta"
+        style="transform: translateZ(60px);"
+      >
+        Turno asignado automáticamente
+      </span>
+      <span
+        class="absolute -bottom-8 -right-6 rounded-2xl border border-borde bg-superficie px-3 py-2 text-[10px] font-extrabold text-indigo shadow-tarjeta"
+        style="transform: translateZ(60px);"
+      >
+        30 segundos por cita
+      </span>
+    </div>
+
+    <!-- Mano estilizada sosteniendo el equipo -->
+    <div
+      aria-hidden="true"
+      class="absolute -bottom-10 left-1/2 h-40 w-64 -translate-x-1/2 rounded-t-[6rem] bg-gradient-to-t from-indigo/20 to-transparent blur-[2px]"
+      style="transform: translateX(-50%) translateZ(-30px);"
+    >
+    </div>
+  </div>
+
+  <p class="sr-only">
+    Demostración animada de la agenda de Turnio: una cita pasa de agendada a confirmada y luego a
+    completada.
+  </p>
+</div>
+
+<script>
+  type Estado = "agendada" | "confirmada" | "completada";
+
+  const SECUENCIA: Estado[] = ["agendada", "confirmada", "completada"];
+
+  const BADGE: Record<Estado, string> = {
+    agendada: "bg-app-surface-variant text-app-primary-fixed-dim",
+    confirmada: "bg-app-secondary-fixed text-app-on-secondary-fixed-variant",
+    completada: "bg-green-100 text-green-700",
+  };
+
+  const ETIQUETA: Record<Estado, string> = {
+    agendada: "Agendada",
+    confirmada: "Confirmada",
+    completada: "Completada",
+  };
+
+  // Solo se ofrece la acción que el backend acepta desde ese estado.
+  const ACCION: Record<Estado, string> = {
+    agendada: "Confirmar cita",
+    confirmada: "Completar servicio",
+    completada: "Servicio completado",
+  };
+
+  const BOTON: Record<Estado, string> = {
+    agendada: "bg-app-primary text-app-on-primary",
+    confirmada: "bg-app-secondary-container text-app-on-secondary-fixed-variant",
+    completada: "bg-green-600 text-white",
+  };
+
+  function iniciar(escena: HTMLElement) {
+    const marco = escena.querySelector<HTMLElement>("[data-marco]");
+    const flotante = escena.querySelector<HTMLElement>("[data-flotante]");
+    const tarjeta = escena.querySelector<HTMLElement>("[data-tarjeta]");
+    const badge = escena.querySelector<HTMLElement>("[data-badge]");
+    const accion = escena.querySelector<HTMLElement>("[data-accion]");
+    const onda = escena.querySelector<HTMLElement>("[data-onda]");
+    const aviso = escena.querySelector<HTMLElement>("[data-aviso]");
+    if (!marco || !flotante || !tarjeta || !badge || !accion || !onda || !aviso) return;
+
+    const menosMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    // --- Inclinación 3D según el puntero ---
+    const REPOSO = { x: -8, y: 14 };
+    function inclinar(x: number, y: number) {
+      marco!.style.transform = `rotateX(${x}deg) rotateY(${y}deg)`;
+    }
+    // Solo en dispositivos con puntero fino: en táctil no aporta y
+    // dispara reflows al hacer scroll con el dedo encima.
+    if (window.matchMedia("(pointer: fine)").matches) {
+      escena.addEventListener("pointermove", (evento) => {
+        const caja = escena.getBoundingClientRect();
+        const px = (evento.clientX - caja.left) / caja.width - 0.5;
+        const py = (evento.clientY - caja.top) / caja.height - 0.5;
+        inclinar(-py * 16, px * 26);
+      });
+      escena.addEventListener("pointerleave", () => inclinar(REPOSO.x, REPOSO.y));
+    }
+
+    if (!menosMovimiento.matches) {
+      flotante.style.animation = "var(--animate-flotar)";
+    }
+
+    // --- Ciclo de estados ---
+    let indice = 0;
+    let temporizador: number | undefined;
+
+    function pintar(estado: Estado) {
+      tarjeta!.dataset.estado = estado;
+      badge!.textContent = ETIQUETA[estado];
+      badge!.className = `shrink-0 rounded-full px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide transition-colors duration-500 ${BADGE[estado]}`;
+      accion!.textContent = ACCION[estado];
+      accion!.className = `w-full rounded-xl py-2 text-[11px] font-extrabold transition-colors duration-500 ${BOTON[estado]}`;
+      aviso!.style.opacity = estado === "agendada" ? "1" : "0";
+      if (estado === "agendada") aviso!.style.animation = "var(--animate-aparecer)";
+    }
+
+    function avanzar() {
+      indice = (indice + 1) % SECUENCIA.length;
+      pintar(SECUENCIA[indice]);
+      // La onda se reinicia recreando la animación.
+      onda!.style.animation = "none";
+      void onda!.offsetWidth;
+      onda!.style.animation = "var(--animate-toque)";
+    }
+
+    pintar(SECUENCIA[0]);
+
+    // Solo anima mientras se está viendo: un bucle corriendo en una
+    // sección fuera de pantalla solo gasta batería.
+    const observador = new IntersectionObserver(
+      ([entrada]) => {
+        const visible = entrada.isIntersecting && !menosMovimiento.matches;
+        if (visible && temporizador === undefined) {
+          temporizador = window.setInterval(avanzar, 2600);
+        } else if (!visible && temporizador !== undefined) {
+          window.clearInterval(temporizador);
+          temporizador = undefined;
+        }
+      },
+      { threshold: 0.3 },
+    );
+    observador.observe(escena);
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-escena]").forEach(iniciar);
+</script>

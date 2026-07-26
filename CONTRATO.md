@@ -80,6 +80,29 @@ este endpoint dedicado resuelve la membresía directamente desde el
 JWT del solicitante, sin ambigüedad y sin depender de que el frontend
 recuerde el email con el que se logueó.
 
+### 3.2 Lo que la autenticación NO cubre todavía (a propósito, no un olvido)
+
+Documentado para que ninguna pantalla se construya asumiendo que
+existen — si el frontend los necesita, es una conversación de
+contrato nueva, no una suposición:
+
+- **No hay "olvidé mi contraseña"**: ningún endpoint de reset de
+  contraseña existe hoy. No agregues un link "¿Olvidaste tu
+  contraseña?" que apunte a algo que no está implementado.
+- **No hay rate-limiting en `/api/auth/login/`**: no hay protección
+  contra fuerza bruta todavía. Cuando se agregue, la API empezará a
+  responder `429 Too Many Requests` (probablemente con header
+  `Retry-After`) — el frontend deberá manejar ese código, pero hoy no
+  puede pasar.
+- **No hay verificación de email** al registrar un negocio o agregar
+  un empleado: la cuenta queda activa de inmediato con el primer
+  login.
+
+Estos tres son huecos reconocidos (ver `plan-accion.md` sección 0.3),
+no decisiones de diseño definitivas — se espera que se resuelvan en
+una fase de endurecimiento de seguridad antes de un lanzamiento real,
+no en Fase 1.
+
 ## 4. Convenciones de la API
 
 - **Idioma y formato de campos JSON: español, `snake_case`**
@@ -94,6 +117,15 @@ recuerde el email con el que se logueó.
     (ver sección 5).
   - `404`: recurso no existe o no pertenece al tenant del solicitante
     (ver sección 5.4: nunca se distingue "no existe" de "no es tuyo").
+  - **Limitación reconocida**: los mensajes de error son texto humano
+    en español (`"El precio debe ser mayor a cero."`), no códigos de
+    error legibles por máquina (ej. `PRECIO_INVALIDO`). Sirve para
+    mostrar el mensaje tal cual, pero no permite que el frontend
+    reaccione distinto según el tipo de error, ni traducir a otro
+    idioma. Aceptable para Fase 1; si el frontend necesita distinguir
+    programáticamente entre tipos de error (no solo mostrarlos), es un
+    cambio de contrato a proponer, no algo a inferir parseando el
+    string del mensaje.
 - **IDs**: `Tenant` usa UUID; el resto de modelos (`Negocio`,
   `MiembroNegocio`, etc.) usan enteros autoincrementales. El frontend
   no debe asumir un formato único de ID entre entidades.
@@ -145,6 +177,24 @@ es una capacidad ni afecta permisos).
 
 ### 5.3 Agendar una cita: "cualquiera disponible"
 
+**Transicionar el estado de una cita** (`confirmar`/`completar`/
+`cancelar`) lo puede hacer:
+- quien tenga `puede_gestionar_agenda`, sobre **cualquier** cita del
+  negocio; o
+- **cualquier miembro, sobre sus propias citas** (aquellas donde él es
+  el `empleado` asignado), sin necesitar esa capacidad.
+
+Lo segundo no se modeló como una capacidad nueva a propósito: marcar
+que el propio cliente llegó o que ya se le atendió no es un acto
+administrativo que el dueño conceda, es el empleado registrando su
+trabajo. `puede_gestionar_agenda` sigue significando "administrar la
+agenda **del negocio**" — crear citas, editar horarios y tocar las
+citas de otros, todo lo cual sigue exigiéndola.
+
+Para el frontend: los botones de confirmar/completar/cancelar se
+muestran si `membresia.puede_gestionar_agenda` **o** si
+`cita.empleado === membresia.id`.
+
 `POST /api/agenda/citas/` acepta `empleado` como **opcional**. Si se
 omite (o se envía `null`), el backend asigna automáticamente el
 primer empleado del negocio con disponibilidad real para ese servicio
@@ -154,12 +204,59 @@ encimada). Si no hay ningún empleado disponible, responde `400` con
 disponibilidad por su cuenta ni elegir un empleado "al azar": siempre
 delega esa decisión al backend omitiendo el campo.
 
-### 5.4 Aislamiento por tenant
+### 5.4 Directorio del equipo vs. gestión de empleados
+
+Hay **dos** endpoints para listar personas del negocio, a propósito:
+
+- **`GET /api/negocios/equipo/`** — directorio mínimo (`id`, `nombre`,
+  `especialidad`, `activo`). Lo puede pedir **cualquier miembro**. Es lo
+  que necesita la agenda: filtrar el calendario por empleado, ofrecer
+  "cualquiera disponible" y cargar horarios.
+- **`GET /api/negocios/empleados/`** (y `.../{id}/`) — vista de
+  **gestión**: incluye `email` y la matriz de capacidades. Exige
+  `puede_gestionar_empleados` **tanto para leer como para escribir**.
+
+La separación es deliberada: el email y los permisos de un compañero son
+datos de administración, no información que todo el equipo necesite. Se
+prefirió partir en dos endpoints —cada uno con una forma honesta en el
+schema— antes que un solo endpoint que devuelva más o menos campos
+según quién pregunte, que habría quedado ambiguo de tipar.
+
+Para el frontend esto significa: si solo necesitas nombres de
+empleados, usa `/equipo/`. `/empleados/` es únicamente para la pantalla
+de gestión de equipo, que además debería estar oculta a quien no tenga
+la capacidad (si no, verá un 403).
+
+### 5.5 Aislamiento por tenant
 
 Todo endpoint de negocio filtra automáticamente por el tenant del
 usuario autenticado. Un usuario nunca puede ver ni deducir la
 existencia de datos de otro negocio: un recurso ajeno responde `404`,
 igual que uno inexistente.
+
+### 5.6 Escritura en lote: horario semanal y alta de servicios
+
+Dos operaciones tienen endpoint de lote **además** del CRUD de a uno,
+porque hacerlas con N requests no era atómico y dejaba estado parcial
+si fallaba a mitad de camino:
+
+- **`PUT /api/agenda/horarios/semana/`** — reemplaza el horario semanal
+  completo de un empleado en una transacción. Body: `{miembro, franjas:
+  [{dia_semana, hora_inicio, hora_fin}]}`. Semántica de **reemplazo, no
+  de agregado**: las franjas enviadas pasan a ser el horario completo y
+  lo que no venga en la lista se borra; mandar `franjas: []` deja al
+  empleado sin disponibilidad. Valida que `hora_inicio < hora_fin` y que
+  dos franjas del mismo día no se crucen; si algo falla responde `400` y
+  **no toca el horario existente**. Borrar horarios no afecta a las
+  citas ya agendadas (la `Cita` guarda su propia fecha/hora).
+- **`POST /api/servicios/lote/`** — crea varios servicios en una
+  transacción. Body: `{servicios: [{...}]}` con la misma forma de cada
+  servicio que el `POST` de a uno. Si **cualquiera** de los servicios es
+  inválido, responde `400` y no crea ninguno.
+
+El CRUD de a uno sigue existiendo y es el camino correcto para editar
+un solo elemento. Los endpoints de lote son para el alta inicial
+(catálogo de servicios) y la edición de la semana completa.
 
 ## 6. Historial de cambios al contrato
 
@@ -194,3 +291,66 @@ igual que uno inexistente.
   con token inválido/expirado) a esos endpoints ahora responde `401`
   de forma consistente, como ya documentaba la sección 4 pero no se
   cumplía en la práctica.
+- **2026-07-24** — Corrección de schema (sin cambio de comportamiento):
+  `POST /api/negocios/empleados/` documentaba mal su body de entrada
+  como `MiembroNegocio` (incluyendo campos de solo lectura, y sin
+  `password`). El comportamiento real siempre fue el de
+  `EmpleadoAlta`, pero `@extend_schema` estaba puesto sobre el método
+  `create()` en vez de sobre `post` — en `generics.ListCreateAPIView`
+  (a diferencia de un `ViewSet`), el método que DRF invoca por el
+  verbo HTTP es `post` (definido por el propio DRF, que internamente
+  llama a `create()`); decorar `create()` no lo intercepta y
+  drf-spectacular cae a inferencia automática. Se corrigió con
+  `@extend_schema_view(post=extend_schema(...))` a nivel de clase, que
+  es el patrón que recomienda drf-spectacular para anotar métodos
+  derivados de mixins. Si algún otro endpoint usa
+  `generics.*APIView` con un método sobrescrito (`create`, `update`,
+  etc.) en vez de un `ViewSet`, revisar que use el mismo patrón.
+- **2026-07-24** — Sin cambio de forma, solo documentación de huecos
+  reconocidos (ver `plan-accion.md` sección 0.3, corrección de enfoque
+  de MVP a proyecto profesional): se documentaron explícitamente en
+  3.2 los tres huecos de autenticación que no existen todavía
+  (reset de contraseña, rate-limiting en login, verificación de
+  email), y en la sección 4 la limitación de que los errores son
+  texto humano sin código máquina. Ninguno es un cambio de contrato;
+  son límites a tener en cuenta antes de construir UI que asuma lo
+  contrario.
+- **2026-07-25** — Nuevos endpoints de **escritura en lote** (ver 5.5):
+  `PUT /api/agenda/horarios/semana/` (reemplaza el horario semanal
+  completo de un empleado en una transacción) y `POST
+  /api/servicios/lote/` (crea varios servicios, todos o ninguno).
+  Motivo: el frontend estaba resolviendo ambas cosas con N llamadas
+  HTTP —un POST/DELETE por franja al editar la semana, y un POST por
+  servicio al dar de alta desde el catálogo—, lo que no es atómico: si
+  fallaba la mitad, quedaba un empleado con media semana cargada o un
+  catálogo a medio crear, sin forma de saber qué reintentar. Ninguno
+  reemplaza al CRUD de a uno, que sigue siendo el camino correcto para
+  editar un solo elemento. Ambos respetan las capacidades que ya
+  aplicaban (`puede_gestionar_agenda` y `puede_editar_precios`
+  respectivamente) y el aislamiento por tenant: pasar el `miembro` de
+  otro negocio responde `400`, no toca datos ajenos.
+- **2026-07-25** — **Cambio con ruptura**: `GET
+  /api/negocios/empleados/` y `GET /api/negocios/empleados/{id}/` ahora
+  exigen `puede_gestionar_empleados` **también para leer** (antes
+  bastaba con pertenecer al negocio). Motivo: ese endpoint devuelve el
+  email y la matriz completa de capacidades de cada miembro, así que
+  cualquier empleado sin permisos podía consultar los correos y los
+  permisos de todo el equipo. En su lugar se agregó `GET
+  /api/negocios/equipo/` (ver 5.4), un directorio mínimo —`id`,
+  `nombre`, `especialidad`, `activo`— accesible a cualquier miembro,
+  que es lo que la agenda realmente necesitaba para filtrar el
+  calendario y asignar citas. **Quien consuma `/empleados/` solo para
+  obtener nombres debe migrar a `/equipo/`**; el frontend ya lo hizo en
+  Agenda y en el editor de horarios. La pantalla de gestión de equipo
+  quedó además detrás de un guard de ruta por capacidad, para no
+  mostrar una vista que respondería 403.
+- **2026-07-25** — Las transiciones de estado de una cita
+  (`POST /api/agenda/citas/{id}/confirmar|completar|cancelar/`) ahora
+  las puede ejecutar **cualquier miembro sobre sus propias citas**, sin
+  `puede_gestionar_agenda` (ver 5.3). Antes exigían esa capacidad
+  siempre, lo que dejaba a un barbero viendo sus citas del día sin
+  poder marcar que el cliente llegó — un hueco del modelo, no una
+  restricción buscada. Es una **ampliación**, no una ruptura: quien
+  antes podía, sigue pudiendo. Crear citas y editar horarios siguen
+  exigiendo `puede_gestionar_agenda`, y tocar la cita de otro empleado
+  sigue respondiendo `403`.

@@ -38,13 +38,31 @@
   Claude Code en paralelo, sin verse el código mutuamente, harían que
   un contrato manual se desincronizara del backend real tarde o
   temprano (confirmado por el humano, 2026-07-24).
+- **De "MVP que funciona" a proyecto profesional** (confirmado por el
+  humano, 2026-07-24): ver `plan-accion.md` sección 0.3. Cada feature
+  nueva pasa por un checklist explícito (seguridad, estados de
+  carga/vacío/error, accesibilidad básica, responsive/mobile-first,
+  contrato, tests) antes de darse por completa, en vez de descubrir
+  los huecos después. Primer paso concreto: rediseño real de UI/UX
+  del frontend (hoy solo tiene CSS mínimo funcional).
+- **Se mantiene multi-empleado desde el inicio, se descarta "operador
+  único por defecto"** (confirmado por el humano tras auditoría
+  competitiva, 2026-07-25): ver `ESTRATEGIA-COMPETITIVA.md`. La
+  evidencia de mercado (modelo de comisión 70/30 dueño/barbero,
+  alquiler de silla como modelo estructural, y la debilidad de Goldie
+  siendo justamente su manejo pobre de multi-staff) respalda la
+  decisión ya tomada arriba, no un brief posterior que pedía operador
+  único. El mismo documento fija el benchmark de producto en
+  AgendaPro (competidor regional real) en vez de Goldie, y prioriza
+  para Fase 3 conciliar pagos ya hechos por fuera (Nequi/Daviplata/
+  Bre-B/efectivo) en vez de procesar pagos propios.
 
 ## Estado por fase
 
 | Fase | Estado | Detalle |
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
-| Fase 1 — Núcleo operativo multi-empleado | 🟡 Backend completado (2026-07-24), frontend sin empezar | Backend: Servicios, Empleados (capacidades + especialidad), Agenda por empleado con máquina de estados de `Cita`. Ver `backend/ROADMAP-BACKEND.md`. Frontend: app Capacitor mínima (login + agenda + registrar servicio) — pendiente, ver `frontend/ROADMAP-FRONTEND.md`. La fase no se cierra en este archivo hasta que el frontend entregue lo suyo. |
+| Fase 1 — Núcleo operativo multi-empleado | 🟡 Backend completo; frontend primera pasada completa en rama `feature/frontend-fase1` (2026-07-24), sin mergear ni revisada por el compañero todavía | Backend: Servicios, Empleados (capacidades + especialidad), Agenda por empleado con máquina de estados de `Cita`. Frontend: login, registro de negocio, dashboard, Servicios, Agenda (horarios+citas), Empleados — ver `frontend/ROADMAP-FRONTEND.md` para pendientes (tests, edición completa de Servicios, storage nativo). La fase no se marca ✅ hasta que se mergee y el compañero la retome/valide. |
 | Fase 2 — Descubrimiento y reserva de clientes | Sin empezar | |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
@@ -61,10 +79,21 @@ NO hacer todavía.
 2. Falta decidir, del lado frontend, el generador de tipos TypeScript
    a partir de `backend/openapi.yaml` (ver dudas abiertas en
    `frontend/ROADMAP-FRONTEND.md`).
-3. CI de backend ya existe (`.github/workflows/backend-ci.yml`,
-   2026-07-24). Cuando el frontend tenga código, falta un workflow
-   equivalente para esa carpeta (lint/build/tests), a definir cuando
-   arranque.
+3. ~~CI de backend ya existe; falta el equivalente de frontend.~~
+   Resuelto el 2026-07-25: `.github/workflows/frontend-ci.yml` corre
+   lint, tests, build (`tsc -b`) y verifica que `src/api/schema.ts` esté
+   regenerado contra `backend/openapi.yaml` — el espejo del chequeo de
+   contrato que ya hacía el CI de backend.
+4. **Validación con negocios reales pendiente** (ver
+   `ESTRATEGIA-COMPETITIVA.md`): visitar ~10 barberías/salones locales
+   para confirmar cómo agendan hoy, cómo pagan comisión a fin de
+   semana, y qué pasa cuando se cae el internet, antes de comprometer
+   el detalle de Fase 3 (Caja/Comisiones).
+5. ~~Petición de frontend a backend: escritura en lote.~~ Resuelta el
+   2026-07-25 (la misma persona hizo ambos lados): se agregaron `PUT
+   /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`, ambos
+   transaccionales, y el frontend ya los consume. Ver `CONTRATO.md`
+   sección 5.5 e historial.
 
 ## Historial de fases
 
@@ -91,3 +120,24 @@ completo y decisiones técnicas en `backend/ROADMAP-BACKEND.md`.
 
 Frontend de esta fase (app Capacitor mínima) todavía no ha empezado;
 la fase queda en estado mixto hasta que se entregue.
+
+### Fase 1 — frontend, primera pasada (2026-07-24, rama `feature/frontend-fase1`)
+App Vite + React + TypeScript + Capacitor (sin plataformas nativas
+agregadas aún) con las pantallas de login, registro de negocio,
+dashboard, Servicios, Agenda (horarios y citas con "cualquiera
+disponible" y máquina de estados) y Empleados. Tipos generados desde
+`backend/openapi.yaml` con `openapi-typescript` + `openapi-fetch`, sin
+librería de estado ni de UI (ver justificación en
+`frontend/CLAUDE.md`). Se corrigió también un bug real de contrato
+encontrado en el proceso (`POST /api/negocios/empleados/` documentaba
+mal su body — ver `CONTRATO.md`).
+
+Registro de negocio y Empleados se agregaron más allá del alcance
+textual original de Fase 1 ("login + agenda + registrar servicio"),
+a pedido explícito del humano tras detectar que sin registro la app
+no era usable de punta a punta, y que el backend ya soportaba
+Empleados por completo sin UI que lo expusiera.
+
+Queda en rama sin mergear: el compañero de frontend la retoma mañana
+para revisar, pulir pendientes (ver `frontend/ROADMAP-FRONTEND.md`) y
+decidir si añade tests antes de mergear a `main`.

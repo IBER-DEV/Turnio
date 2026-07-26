@@ -1,0 +1,41 @@
+---
+/**
+ * Marca visiblemente lo que TODAVÍA NO está construido.
+ *
+ * Existe por una decisión explícita: la landing muestra el producto
+ * completo que se está construyendo, pero nunca hace pasar por
+ * disponible algo que no lo está. Lo que lleva este badge hoy
+ * corresponde a fases sin empezar del `../ROADMAP.md`:
+ *   - Cobro / caja / comisiones  → Fase 3
+ *   - Reportes                   → Fase 4
+ *   - Planes y suscripción       → Fase 5
+ *   - Multisede                  → Fase 6+
+ *
+ * Cuando una fase se complete, se quita el badge de esa sección y se
+ * habilita su CTA real. Mientras tanto el CTA correspondiente pide
+ * correo ("avísame cuando salga"), que es lo único que hoy se puede
+ * cumplir.
+ */
+interface Props {
+  /** `sm` para inline junto a un título; `md` suelto sobre una tarjeta. */
+  tamano?: "sm" | "md";
+  class?: string;
+}
+
+const { tamano = "sm", class: clase = "" } = Astro.props;
+---
+
+<span
+  class:list={[
+    "inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 font-bold uppercase tracking-wide text-amber-700",
+    tamano === "sm" ? "px-2.5 py-1 text-[10px]" : "px-3 py-1.5 text-xs",
+    clase,
+  ]}
+>
+  <span class="relative flex h-1.5 w-1.5" aria-hidden="true">
+    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"
+    ></span>
+    <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+  </span>
+  Próximamente
+</span>

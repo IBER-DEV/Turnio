@@ -1,0 +1,449 @@
+---
+/**
+ * Puesta en marcha, paso a paso e interactiva.
+ *
+ * La versión anterior eran cuatro tarjetas de texto: la única sección
+ * que contaba en vez de mostrar. Ahora cada paso trae la pantalla real
+ * que le corresponde en el panel, y se puede recorrer.
+ *
+ * Los cuatro pasos existen de verdad, no son aspiracionales:
+ *   1. `RegistroNegocioPage` — formulario de dos pasos con su barra.
+ *   2. `ModalCatalogo` — alta en lote desde el catálogo semilla.
+ *   3. `ModalHorarioSemanal` — plantillas y la semana completa de una.
+ *   4. `ModalNuevaCita` — con "cualquiera disponible".
+ *
+ * Las pantallas usan los tokens `app-*` (los reales del panel), igual
+ * que el resto de mockups del sitio.
+ */
+
+const PASOS = [
+  {
+    numero: 1,
+    titulo: "Registra tu negocio",
+    detalle:
+      "Nombre, ciudad y tus datos. Dos pasos, sin tarjeta de crédito. Quedas con todas las capacidades activas.",
+    tiempo: "1 min",
+  },
+  {
+    numero: 2,
+    titulo: "Arma tu carta desde el catálogo",
+    detalle:
+      "Marca los servicios que ofreces de una lista con precios en pesos ya sugeridos, y ajusta lo que quieras. No tecleas tu carta entera.",
+    tiempo: "1 min",
+  },
+  {
+    numero: 3,
+    titulo: "Agrega a tu equipo y su horario",
+    detalle:
+      "Cada persona con su especialidad y sus permisos. La semana completa se define de una, no día por día.",
+    tiempo: "2 min",
+  },
+  {
+    numero: 4,
+    titulo: "Empieza a agendar",
+    detalle:
+      "Elige el barbero o deja que Turnio asigne al primero con cupo. Confirmas y completas desde el teléfono, entre cliente y cliente.",
+    tiempo: "30 s",
+  },
+];
+---
+
+<section id="como-funciona" class="border-t border-borde bg-lienzo py-20 md:py-28">
+  <div class="contenedor-landing">
+    <div class="mx-auto mb-14 max-w-3xl text-center">
+      <span
+        class="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo/15 bg-indigo/5 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-wider text-indigo"
+      >
+        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+          <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"
+          ></path>
+        </svg>
+        Puesta en marcha
+      </span>
+      <h2 class="text-3xl font-extrabold tracking-tight text-indigo sm:text-4xl">
+        De cero a agendando en
+        <span class="text-menta">menos de 5 minutos</span>
+      </h2>
+      <p class="mt-4 text-base text-texto-suave sm:text-lg">
+        Sin instalador, sin visita técnica y sin capacitación. Toca cada paso para ver la pantalla
+        que te toca.
+      </p>
+    </div>
+
+    <div class="grid items-start gap-10 lg:grid-cols-[1fr_auto] lg:gap-14" data-flujo data-paso="1">
+      <!-- Pasos -->
+      <ol class="relative space-y-3">
+        <!-- Línea que conecta los pasos -->
+        <span
+          aria-hidden="true"
+          class="absolute left-[27px] top-8 bottom-8 hidden w-px bg-borde sm:block"></span>
+
+        {
+          PASOS.map((paso) => (
+            <li>
+              <button
+                type="button"
+                data-paso-boton={paso.numero}
+                aria-current="false"
+                class="group relative flex w-full items-start gap-4 rounded-2xl border border-transparent p-4 text-left transition-all hover:bg-superficie aria-[current=true]:border-borde aria-[current=true]:bg-superficie aria-[current=true]:shadow-tarjeta"
+              >
+                <span class="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-borde bg-superficie text-lg font-extrabold text-slate-300 transition-all group-aria-[current=true]:border-menta group-aria-[current=true]:bg-menta group-aria-[current=true]:text-white">
+                  {String(paso.numero).padStart(2, "0")}
+                </span>
+
+                <span class="min-w-0 pt-1">
+                  <span class="flex flex-wrap items-center gap-2">
+                    <span class="text-base font-extrabold text-indigo">{paso.titulo}</span>
+                    <span class="rounded-full bg-lienzo px-2 py-0.5 text-[10px] font-bold text-texto-suave group-aria-[current=true]:bg-emerald-50 group-aria-[current=true]:text-emerald-700">
+                      {paso.tiempo}
+                    </span>
+                  </span>
+                  <span class="mt-1 block text-sm leading-relaxed text-texto-suave">
+                    {paso.detalle}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))
+        }
+      </ol>
+
+      <!-- Pantalla del paso -->
+      <div class="mx-auto w-full max-w-[300px]">
+        <div class="rounded-[2.2rem] border-[6px] border-slate-900 bg-slate-900 shadow-elevada">
+          <div class="relative min-h-[430px] overflow-hidden rounded-[1.7rem] bg-app-surface">
+            <!-- Barra superior -->
+            <div
+              class="flex items-center justify-between bg-app-surface px-4 pb-2 pt-3 text-[9px] font-bold text-app-on-surface-variant"
+            >
+              <span>9:41</span>
+              <span class="flex items-center gap-1">
+                <span class="size-1.5 rounded-full bg-menta"></span> Turnio
+              </span>
+            </div>
+
+            <!-- PASO 1 · Registro -->
+            <div class="hidden px-4 pb-4" data-pantalla="1">
+              <p class="text-[9px] font-bold uppercase tracking-wider text-app-on-surface-variant">
+                Paso 1 de 2
+              </p>
+              <h4 class="mt-0.5 text-sm font-extrabold text-app-primary">Datos del negocio</h4>
+
+              <div class="mt-2 flex gap-1.5">
+                <span class="h-1.5 flex-1 rounded-full bg-app-primary"></span>
+                <span class="h-1.5 flex-1 rounded-full bg-app-surface-highest"></span>
+              </div>
+
+              <div class="mt-4 space-y-3">
+                <div>
+                  <p class="mb-1 text-[9px] font-bold text-app-on-surface">Nombre del negocio</p>
+                  <p
+                    class="rounded-lg border border-app-outline-variant bg-app-surface-lowest px-3 py-2 text-[11px] text-app-on-surface"
+                  >
+                    Barbería El Corte Real
+                  </p>
+                </div>
+                <div>
+                  <p class="mb-1 text-[9px] font-bold text-app-on-surface">Ciudad</p>
+                  <p
+                    class="rounded-lg border border-app-outline-variant bg-app-surface-lowest px-3 py-2 text-[11px] text-app-on-surface"
+                  >
+                    Bogotá
+                  </p>
+                </div>
+                <div>
+                  <p class="mb-1 text-[9px] font-bold text-app-on-surface">Teléfono</p>
+                  <p
+                    class="rounded-lg border border-app-outline-variant bg-app-surface-lowest px-3 py-2 text-[11px] text-app-on-surface-variant"
+                  >
+                    +57 300 000 0000
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="mt-5 flex items-center justify-center gap-1.5 rounded-xl bg-app-primary py-2.5 text-[11px] font-extrabold text-app-on-primary"
+              >
+                Siguiente paso
+                <svg viewBox="0 0 24 24" fill="none" class="h-3.5 w-3.5" aria-hidden="true">
+                  <path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round"></path>
+                </svg>
+              </div>
+            </div>
+
+            <!-- PASO 2 · Catálogo -->
+            <div class="hidden px-4 pb-4" data-pantalla="2">
+              <p class="text-[9px] font-bold uppercase tracking-wider text-app-on-surface-variant">
+                Agregar desde el catálogo
+              </p>
+              <h4 class="mt-0.5 text-sm font-extrabold text-app-primary">Elige lo que ofreces</h4>
+
+              <div class="mt-3 flex gap-1.5">
+                <span class="rounded-full bg-app-primary px-2.5 py-1 text-[9px] font-bold text-app-on-primary"
+                  >Barbería</span
+                >
+                <span
+                  class="rounded-full bg-app-surface-container px-2.5 py-1 text-[9px] font-bold text-app-on-surface-variant"
+                  >Peluquería</span
+                >
+                <span
+                  class="rounded-full bg-app-surface-container px-2.5 py-1 text-[9px] font-bold text-app-on-surface-variant"
+                  >Uñas</span
+                >
+              </div>
+
+              <ul class="mt-3 space-y-1.5">
+                {
+                  [
+                    ["Corte de cabello", "$25.000 · 30 min", true],
+                    ["Corte + barba", "$35.000 · 45 min", true],
+                    ["Perfilado de barba", "$15.000 · 20 min", true],
+                    ["Corte niño", "$20.000 · 30 min", false],
+                  ].map(([nombre, meta, elegido]) => (
+                    <li
+                      class:list={[
+                        "flex items-center gap-2.5 rounded-lg border p-2",
+                        elegido
+                          ? "border-app-primary bg-app-primary-fixed"
+                          : "border-app-outline-variant bg-app-surface-lowest",
+                      ]}
+                    >
+                      <span
+                        class:list={[
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2",
+                          elegido ? "border-app-primary bg-app-primary" : "border-app-outline-variant",
+                        ]}
+                      >
+                        {elegido && (
+                          <svg viewBox="0 0 20 20" fill="currentColor" class="h-2.5 w-2.5 text-app-on-primary">
+                            <path
+                              fill-rule="evenodd"
+                              d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-[10px] font-bold text-app-primary">{nombre}</span>
+                        <span class="block truncate text-[9px] text-app-on-surface-variant">{meta}</span>
+                      </span>
+                    </li>
+                  ))
+                }
+              </ul>
+
+              <div
+                class="mt-4 rounded-xl bg-app-primary py-2.5 text-center text-[11px] font-extrabold text-app-on-primary"
+              >
+                Agregar 3 servicios
+              </div>
+            </div>
+
+            <!-- PASO 3 · Horario semanal -->
+            <div class="hidden px-4 pb-4" data-pantalla="3">
+              <p class="text-[9px] font-bold uppercase tracking-wider text-app-on-surface-variant">
+                Horario semanal
+              </p>
+              <h4 class="mt-0.5 text-sm font-extrabold text-app-primary">Mateo Restrepo</h4>
+
+              <p class="mt-3 text-[9px] font-bold text-app-on-surface-variant">Horario típico</p>
+              <div class="mt-1.5 flex gap-1.5">
+                <span
+                  class="rounded-full border border-app-primary bg-app-primary-fixed px-2.5 py-1 text-[9px] font-bold text-app-primary"
+                  >Lun a Vie · 9–18</span
+                >
+                <span
+                  class="rounded-full border border-app-outline-variant bg-app-surface-lowest px-2.5 py-1 text-[9px] font-bold text-app-on-surface-variant"
+                  >Lun a Sáb</span
+                >
+              </div>
+
+              <ul class="mt-3 space-y-1.5">
+                {
+                  [
+                    ["Lunes", true],
+                    ["Martes", true],
+                    ["Miércoles", true],
+                    ["Jueves", true],
+                    ["Domingo", false],
+                  ].map(([dia, activo]) => (
+                    <li
+                      class:list={[
+                        "flex items-center justify-between rounded-lg border px-2.5 py-2",
+                        activo
+                          ? "border-app-outline-variant bg-app-surface-lowest"
+                          : "border-app-outline-variant/50 bg-app-surface-low/40",
+                      ]}
+                    >
+                      <span class="min-w-0">
+                        <span
+                          class:list={[
+                            "block text-[10px] font-bold",
+                            activo ? "text-app-primary" : "text-app-on-surface-variant",
+                          ]}
+                        >
+                          {dia}
+                        </span>
+                        {activo && (
+                          <span class="block text-[9px] text-app-on-surface-variant">09:00 – 18:00</span>
+                        )}
+                      </span>
+                      <span
+                        class:list={[
+                          "relative h-4 w-7 shrink-0 rounded-full p-0.5",
+                          activo ? "bg-app-primary" : "bg-app-outline-variant",
+                        ]}
+                      >
+                        <span
+                          class:list={[
+                            "block h-3 w-3 rounded-full bg-white transition-transform",
+                            activo ? "translate-x-3" : "translate-x-0",
+                          ]}
+                        />
+                      </span>
+                    </li>
+                  ))
+                }
+              </ul>
+
+              <div
+                class="mt-3 rounded-xl bg-app-primary py-2.5 text-center text-[11px] font-extrabold text-app-on-primary"
+              >
+                Guardar horario de Mateo
+              </div>
+            </div>
+
+            <!-- PASO 4 · Agendar -->
+            <div class="hidden px-4 pb-4" data-pantalla="4">
+              <p class="text-[9px] font-bold uppercase tracking-wider text-app-on-surface-variant">
+                Agendar cita
+              </p>
+              <h4 class="mt-0.5 text-sm font-extrabold text-app-primary">Nueva cita</h4>
+
+              <div class="mt-4 space-y-3">
+                <div>
+                  <p class="mb-1 text-[9px] font-bold text-app-on-surface">Servicio</p>
+                  <p
+                    class="rounded-lg border border-app-outline-variant bg-app-surface-lowest px-3 py-2 text-[11px] text-app-on-surface"
+                  >
+                    Corte + barba (45 min)
+                  </p>
+                </div>
+
+                <div>
+                  <p class="mb-1 text-[9px] font-bold text-app-on-surface">Empleado</p>
+                  <p
+                    class="rounded-lg border-2 border-app-secondary-container bg-app-secondary-fixed/40 px-3 py-2 text-[11px] font-bold text-app-on-secondary-fixed"
+                  >
+                    ✨ Cualquiera disponible
+                  </p>
+                  <p class="mt-1 text-[9px] leading-snug text-app-on-surface-variant">
+                    Turnio asigna al primero con ese cupo libre.
+                  </p>
+                </div>
+
+                <div>
+                  <p class="mb-1 text-[9px] font-bold text-app-on-surface">Cliente</p>
+                  <p
+                    class="rounded-lg border border-app-outline-variant bg-app-surface-lowest px-3 py-2 text-[11px] text-app-on-surface"
+                  >
+                    Andrés Rojas
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="mt-4 rounded-xl bg-app-primary py-2.5 text-center text-[11px] font-extrabold text-app-on-primary"
+              >
+                Agendar
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Indicador de posición -->
+        <div class="mt-4 flex items-center justify-center gap-1.5">
+          {
+            PASOS.map((paso) => (
+              <span
+                data-punto={paso.numero}
+                class="h-1.5 rounded-full bg-borde transition-all duration-300"
+                style="width: 0.375rem;"
+              />
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const flujo = document.querySelector<HTMLElement>("[data-flujo]");
+
+  if (flujo) {
+    const botones = flujo.querySelectorAll<HTMLElement>("[data-paso-boton]");
+    const pantallas = flujo.querySelectorAll<HTMLElement>("[data-pantalla]");
+    const puntos = flujo.querySelectorAll<HTMLElement>("[data-punto]");
+    const total = botones.length;
+
+    let actual = 1;
+    let automatico: number | undefined;
+
+    function mostrar(paso: number) {
+      actual = paso;
+      flujo!.dataset.paso = String(paso);
+      botones.forEach((boton) =>
+        boton.setAttribute("aria-current", String(Number(boton.dataset.pasoBoton) === paso)),
+      );
+      pantallas.forEach((pantalla) =>
+        pantalla.classList.toggle("hidden", Number(pantalla.dataset.pantalla) !== paso),
+      );
+      puntos.forEach((punto) => {
+        const activo = Number(punto.dataset.punto) === paso;
+        punto.style.width = activo ? "1.25rem" : "0.375rem";
+        punto.classList.toggle("bg-menta", activo);
+        punto.classList.toggle("bg-borde", !activo);
+      });
+    }
+
+    function detener() {
+      if (automatico !== undefined) {
+        window.clearInterval(automatico);
+        automatico = undefined;
+      }
+    }
+
+    botones.forEach((boton) =>
+      boton.addEventListener("click", () => {
+        // Al primer clic se cede el control: nada más molesto que una
+        // pantalla que se mueve sola mientras la estás leyendo.
+        detener();
+        mostrar(Number(boton.dataset.pasoBoton));
+      }),
+    );
+
+    mostrar(1);
+
+    // Avance automático solo mientras la sección está a la vista y el
+    // sistema no pidió menos movimiento.
+    const menosMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let intervenido = false;
+    botones.forEach((boton) => boton.addEventListener("click", () => (intervenido = true)));
+
+    const observador = new IntersectionObserver(
+      ([entrada]) => {
+        const debeCorrer = entrada.isIntersecting && !menosMovimiento.matches && !intervenido;
+        if (debeCorrer && automatico === undefined) {
+          automatico = window.setInterval(() => mostrar((actual % total) + 1), 3800);
+        } else if (!debeCorrer) {
+          detener();
+        }
+      },
+      { threshold: 0.35 },
+    );
+    observador.observe(flujo);
+  }
+</script>

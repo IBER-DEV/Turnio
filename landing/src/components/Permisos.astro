@@ -1,0 +1,602 @@
+---
+/**
+ * Demostrador de capacidades: se elige a alguien del equipo, se mueven
+ * sus cinco permisos y el panel oscuro muestra en vivo qué le aparece y
+ * qué no.
+ *
+ * Port a Astro (sin React ni framer-motion) del componente del humano.
+ * Dos diferencias de fondo:
+ *
+ * 1. **Cobro y reportes van marcados como próximos.** El original
+ *    mostraba "Cobrar $55.000 (Nequi/Efectivo)" e "Ingresos del día
+ *    $485.000 · +18% vs ayer" como si funcionaran; son Fase 3 y Fase 4
+ *    del `../ROADMAP.md`, sin empezar. La *capacidad* sí existe en el
+ *    modelo `MiembroNegocio`, lo que no existe todavía es el módulo que
+ *    habilita — y así se dice.
+ * 2. **Sin avatares.** No hay assets de foto y no se van a inventar
+ *    personas con imágenes de stock: se usan iniciales en círculo, que
+ *    es exactamente lo que hace el panel real (`Layout.tsx`).
+ *
+ * Todo el estilado por estado se resuelve con variantes
+ * `group-data-[activo=...]` escritas en el marcado, no con clases
+ * construidas en JS: así Tailwind las ve al compilar y no hay riesgo de
+ * que una clase falte en producción.
+ */
+
+const EQUIPO = [
+  { id: "carolina", nombre: "Carolina Ruiz", puesto: "Dueña", iniciales: "CR" },
+  { id: "mateo", nombre: "Mateo Gómez", puesto: "Barbero", iniciales: "MG" },
+  { id: "valentina", nombre: "Valentina Ríos", puesto: "Recepción", iniciales: "VR" },
+  { id: "andres", nombre: "Andrés Peña", puesto: "Estilista", iniciales: "AP" },
+];
+
+const CAPACIDADES = [
+  {
+    campo: "puede_gestionar_agenda",
+    titulo: "Gestionar la agenda",
+    detalle: "Ver el calendario, agendar, confirmar y mover citas.",
+    icono: "calendario",
+  },
+  {
+    campo: "puede_editar_precios",
+    titulo: "Editar precios y servicios",
+    detalle: "Modificar el catálogo y las tarifas del negocio.",
+    icono: "etiqueta",
+  },
+  {
+    campo: "puede_gestionar_empleados",
+    titulo: "Gestionar el personal",
+    detalle: "Agregar personas, cambiar permisos y horarios.",
+    icono: "equipo",
+  },
+  {
+    campo: "puede_cobrar",
+    titulo: "Cobrar",
+    detalle: "Registrar pagos de las citas y cerrar la caja del día.",
+    icono: "dinero",
+    proxima: true,
+  },
+  {
+    campo: "puede_ver_reportes",
+    titulo: "Ver reportes",
+    detalle: "Ingresos del negocio, historial y métricas.",
+    icono: "grafica",
+    proxima: true,
+  },
+];
+---
+
+<section id="permisos" class="border-y border-borde bg-lienzo py-20 md:py-28">
+  <div class="contenedor-landing">
+    <!-- Encabezado -->
+    <div class="mx-auto mb-14 max-w-3xl text-center">
+      <span
+        class="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-100 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-800"
+      >
+        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+          <path
+            d="M12 3l7 3v5c0 4.5-2.9 8.3-7 10-4.1-1.7-7-5.5-7-10V6l7-3z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linejoin="round"></path>
+        </svg>
+        Control real sobre tu equipo
+      </span>
+      <h2 class="text-3xl font-extrabold tracking-tight text-indigo sm:text-4xl">
+        Tu negocio, tus reglas:
+        <span class="text-menta">cero roles rígidos</span>
+      </h2>
+      <p class="mt-4 text-base text-texto-suave sm:text-lg">
+        Otras apps te obligan a elegir entre "Administrador" o "Empleado", y para dar un permiso
+        tienes que dar diez. En Turnio enciendes exactamente lo que cada persona necesita.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 items-stretch gap-8 lg:grid-cols-12">
+      <!-- Panel de control -->
+      <div
+        class="flex flex-col justify-between rounded-3xl border border-borde bg-superficie p-6 shadow-tarjeta sm:p-8 lg:col-span-6"
+      >
+        <div>
+          <div class="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
+            <h3 class="flex items-center gap-2 text-lg font-bold text-indigo">
+              <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5 text-menta" aria-hidden="true">
+                <path
+                  d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm10 8v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.2a3.5 3.5 0 0 1 0 6.6"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"></path>
+              </svg>
+              Elige a alguien de tu equipo
+            </h3>
+          </div>
+
+          <!-- Selector de persona -->
+          <div class="mb-8 grid grid-cols-2 gap-2.5 sm:grid-cols-4" role="tablist">
+            {
+              EQUIPO.map((persona, indice) => (
+                <button
+                  type="button"
+                  role="tab"
+                  data-persona={persona.id}
+                  aria-selected={indice === 1 ? "true" : "false"}
+                  class="group flex flex-col items-center rounded-2xl border border-borde bg-lienzo p-2.5 text-left transition-all duration-200 hover:bg-slate-100 aria-selected:border-indigo aria-selected:bg-indigo aria-selected:shadow-md sm:items-start"
+                >
+                  <span class="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-xs font-extrabold text-indigo ring-1 ring-borde group-aria-selected:ring-menta">
+                    {persona.iniciales}
+                  </span>
+                  <span class="w-full truncate text-xs font-bold text-texto group-aria-selected:text-white">
+                    {persona.nombre.split(" ")[0]}
+                  </span>
+                  <span class="w-full truncate text-[10px] text-texto-suave group-aria-selected:text-slate-300">
+                    {persona.puesto}
+                  </span>
+                </button>
+              ))
+            }
+          </div>
+
+          <!-- Interruptores -->
+          <p class="mb-3 text-xs font-extrabold uppercase tracking-wider text-slate-400">
+            Capacidades de <span data-nombre-actual>Mateo Gómez</span>
+          </p>
+
+          <div class="space-y-3">
+            {
+              CAPACIDADES.map((capacidad) => (
+                <button
+                  type="button"
+                  role="switch"
+                  data-permiso={capacidad.campo}
+                  data-activo="false"
+                  aria-checked="false"
+                  class="group flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-borde bg-lienzo p-3.5 text-left transition-all hover:border-slate-300 data-[activo=true]:border-emerald-300 data-[activo=true]:bg-emerald-50/80"
+                >
+                  <span class="flex items-center gap-3">
+                    <span class="rounded-xl bg-slate-200 p-2 text-slate-500 transition-colors group-data-[activo=true]:bg-menta group-data-[activo=true]:text-white">
+                      {capacidad.icono === "calendario" && (
+                        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+                          <rect
+                            x="3"
+                            y="5"
+                            width="18"
+                            height="16"
+                            rx="2"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          />
+                          <path
+                            d="M3 10h18M8 3v4M16 3v4"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                      )}
+                      {capacidad.icono === "etiqueta" && (
+                        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+                          <path
+                            d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9Z"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linejoin="round"
+                          />
+                          <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" />
+                        </svg>
+                      )}
+                      {capacidad.icono === "equipo" && (
+                        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+                          <path
+                            d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm10 8v-1.5a3.5 3.5 0 0 0-2.6-3.4"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                      )}
+                      {capacidad.icono === "dinero" && (
+                        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+                          <path
+                            d="M12 3v18M16 7.5C16 6 14.2 5 12 5S8 6 8 7.5 9.8 10 12 10.5s4 1 4 2.5-1.8 2.5-4 2.5-4-1-4-2.5"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                      )}
+                      {capacidad.icono === "grafica" && (
+                        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+                          <path
+                            d="M4 19h16M7 16v-5M12 16V7M17 16v-8"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    <span class="min-w-0">
+                      <span class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm font-bold text-indigo">{capacidad.titulo}</span>
+                        {capacidad.proxima && (
+                          <span class="rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700">
+                            Pronto
+                          </span>
+                        )}
+                      </span>
+                      <span class="mt-0.5 block text-xs leading-snug text-texto-suave">
+                        {capacidad.detalle}
+                      </span>
+                    </span>
+                  </span>
+
+                  <span class="relative h-6 w-11 shrink-0 rounded-full bg-slate-300 p-1 transition-colors group-data-[activo=true]:bg-menta">
+                    <span class="block h-4 w-4 rounded-full bg-white shadow-md transition-transform group-data-[activo=true]:translate-x-5" />
+                  </span>
+                </button>
+              ))
+            }
+          </div>
+        </div>
+
+        <p
+          class="mt-6 flex items-center gap-3 rounded-2xl border border-borde bg-slate-100/90 p-3.5 text-xs text-texto-suave"
+        >
+          <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4 shrink-0 text-indigo" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
+            <path d="M12 8h.01M11 12h1v4h1" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            ></path>
+          </svg>
+          Mueve los interruptores y mira cómo cambia la pantalla de la derecha.
+        </p>
+      </div>
+
+      <!-- Vista del empleado -->
+      <div
+        class="relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 p-6 text-white shadow-elevada sm:p-8 lg:col-span-6"
+      >
+        <div>
+          <div class="mb-6 flex items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div class="flex min-w-0 items-center gap-3">
+              <span
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-extrabold text-white ring-2 ring-menta"
+                data-iniciales-actual>MG</span
+              >
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <p class="truncate text-sm font-extrabold text-white" data-nombre-actual>
+                    Mateo Gómez
+                  </p>
+                  <span
+                    class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400"
+                  >
+                    Sesión activa
+                  </span>
+                </div>
+                <p class="truncate text-xs text-slate-400">Lo que ve en su teléfono</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-3.5">
+            <!-- Agenda -->
+            <div
+              class="group rounded-2xl border border-slate-700/80 bg-slate-800/90 p-4"
+              data-modulo="puede_gestionar_agenda"
+              data-activo="false"
+            >
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <span class="flex items-center gap-2 text-xs font-bold text-slate-300">
+                  <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4 text-blue-400" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"
+                    ></rect>
+                    <path d="M3 10h18" stroke="currentColor" stroke-width="2"></path>
+                  </svg>
+                  Agenda del negocio
+                </span>
+                <span
+                  class="shrink-0 rounded-lg bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-400 group-data-[activo=true]:hidden"
+                  >Bloqueado</span
+                >
+                <span
+                  class="hidden shrink-0 rounded-lg bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-400 group-data-[activo=true]:inline"
+                  >Habilitado</span
+                >
+              </div>
+              <div class="hidden group-data-[activo=true]:block">
+                <div
+                  class="flex items-center justify-between gap-2 rounded-xl border border-slate-700/60 bg-slate-900/90 p-3 text-xs"
+                >
+                  <div class="min-w-0">
+                    <p class="truncate font-bold text-white">Juan Pérez · Corte y Barba</p>
+                    <p class="truncate text-[11px] text-slate-400">
+                      Hoy 3:00 PM con <span data-primer-nombre>Mateo</span>
+                    </p>
+                  </div>
+                  <span class="shrink-0 rounded-lg bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white"
+                    >Confirmar</span
+                  >
+                </div>
+              </div>
+              <p
+                class="rounded-xl border border-dashed border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-500 group-data-[activo=true]:hidden"
+              >
+                Solo ve sus propias citas, no la agenda de los demás.
+              </p>
+            </div>
+
+            <!-- Precios -->
+            <div
+              class="group rounded-2xl border border-slate-700/80 bg-slate-800/90 p-4"
+              data-modulo="puede_editar_precios"
+              data-activo="false"
+            >
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <span class="flex items-center gap-2 text-xs font-bold text-slate-300">
+                  <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4 text-amber-400" aria-hidden="true">
+                    <path
+                      d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9Z"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linejoin="round"></path>
+                  </svg>
+                  Precios del catálogo
+                </span>
+                <span
+                  class="shrink-0 rounded-lg bg-slate-700 px-2 py-0.5 text-[11px] font-bold text-slate-400 group-data-[activo=true]:hidden"
+                  >Solo lectura</span
+                >
+                <span
+                  class="hidden shrink-0 rounded-lg bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-400 group-data-[activo=true]:inline"
+                  >Puede editar</span
+                >
+              </div>
+              <div
+                class="flex items-center justify-between rounded-xl border border-slate-700/60 bg-slate-900/90 p-3 text-xs"
+              >
+                <span class="font-bold text-white">Corte + Barba</span>
+                <span class="flex items-center gap-2">
+                  <span class="font-extrabold text-slate-300">$35.000</span>
+                  <span
+                    class="hidden rounded-lg bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300 group-data-[activo=true]:inline"
+                    >Editar</span
+                  >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    class="h-3.5 w-3.5 text-slate-600 group-data-[activo=true]:hidden"
+                    aria-hidden="true"
+                  >
+                    <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"
+                    ></rect>
+                    <path d="M8 11V7a4 4 0 1 1 8 0v4" stroke="currentColor" stroke-width="2"></path>
+                  </svg>
+                </span>
+              </div>
+            </div>
+
+            <!-- Equipo -->
+            <div
+              class="group rounded-2xl border border-slate-700/80 bg-slate-800/90 p-4"
+              data-modulo="puede_gestionar_empleados"
+              data-activo="false"
+            >
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <span class="flex items-center gap-2 text-xs font-bold text-slate-300">
+                  <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4 text-indigo-300" aria-hidden="true">
+                    <path
+                      d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"></path>
+                  </svg>
+                  Pestaña de Equipo
+                </span>
+                <span
+                  class="shrink-0 rounded-lg bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-400 group-data-[activo=true]:hidden"
+                  >Oculta</span
+                >
+                <span
+                  class="hidden shrink-0 rounded-lg bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-400 group-data-[activo=true]:inline"
+                  >Visible</span
+                >
+              </div>
+              <p
+                class="rounded-xl border border-dashed border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-500 group-data-[activo=true]:hidden"
+              >
+                No ve los correos ni los permisos de sus compañeros.
+              </p>
+              <div
+                class="hidden rounded-xl border border-slate-700/60 bg-slate-900/90 p-3 text-xs group-data-[activo=true]:block"
+              >
+                <p class="font-bold text-white">4 personas en el equipo</p>
+                <p class="text-[11px] text-slate-400">Puede agregar y cambiar permisos</p>
+              </div>
+            </div>
+
+            <!-- Cobro — módulo no construido -->
+            <div
+              class="group rounded-2xl border border-slate-700/80 bg-slate-800/50 p-4"
+              data-modulo="puede_cobrar"
+              data-activo="false"
+            >
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <span class="flex items-center gap-2 text-xs font-bold text-slate-400">
+                  <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4 text-emerald-400/60" aria-hidden="true">
+                    <path
+                      d="M12 3v18M16 7.5C16 6 14.2 5 12 5S8 6 8 7.5 9.8 10 12 10.5s4 1 4 2.5-1.8 2.5-4 2.5-4-1-4-2.5"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"></path>
+                  </svg>
+                  Cobro y caja
+                </span>
+                <span
+                  class="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400"
+                  >Próximamente</span
+                >
+              </div>
+              <p
+                class="rounded-xl border border-dashed border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-500 group-data-[activo=true]:hidden"
+              >
+                Cuando exista, esta persona no verá montos ni podrá cobrar.
+              </p>
+              <p
+                class="hidden rounded-xl border border-emerald-500/20 bg-emerald-950/30 p-3 text-center text-xs text-emerald-300/80 group-data-[activo=true]:block"
+              >
+                Cuando exista, esta persona podrá registrar pagos y cerrar caja.
+              </p>
+            </div>
+
+            <!-- Reportes — módulo no construido -->
+            <div
+              class="group rounded-2xl border border-slate-700/80 bg-slate-800/50 p-4"
+              data-modulo="puede_ver_reportes"
+              data-activo="false"
+            >
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <span class="flex items-center gap-2 text-xs font-bold text-slate-400">
+                  <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4 text-purple-400/60" aria-hidden="true">
+                    <path d="M4 19h16M7 16v-5M12 16V7M17 16v-8" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round"></path>
+                  </svg>
+                  Reportes de ingresos
+                </span>
+                <span
+                  class="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400"
+                  >Próximamente</span
+                >
+              </div>
+              <p
+                class="rounded-xl border border-dashed border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-500 group-data-[activo=true]:hidden"
+              >
+                Cuando existan, quedarán privados para el dueño.
+              </p>
+              <p
+                class="hidden rounded-xl border border-purple-500/20 bg-indigo-950/50 p-3 text-center text-xs text-purple-300/80 group-data-[activo=true]:block"
+              >
+                Cuando existan, esta persona podrá ver los ingresos del negocio.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p
+          class="mt-8 flex items-center justify-center gap-2 border-t border-slate-800 pt-4 text-center text-xs text-slate-400"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0 text-menta" aria-hidden="true">
+            <path
+              fill-rule="evenodd"
+              d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+              clip-rule="evenodd"></path>
+          </svg>
+          Tu equipo trabaja rápido, sin poder tocar lo que no le corresponde.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  type Permisos = Record<string, boolean>;
+
+  /** Presets realistas de una barbería: el dueño con todo, el barbero
+   * solo con su agenda, recepción agendando y cobrando, y un estilista
+   * senior que además maneja precios. */
+  const PRESETS: Record<string, { nombre: string; iniciales: string; permisos: Permisos }> = {
+    carolina: {
+      nombre: "Carolina Ruiz",
+      iniciales: "CR",
+      permisos: {
+        puede_gestionar_agenda: true,
+        puede_editar_precios: true,
+        puede_gestionar_empleados: true,
+        puede_cobrar: true,
+        puede_ver_reportes: true,
+      },
+    },
+    mateo: {
+      nombre: "Mateo Gómez",
+      iniciales: "MG",
+      permisos: {
+        puede_gestionar_agenda: false,
+        puede_editar_precios: false,
+        puede_gestionar_empleados: false,
+        puede_cobrar: false,
+        puede_ver_reportes: false,
+      },
+    },
+    valentina: {
+      nombre: "Valentina Ríos",
+      iniciales: "VR",
+      permisos: {
+        puede_gestionar_agenda: true,
+        puede_editar_precios: false,
+        puede_gestionar_empleados: false,
+        puede_cobrar: true,
+        puede_ver_reportes: false,
+      },
+    },
+    andres: {
+      nombre: "Andrés Peña",
+      iniciales: "AP",
+      permisos: {
+        puede_gestionar_agenda: true,
+        puede_editar_precios: true,
+        puede_gestionar_empleados: false,
+        puede_cobrar: true,
+        puede_ver_reportes: false,
+      },
+    },
+  };
+
+  const seccion = document.querySelector<HTMLElement>("#permisos");
+  if (seccion) {
+    const interruptores = seccion.querySelectorAll<HTMLElement>("[data-permiso]");
+    const modulos = seccion.querySelectorAll<HTMLElement>("[data-modulo]");
+    const pestanas = seccion.querySelectorAll<HTMLElement>("[data-persona]");
+    const nombres = seccion.querySelectorAll<HTMLElement>("[data-nombre-actual]");
+    const iniciales = seccion.querySelectorAll<HTMLElement>("[data-iniciales-actual]");
+    const primerNombre = seccion.querySelectorAll<HTMLElement>("[data-primer-nombre]");
+
+    let actuales: Permisos = { ...PRESETS.mateo.permisos };
+
+    function pintar() {
+      interruptores.forEach((nodo) => {
+        const activo = actuales[nodo.dataset.permiso!] === true;
+        nodo.dataset.activo = String(activo);
+        nodo.setAttribute("aria-checked", String(activo));
+      });
+      modulos.forEach((nodo) => {
+        nodo.dataset.activo = String(actuales[nodo.dataset.modulo!] === true);
+      });
+    }
+
+    function seleccionar(id: string) {
+      const preset = PRESETS[id];
+      if (!preset) return;
+      actuales = { ...preset.permisos };
+      pestanas.forEach((pestana) =>
+        pestana.setAttribute("aria-selected", String(pestana.dataset.persona === id)),
+      );
+      nombres.forEach((nodo) => (nodo.textContent = preset.nombre));
+      iniciales.forEach((nodo) => (nodo.textContent = preset.iniciales));
+      primerNombre.forEach((nodo) => (nodo.textContent = preset.nombre.split(" ")[0]));
+      pintar();
+    }
+
+    interruptores.forEach((nodo) =>
+      nodo.addEventListener("click", () => {
+        const campo = nodo.dataset.permiso!;
+        actuales[campo] = !actuales[campo];
+        pintar();
+      }),
+    );
+
+    pestanas.forEach((pestana) =>
+      pestana.addEventListener("click", () => seleccionar(pestana.dataset.persona!)),
+    );
+
+    seleccionar("mateo");
+  }
+</script>

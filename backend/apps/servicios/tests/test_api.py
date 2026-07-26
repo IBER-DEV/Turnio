@@ -66,3 +66,70 @@ def test_crear_servicio_rechaza_precio_negativo(cliente_autenticado_dueno):
     )
 
     assert respuesta.status_code == 400
+
+
+# --- POST /api/servicios/lote/ ---
+
+
+def test_lote_crea_varios_servicios_de_una(cliente_autenticado_dueno):
+    respuesta = cliente_autenticado_dueno.post(
+        "/api/servicios/lote/",
+        {
+            "servicios": [
+                {"nombre": "Corte", "precio": "25000", "duracion_minutos": 30},
+                {"nombre": "Barba", "precio": "15000", "duracion_minutos": 20},
+            ]
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 201
+    assert len(respuesta.data) == 2
+    assert {item["nombre"] for item in respuesta.data} == {"Corte", "Barba"}
+
+
+def test_lote_no_crea_nada_si_un_servicio_es_invalido(cliente_autenticado_dueno):
+    """Atomicidad: es justo lo que el endpoint viene a resolver."""
+    respuesta = cliente_autenticado_dueno.post(
+        "/api/servicios/lote/",
+        {
+            "servicios": [
+                {"nombre": "Corte", "precio": "25000", "duracion_minutos": 30},
+                {"nombre": "Gratis", "precio": "0", "duracion_minutos": 30},
+            ]
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    listado = cliente_autenticado_dueno.get("/api/servicios/")
+    assert listado.data == []
+
+
+def test_lote_requiere_capacidad_de_editar_precios(negocio_con_dueno):
+    from rest_framework.test import APIClient
+
+    negocio, _dueno, _membresia = negocio_con_dueno
+    negocios_services.agregar_empleado(
+        negocio=negocio,
+        email="empleado@test.com",
+        password="claveSegura123",
+        nombre="Empleado",
+        capacidades={"puede_gestionar_agenda": True},
+    )
+
+    client = APIClient()
+    login = client.post(
+        "/api/auth/login/",
+        {"email": "empleado@test.com", "password": "claveSegura123"},
+        format="json",
+    )
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+
+    respuesta = client.post(
+        "/api/servicios/lote/",
+        {"servicios": [{"nombre": "Corte", "precio": "25000", "duracion_minutos": 30}]},
+        format="json",
+    )
+
+    assert respuesta.status_code == 403

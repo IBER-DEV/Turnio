@@ -1,0 +1,90 @@
+---
+import Telefono3D from "./Telefono3D.astro";
+---
+
+<section class="relative overflow-hidden">
+  <!-- Halos decorativos -->
+  <div aria-hidden="true" class="pointer-events-none absolute inset-0 -z-10">
+    <div class="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-menta/10 blur-3xl"></div>
+    <div class="absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-indigo/10 blur-3xl"></div>
+  </div>
+
+  <div
+    class="contenedor-landing grid items-center gap-16 py-16 md:py-24 lg:grid-cols-[1.1fr_1fr] lg:gap-12"
+  >
+    <div class="text-center lg:text-left">
+      <span
+        class="inline-block rounded-full border border-borde bg-superficie px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-texto-suave shadow-suave"
+      >
+        Diseñado para barberías y salones en LatAm
+      </span>
+
+      <h1
+        class="mt-6 text-4xl font-extrabold leading-[1.1] tracking-tight text-indigo sm:text-5xl lg:text-6xl"
+      >
+        Reemplaza el cuaderno.<br />
+        <span class="text-menta">Controla tu agenda</span> en 30 segundos.
+      </h1>
+
+      <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-texto lg:mx-0">
+        La app de gestión para barberos y estilistas que atienden sin parar. Asigna turnos
+        automáticamente, controla qué ve cada persona de tu equipo y deja de perseguir
+        confirmaciones por WhatsApp.
+      </p>
+
+      <div class="mt-9 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
+        <a
+          href="#acceso"
+          class="w-full rounded-xl bg-menta px-7 py-4 text-center text-base font-bold text-white shadow-tarjeta transition-all hover:bg-menta-oscura hover:shadow-elevada active:scale-[0.98] sm:w-auto"
+        >
+          Quiero acceso anticipado
+        </a>
+        <a
+          href="#permisos"
+          class="w-full rounded-xl border border-borde bg-superficie px-7 py-4 text-center text-base font-bold text-indigo transition-colors hover:bg-lienzo sm:w-auto"
+        >
+          Ver demo interactiva
+        </a>
+      </div>
+
+      <!-- Prueba social honesta: Turnio todavía no tiene clientes, así que
+           el argumento de confianza es el diferencial duro y verificable,
+           no una cifra de usuarios inventada. -->
+      <div
+        class="mt-9 flex flex-col items-center gap-3 text-sm text-texto-suave sm:flex-row sm:gap-6 lg:justify-start"
+      >
+        <span class="flex items-center gap-2 font-semibold">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-menta" aria-hidden="true">
+            <path
+              fill-rule="evenodd"
+              d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+              clip-rule="evenodd"></path>
+          </svg>
+          Sin cargo por empleado
+        </span>
+        <span class="flex items-center gap-2 font-semibold">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-menta" aria-hidden="true">
+            <path
+              fill-rule="evenodd"
+              d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+              clip-rule="evenodd"></path>
+          </svg>
+          Precios en pesos
+        </span>
+        <span class="flex items-center gap-2 font-semibold">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-menta" aria-hidden="true">
+            <path
+              fill-rule="evenodd"
+              d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+              clip-rule="evenodd"></path>
+          </svg>
+          Construido con barberos de Bogotá
+        </span>
+      </div>
+    </div>
+
+    <div class="lg:pl-6">
+      <Telefono3D />
+    </div>
+  </div>
+</section>

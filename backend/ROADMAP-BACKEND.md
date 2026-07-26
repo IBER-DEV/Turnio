@@ -315,3 +315,188 @@ construyera sobre el workaround.
 - No requiere ninguna capacidad especial (solo pertenecer a un negocio
   activo): es información sobre uno mismo, no una acción sobre el
   negocio.
+
+---
+
+## Fase 1 — ajuste posterior: schema mal documentado en creación de empleados (2026-07-24)
+
+Detectado por el frontend (rama `feature/frontend-fase1`) al generar
+tipos TypeScript desde `openapi.yaml`: `POST /api/negocios/empleados/`
+documentaba su body de entrada como `MiembroNegocio` (con campos de
+solo lectura, sin `password`), cuando el comportamiento real siempre
+usó `EmpleadoAltaSerializer`.
+
+**Causa raíz**: `@extend_schema` estaba puesto sobre el método
+`create()` de `EmpleadoListCreateView`, una `generics.ListCreateAPIView`.
+A diferencia de un `ViewSet` (donde el router mapea el verbo HTTP
+directamente al método `create`), en las vistas genéricas de DRF el
+método que efectivamente resuelve el POST es `post` — definido por
+`ListCreateAPIView` y que internamente llama a `self.create(...)`.
+drf-spectacular inspecciona `post`, no `create`, así que la anotación
+nunca se aplicaba y caía a inferencia automática desde
+`serializer_class`.
+
+**Fix**: `@extend_schema_view(post=extend_schema(...))` a nivel de
+clase — el patrón que la propia documentación de drf-spectacular
+recomienda para anotar "métodos derivados" de mixins que no están
+directamente expuestos como el verbo HTTP. Sin cambio de
+comportamiento (el endpoint siempre aceptó `EmpleadoAlta`; solo el
+schema estaba mal). `openapi.yaml` regenerado y `CONTRATO.md`
+actualizado con la explicación completa, incluyendo el aviso de
+revisar cualquier otra vista `generics.*APIView` con un método
+sobrescrito por si tiene el mismo problema. Suite completa (41 tests)
+sigue en verde.
+
+## Escritura en lote: horario semanal y alta de servicios (2026-07-25)
+
+> Pedido que venía anotado como duda abierta desde frontend (punto 5 de
+> `../ROADMAP.md`). Lo resolvió la misma persona que hizo el frontend,
+> así que se implementó de una en vez de quedar en la cola.
+
+### Qué se agregó
+- **`PUT /api/agenda/horarios/semana/`** — reemplaza el horario semanal
+  completo de un empleado en una sola transacción. Body: `{miembro,
+  franjas: [{dia_semana, hora_inicio, hora_fin}]}`.
+- **`POST /api/servicios/lote/`** — crea varios servicios; entran todos
+  o ninguno.
+
+Lógica en `services.reemplazar_horario_semanal` y
+`servicios.services.crear_servicios_en_lote`, siguiendo la regla de
+capa de servicios: las vistas solo orquestan HTTP.
+
+### Por qué
+El frontend estaba resolviendo ambas cosas con **N llamadas HTTP** (un
+POST/DELETE por franja al editar la semana, un POST por servicio al dar
+de alta desde el catálogo). Funcionaba, pero no era atómico: con la red
+de un local comercial era esperable que entraran 7 de 10 servicios, o
+que un empleado quedara con media semana cargada, sin forma de saber
+qué reintentar.
+
+### Decisiones de diseño
+- **Semántica de reemplazo, no de agregado**, en el horario semanal: la
+  lista enviada *es* el horario del empleado. Se eligió sobre un
+  "agregar varias franjas" porque es lo que el editor de la UI necesita
+  (el usuario ve y edita la semana completa), y porque un endpoint que
+  agrega obligaría igual a borrar por separado lo que se quitó — que es
+  justo el problema de atomicidad que se venía a resolver.
+- **Endpoint aparte en vez de aceptar lista en el `POST` normal**: hacer
+  que `POST /api/servicios/` acepte objeto o lista habría dejado el
+  schema con un `oneOf` que el frontend tendría que desambiguar en cada
+  llamada. Un `/lote/` explícito es más feo de nombre pero más claro de
+  consumir.
+- **Validación de solapamientos dentro del servicio**, no del
+  serializer: es regla de negocio (dos franjas del mismo empleado no
+  pueden cruzarse), no validación de forma del payload.
+- Se mantiene todo el CRUD de a uno: sigue siendo el camino correcto
+  para editar un solo elemento.
+- Borrar horarios **no** toca las citas ya agendadas: la `Cita` guarda
+  su propia fecha/hora y no se recalcula. Hay test que lo cubre
+  indirectamente (el reemplazo no falla con citas existentes).
+
+### Tests
+19 tests nuevos (55 en total, antes 36), priorizando la capa de
+servicios como manda `CLAUDE.md`. Cubren: creación de la semana
+completa, que reemplaza y no acumula, dos franjas el mismo día (caso
+del almuerzo), rechazo de franjas cruzadas y de hora invertida,
+**que un fallo no deja estado parcial** (el caso que motivó el
+endpoint), lista vacía como "sin disponibilidad", atomicidad del lote de
+servicios, y aislamiento por tenant (pasar el `miembro` de otro negocio
+responde 400 sin tocar datos ajenos).
+
+### Contrato
+`openapi.yaml` regenerado y `../CONTRATO.md` actualizado: nueva sección
+5.5 (convención de escritura en lote) + entrada en el historial.
+
+## Cierre de fuga de datos: directorio de equipo vs. gestión (2026-07-25)
+
+> Salió de una pregunta del humano sobre la UI ("si un empleado no puede
+> gestionar equipo, ¿debería siquiera ver esa pantalla?"). Al revisarlo,
+> el problema real no era la pantalla sino el endpoint.
+
+### El problema
+`GET /api/negocios/empleados/` exigía solo `TieneMembresiaActiva`, y
+`MiembroNegocioSerializer` devuelve `email` + los cinco flags `puede_*`
+de cada miembro. Es decir: **cualquier empleado sin permisos podía
+consultar los correos y la matriz de permisos de todo el equipo.**
+Ocultar la pantalla en el frontend no habría arreglado nada — el dato
+seguía a un `curl` de distancia. Mismo problema en
+`GET /api/negocios/empleados/{id}/`.
+
+No se podía simplemente cerrar el endpoint: la agenda lo usa
+legítimamente para el filtro por empleado, el selector de "a quién
+asignar" y el editor de horarios.
+
+### La solución
+Partirlo en dos endpoints con responsabilidades distintas:
+- **`GET /api/negocios/equipo/`** (nuevo) — `MiembroEquipoSerializer`:
+  solo `id`, `nombre`, `especialidad`, `activo`. Cualquier miembro.
+- **`/empleados/`** — sigue con datos completos, pero ahora exige
+  `puede_gestionar_empleados` para leer, no solo para escribir.
+
+Se prefirió dos endpoints sobre un solo endpoint que devuelva más o
+menos campos según quién pregunte: esto último habría dejado el schema
+OpenAPI mintiendo (una forma declarada, dos formas reales) y obligaría
+al frontend a defenderse de campos ausentes en cada uso.
+
+### Es un cambio con ruptura
+Cualquier consumidor que usara `/empleados/` solo para obtener nombres
+debe migrar a `/equipo/`. El frontend ya lo hizo (Agenda y editor de
+horarios). Anotado como tal en `../CONTRATO.md`.
+
+### Tests
+5 nuevos (60 en total): que listar y ver detalle de empleados ahora dan
+403 sin la capacidad, que `/equipo/` sí lo puede ver cualquier miembro,
+que `/equipo/` **no** expone email ni capacidades (se afirma el set
+exacto de claves, no solo la ausencia), y que no cruza tenants.
+
+## Citas propias: cerrar el hueco de "veo mis citas pero no puedo confirmarlas" (2026-07-25)
+
+> Lo detectó el humano usando la app: un empleado sin
+> `puede_gestionar_agenda` veía sus citas del día pero no podía
+> confirmarlas. Preguntó si lo arreglaba el frontend — no: el backend
+> respondía 403, así que ocultar los botones era lo correcto dado ese
+> backend. El hueco estaba en el modelo de permisos.
+
+### Diagnóstico
+`puede_gestionar_agenda` se estaba usando para dos cosas distintas:
+administrar la agenda del negocio (crear citas, editar horarios de
+cualquiera) y tocar una cita puntual. Un barbero raso necesita lo
+segundo sobre lo suyo sin tener lo primero.
+
+### Decisión: propiedad implícita, sin capacidad nueva
+Se evaluó agregar `puede_gestionar_agenda_propia` como sexto flag. Se
+descartó (decisión del humano) porque sería un flag en `true` para
+prácticamente todo empleado: ruido en la matriz de capacidades, una
+migración y un switch más en la UI, a cambio de nada. El razonamiento
+de fondo: **no es un permiso que el dueño conceda, es propiedad** — uno
+siempre puede actuar sobre su propio trabajo.
+
+Se incluyeron las tres transiciones, `cancelar` incluida (también
+decisión del humano): cubre "me enfermé" y "el cliente no llegó" sin
+depender de que el dueño esté disponible.
+
+### Implementación
+Nueva factory `requiere_capacidad_o_ser_titular(capacidad, campo)` en
+`apps/common/permissions.py`, que resuelve en `has_object_permission`:
+pasa si tiene la capacidad, o si el objeto es suyo. Se dejó genérica
+porque el mismo patrón va a hacer falta en Fase 3 (un empleado
+consultando su propia comisión).
+
+`CitaViewSet.get_permissions` la usa **solo** para
+`confirmar`/`completar`/`cancelar`. `create`/`update`/`destroy` siguen
+con `requiere_capacidad`, y está documentado por qué: en `create` no
+hay objeto contra el cual comprobar propiedad, así que usar ahí la
+factory dejaría crear citas a cualquier miembro.
+
+### Tests
+5 nuevos (65 en total). Se verificó que **3 de ellos fallan con
+`403 == 200`** contra los permisos anteriores (los otros 2, los de
+restricción, ya pasaban) — o sea que la suite mide el hueco real y no
+algo trivialmente cierto. Cubren: confirmar/completar/cancelar la
+propia cita sin la capacidad, que la cita de otro empleado sigue dando
+403, y que crear citas sigue exigiendo la capacidad.
+
+### Contrato
+Ampliación, no ruptura: quien antes podía, sigue pudiendo. `CONTRATO.md`
+sección 5.3 reescrita + entrada en el historial. `openapi.yaml`
+regenerado (cambia la descripción del endpoint).

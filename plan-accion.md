@@ -33,6 +33,82 @@ Dos correcciones importantes al enfoque anterior:
 
 ---
 
+## 0.3 Corrección de enfoque: de "MVP que funciona" a proyecto profesional (ronda 4)
+
+Durante la construcción de Fase 0 y Fase 1 aparecieron varios huecos
+reales que **no fueron detectados por diseño, sino solo cuando algo
+los forzó a la superficie** (una pregunta, un intento de tipar el
+frontend, una prueba manual). Ese patrón — construir rápido y
+descubrir el hueco después, en vez de diseñarlo fuera desde el
+principio — es exactamente el síntoma de tratar esto como "MVP que
+funciona" en vez de como el producto profesional que debe ser. Huecos
+concretos encontrados así hasta ahora:
+
+- **Seguridad de autenticación incompleta**: no existe flujo de
+  "olvidé mi contraseña" (ningún endpoint de reset), y no hay
+  throttling/rate-limiting en `/api/auth/login/` (nada impide fuerza
+  bruta sobre contraseñas hoy). `SECRET_KEY` de `.env.example` es
+  débil a propósito para dev, pero nunca se documentó un checklist de
+  qué cambiar antes de un despliegue real.
+- **Un endpoint completo faltaba y nadie lo había planeado**:
+  `GET /api/negocios/mi-membresia/` no existía hasta que se preguntó
+  explícitamente "¿cómo sabe el frontend qué vista mostrar sin
+  roles?" — antes de eso, el plan implícito era que el frontend
+  listara empleados y se buscara a sí mismo por email, un workaround
+  fragil que nadie había cuestionado.
+- **Un bug de documentación del contrato pasó desapercibido**:
+  `POST /api/negocios/empleados/` documentaba mal su propio body de
+  entrada (schema incorrecto) desde que se creó, y solo se detectó al
+  generar tipos TypeScript reales para el frontend — es decir, la API
+  nunca había sido consumida por un cliente real hasta ese punto.
+- **Pantallas completas faltaban en el frontend** (registro de
+  negocio, gestión de empleados) a pesar de que el backend ya las
+  soportaba por completo — se construyeron solo cuando se hizo la
+  pregunta "¿el backend ya permite esto?", no como parte del diseño
+  original de las pantallas.
+- **La UI/UX es funcional pero no profesional**: sin sistema de
+  diseño (colores, tipografía, espaciado consistente más allá de CSS
+  plano mínimo), sin estados de carga/vacío/error diseñados (hoy es
+  texto plano rojo), sin diálogos de confirmación para acciones
+  destructivas (borrar un horario, cancelar una cita), sin
+  notificaciones (toasts) de éxito/error, sin ningún atributo de
+  accesibilidad (`aria-*`, foco de teclado), y sin un paso explícito
+  de diseño responsive/mobile-first a pesar de que el producto final
+  es una app Capacitor. Nada de esto es un bug puntual — es la
+  ausencia de un diseño de UI/UX real antes de programar las
+  pantallas.
+- **Sin tests automatizados de frontend** ni CI para esa carpeta
+  (el backend sí tiene ambos desde Fase 0/1).
+
+### Política a partir de ahora
+No se trata de parar a rehacer todo lo ya construido, sino de que
+**cada feature nueva pase por un checklist explícito antes de darse
+por completa**, en vez de descubrir los huecos después:
+
+1. **Seguridad**: casos de autenticación/autorización cubiertos
+   (incluyendo los "negativos": sin token, token expirado, sin
+   capacidad), rate-limiting donde aplique, sin secretos débiles
+   fuera de entornos de desarrollo.
+2. **UX de estados**: todo flujo async tiene estado de carga, estado
+   vacío, estado de error (con mensaje útil, no solo "no se pudo"), y
+   confirmación explícita antes de cualquier acción destructiva.
+3. **Accesibilidad básica**: labels asociados a inputs, foco de
+   teclado manejable, contraste de color suficiente.
+4. **Responsive/mobile-first**: cada pantalla se diseña pensando en
+   el tamaño de pantalla de un celular primero, no como adaptación
+   tardía de una vista de escritorio.
+5. **Contrato**: sigue vigente la regla de oro de `CONTRATO.md`
+   (schema regenerado + anotado en cada cambio de forma), reforzada
+   ahora por la experiencia del bug de `EmpleadoAlta`.
+6. **Tests**: cobertura tanto en backend (ya exigida desde Fase 0)
+   como en frontend (nueva exigencia a partir de esta ronda).
+
+El primer paso concreto de esta corrección es un rediseño real de
+UI/UX del frontend (ver prompt de diseño entregado al humano), en vez
+de seguir agregando pantallas sobre el CSS mínimo actual.
+
+---
+
 ## 1. Stack técnico definido
 
 | Capa | Tecnología | Notas |

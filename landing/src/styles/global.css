@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+/* Solo el subset latino: cubre todo el español y evita arrastrar
+   cirílico/griego/vietnamita. Autoalojada en vez de CDN de Google
+   porque en una landing el LCP manda y una request a un tercero antes
+   del primer render se paga cara. */
+@import "@fontsource/plus-jakarta-sans/latin-400.css";
+@import "@fontsource/plus-jakarta-sans/latin-500.css";
+@import "@fontsource/plus-jakarta-sans/latin-700.css";
+@import "@fontsource/plus-jakarta-sans/latin-800.css";
+
+@theme {
+  /* ---------------------------------------------------------------
+     1. Identidad de MARKETING. Solo para el sitio: header, hero,
+        secciones, CTAs. Es una paleta propia de la landing, distinta
+        a la del panel a propósito.
+     --------------------------------------------------------------- */
+  --color-lienzo: #f8fafc;
+  --color-superficie: #ffffff;
+  --color-borde: #e2e8f0;
+  --color-menta: #10b981;
+  --color-menta-oscura: #059669;
+  --color-indigo: #1e1b4b;
+  --color-pizarra: #0f172a;
+  --color-texto: #334155;
+  --color-texto-suave: #64748b;
+
+  /* Estados de cita, versión marketing (la del spec). Se usan en
+     gráficos y diagramas del sitio, NO dentro de los mockups. */
+  --color-agendada: #f59e0b;
+  --color-confirmada: #3b82f6;
+  --color-completada: #10b981;
+  --color-cancelada: #ef4444;
+
+  /* ---------------------------------------------------------------
+     2. Tokens REALES del panel (`../frontend/tailwind.config.js`).
+        Se usan únicamente dentro de las pantallas simuladas, para que
+        lo que ve el visitante sea lo que se encuentra al registrarse.
+        Si cambian allá, hay que actualizarlos acá: son dos proyectos
+        con deploys distintos, no comparten config a propósito.
+     --------------------------------------------------------------- */
+  --color-app-primary: #091426;
+  --color-app-on-primary: #ffffff;
+  --color-app-primary-container: #1e293b;
+  --color-app-primary-fixed: #d8e3fb;
+  --color-app-primary-fixed-dim: #bcc7de;
+  --color-app-secondary: #904d00;
+  --color-app-secondary-container: #fe932c;
+  --color-app-secondary-fixed: #ffdcc3;
+  --color-app-on-secondary-fixed: #2f1500;
+  --color-app-on-secondary-fixed-variant: #6e3900;
+  --color-app-surface: #f8f9ff;
+  --color-app-surface-lowest: #ffffff;
+  --color-app-surface-low: #eff4ff;
+  --color-app-surface-container: #e5eeff;
+  --color-app-surface-high: #dce9ff;
+  --color-app-surface-highest: #d3e4fe;
+  --color-app-surface-variant: #d3e4fe;
+  --color-app-on-surface: #0b1c30;
+  --color-app-on-surface-variant: #45474c;
+  --color-app-outline-variant: #c5c6cd;
+  --color-app-error: #ba1a1a;
+
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-suave: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-tarjeta: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-elevada: 0 20px 45px -15px rgba(30, 27, 75, 0.25);
+  --shadow-equipo: 0 40px 80px -20px rgba(15, 23, 42, 0.45);
+
+  --animate-flotar: flotar 6s ease-in-out infinite;
+  --animate-toque: toque 2.6s ease-out;
+  --animate-aparecer: aparecer 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes flotar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+/* Onda del "dedo" que toca el botón principal. */
+@keyframes toque {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-lienzo);
+    color: var(--color-texto);
+    font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-menta);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Mismo criterio que el panel: quien pidió menos movimiento al
+     sistema no debería recibir ninguna de nuestras animaciones. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Scroll horizontal sin barra visible: el filtro de barberos se
+   desliza en móvil y una barra nativa encima de las fichas se ve mal. */
+@utility sin-barra {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility contenedor-landing {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem;
+  padding-inline: 1.25rem;
+  @media (width >= 768px) {
+    padding-inline: 2.5rem;
+  }
+}
