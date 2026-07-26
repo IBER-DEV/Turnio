@@ -240,15 +240,21 @@ Dos operaciones tienen endpoint de lote **además** del CRUD de a uno,
 porque hacerlas con N requests no era atómico y dejaba estado parcial
 si fallaba a mitad de camino:
 
-- **`PUT /api/agenda/horarios/semana/`** — reemplaza el horario semanal
-  completo de un empleado en una transacción. Body: `{miembro, franjas:
-  [{dia_semana, hora_inicio, hora_fin}]}`. Semántica de **reemplazo, no
-  de agregado**: las franjas enviadas pasan a ser el horario completo y
-  lo que no venga en la lista se borra; mandar `franjas: []` deja al
-  empleado sin disponibilidad. Valida que `hora_inicio < hora_fin` y que
-  dos franjas del mismo día no se crucen; si algo falla responde `400` y
-  **no toca el horario existente**. Borrar horarios no afecta a las
-  citas ya agendadas (la `Cita` guarda su propia fecha/hora).
+- **`PUT /api/agenda/horario-negocio/`** — reemplaza el horario de
+  atención del negocio. Body: `{franjas: [{dia_semana, hora_inicio,
+  hora_fin}]}`; el negocio sale del token, nunca del body. Ver 5.7.
+- **`PUT /api/agenda/horarios/semana/`** — reemplaza el horario propio
+  de uno o varios empleados en una transacción. Body: `{miembros: [id],
+  franjas: [{dia_semana, hora_inicio, hora_fin}]}`. Semántica de
+  **reemplazo, no de agregado**: las franjas enviadas pasan a ser el
+  horario propio completo de cada empleado señalado y lo que no venga en
+  la lista se borra; mandar `franjas: []` le quita el horario propio y lo
+  devuelve a heredar el del negocio (ver 5.7). Valida que `hora_inicio <
+  hora_fin` y que dos franjas del mismo día no se crucen; si algo falla
+  —incluido que **alguno** de los `miembros` sea de otro negocio—
+  responde `400` y **no toca el horario de nadie**. Borrar horarios no
+  afecta a las citas ya agendadas (la `Cita` guarda su propia
+  fecha/hora).
 - **`POST /api/servicios/lote/`** — crea varios servicios en una
   transacción. Body: `{servicios: [{...}]}` con la misma forma de cada
   servicio que el `POST` de a uno. Si **cualquiera** de los servicios es
@@ -257,6 +263,45 @@ si fallaba a mitad de camino:
 El CRUD de a uno sigue existiendo y es el camino correcto para editar
 un solo elemento. Los endpoints de lote son para el alta inicial
 (catálogo de servicios) y la edición de la semana completa.
+
+### 5.7 Horario del negocio vs. horario propio del empleado
+
+La disponibilidad se resuelve en **dos niveles**, y el frontend tiene
+que reflejar esa jerarquía para no confundir al usuario:
+
+1. **`HorarioNegocio`** (`GET/PUT /api/agenda/horario-negocio/`) — las
+   horas en que el local atiende. Es la fuente de verdad y el caso
+   normal: se carga una vez y **todo el equipo la hereda**. Leer solo
+   requiere pertenecer al negocio; escribir requiere
+   `puede_gestionar_agenda`.
+2. **`HorarioTrabajo`** (`/api/agenda/horarios/`, `PUT
+   /api/agenda/horarios/semana/`) — horario **propio** de un empleado.
+   Es la excepción: el de medio tiempo, el que solo viene sábados, el de
+   turno de tarde.
+
+Reglas de resolución, en orden:
+
+- Si un empleado tiene **al menos una** franja propia en toda la semana,
+  ese es su horario completo y el del negocio **no aplica para él en
+  ningún día**. No se preguntan día por día: un empleado con horario
+  propio solo los sábados no "hereda" el lunes del negocio, porque eso
+  sería lo contrario de lo que quiso decir quien lo configuró así.
+- El horario propio **reemplaza**, no interseca. Si el local abre 9–18 y
+  a un empleado se le puso 8–20, vale 8–20. Se prefirió respetar lo
+  configurado explícitamente antes que un recorte silencioso que sería
+  imposible de explicar en la UI.
+- Un empleado con `activo=False` no está disponible nunca, herede lo que
+  herede. **`activo=False` es la palanca para "esta persona no atiende"**
+  — no un horario propio vacío, que ahora significa lo contrario
+  (heredar).
+- Si el negocio no tiene horario cargado y el empleado tampoco, ese
+  empleado no tiene disponibilidad y no se le pueden agendar citas.
+
+Implicación para la UI: la pantalla principal de horarios debe ser la
+del **negocio**, y el horario por empleado presentarse como una
+excepción explícita, no como el camino por defecto. Cargar el horario
+empleado por empleado era justamente el problema que este modelo
+resuelve.
 
 ## 6. Historial de cambios al contrato
 
@@ -354,3 +399,30 @@ un solo elemento. Los endpoints de lote son para el alta inicial
   antes podía, sigue pudiendo. Crear citas y editar horarios siguen
   exigiendo `puede_gestionar_agenda`, y tocar la cita de otro empleado
   sigue respondiendo `403`.
+- **2026-07-26** — **Cambio con ruptura**: el horario pasa a ser del
+  **negocio**, con el horario por empleado como excepción (ver 5.7).
+  Motivo: cargar la disponibilidad empleado por empleado duplicaba el
+  mismo dato N veces aunque el equipo entero trabajara igual —que es el
+  caso normal en una barbería—, obligaba a re-aplicarlo a mano al cambiar
+  el horario del local, y dejaba a cada empleado nuevo sin poder recibir
+  citas hasta que alguien se acordara de configurárselo. Además cierra el
+  hueco anotado en `backend/ROADMAP-BACKEND.md` de que no existía un
+  concepto de "horario del negocio" contra el cual validar.
+  1. **Nuevo `GET/PUT /api/agenda/horario-negocio/`** — horario de
+     atención del local. Lo lee cualquier miembro; escribirlo requiere
+     `puede_gestionar_agenda`.
+  2. **`PUT /api/agenda/horarios/semana/` ahora recibe `miembros: [id]`
+     (lista) en vez de `miembro: id`** — el mismo turno suele compartirse
+     entre los de medio tiempo, y un solo empleado es el caso
+     `miembros: [id]`. **Quien envíe `miembro` singular recibe `400`.**
+  3. **`franjas: []` en ese endpoint cambió de significado**: antes dejaba
+     al empleado sin disponibilidad, ahora le quita el horario propio y lo
+     devuelve a heredar el del negocio. Para que alguien no atienda, la
+     palanca es `activo=False` en su membresía.
+  4. **`empleado_disponible` ahora respeta `activo`**: un miembro inactivo
+     no recibe citas aunque se lo pida explícitamente por `empleado`.
+     Antes quedaba fuera solo por no tener franjas propias; con herencia
+     tomaría las del local si no se chequeara.
+
+  Implicación de UI en 5.7: la pantalla de horarios debe girar en torno al
+  horario del negocio, con el del empleado como excepción explícita.

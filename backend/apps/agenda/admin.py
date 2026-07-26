@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from apps.agenda.models import Cita, HorarioTrabajo
+from apps.agenda.models import Cita, HorarioNegocio, HorarioTrabajo
+
+
+@admin.register(HorarioNegocio)
+class HorarioNegocioAdmin(admin.ModelAdmin):
+    list_display = ["negocio", "dia_semana", "hora_inicio", "hora_fin"]
+    list_filter = ["dia_semana", "negocio"]
 
 
 @admin.register(HorarioTrabajo)

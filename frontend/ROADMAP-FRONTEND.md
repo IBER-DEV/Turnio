@@ -358,3 +358,77 @@ Quedan ~239 kB de tipografías (Inter 400/500/600 + Montserrat 600/700,
 en woff2 **y** woff). Los `.woff` son fallback para navegadores que
 ningún WebView de Capacitor actual necesita; se podrían excluir del
 build si hiciera falta apretar más.
+
+## Horarios: el negocio pasa a ser el sujeto, el empleado la excepción (2026-07-26)
+
+> Cambio de contrato con ruptura originado en backend el mismo día (ver
+> `../CONTRATO.md` sección 5.7 e historial, y
+> `../backend/ROADMAP-BACKEND.md`). Lo hizo la misma persona en ambos
+> lados, así que se entregó de una en vez de quedar como bloqueo.
+
+### Qué cambió en la UI
+`ModalHorarioSemanal` se reorganizó en dos pestañas y cambió de sujeto:
+
+- **"Todo el negocio"** (pestaña por defecto) — edita el horario del
+  local vía el nuevo `PUT /api/agenda/horario-negocio/`. Es el camino
+  normal: se carga una vez y lo hereda el equipo entero, incluidos los
+  empleados que se den de alta después.
+- **"Excepciones"** — para quien trabaja distinto. Selección **múltiple**
+  de empleados (chips con checkbox, no el `SelectCustom` de a uno que
+  había antes), porque los de medio tiempo suelen compartir turno. Marca
+  con una etiqueta "propio" a quien ya es excepción, y ofrece "quitar la
+  excepción y volver al horario del negocio" (que es `franjas: []`).
+
+Antes el modal abría pidiendo elegir **un** empleado y cargarle la semana
+a mano — el gesto que había que repetir tantas veces como empleados
+hubiera, y que motivó todo el cambio.
+
+El editor de la semana en sí (los siete días con sus franjas, las
+plantillas "Lun a Vie · 9–18", el partir el día para el descanso) se
+extrajo a un `EditorSemana` interno y lo comparten las dos pestañas: es
+el mismo control, cambia solo qué se hace con el resultado.
+
+### `horarioEfectivo.ts`: la regla de herencia, duplicada a propósito
+La grilla semanal (`VistaSemana`) pinta bandas de disponibilidad. Con
+herencia, `GET /api/agenda/horarios/` devuelve vacío en el caso normal,
+así que pintar directo desde ahí mostraba una agenda sin disponibilidad
+para un negocio perfectamente configurado.
+
+`franjasDeEmpleado()` / `franjasDelEquipo()` replican del lado cliente la
+resolución del backend. **Es duplicación consciente**: el backend es la
+autoridad al agendar, pero la grilla no puede preguntarle por cada celda.
+Está anotado en el archivo y hay tests que fijan la parte sutil (tener
+horario propio **un solo día** no hace heredar los demás días — mismo
+caso que el test dedicado del backend).
+
+`VistaSemana` pasó de recibir `HorarioTrabajo[]` a recibir `Franja[]` ya
+resueltas por el llamador: no le corresponde a la vista saber de herencia.
+
+### Bug pre-existente encontrado y corregido
+`npm run build` / `tsc -b` **ya estaba roto en `HEAD`** antes de este
+cambio: `AgendaPage` pasaba `tamano="sm"` a `Button`, cuyo tipo `Tamano`
+solo admitía `"md" | "lg"`. Se agregó el tamaño `sm` (36px) al sistema de
+diseño en vez de borrar el prop, que era la intención del call site —
+botones de acción dentro de la tarjeta de una cita, ya densa. Queda
+anotado que 36px está por debajo del objetivo táctil de 44px y por eso se
+reserva a acciones secundarias.
+
+Que el CI de frontend (`tsc -b`) no lo hubiera atajado sugiere que el
+último commit se hizo sin correrlo o sin esperar el resultado.
+
+### Tests
+8 nuevos en `src/pages/agenda/horarioEfectivo.test.ts` (17 en total):
+herencia cuando no hay horario propio, reemplazo cuando lo hay, el caso
+del "solo sábados" que no debe heredar el lunes, no confundir el horario
+propio de otro empleado, la unión del equipo sin repetir la franja del
+negocio una vez por empleado, y sin nada cargado no hay banda que pintar.
+
+### Duda abierta
+La pestaña de excepciones precarga la semana del primer empleado
+seleccionado que ya tenga horario propio, y si ninguno tiene, parte del
+horario del negocio. Con varios seleccionados que tengan horarios propios
+**distintos entre sí**, se muestra el del primero y guardar los iguala a
+todos. Es coherente con la semántica de reemplazo del endpoint y con el
+caso de uso (marcar varios = quiero que compartan turno), pero no hay
+aviso visual de que se van a pisar horarios distintos. Si en uso real
+resulta confuso, el arreglo es advertirlo antes de guardar.

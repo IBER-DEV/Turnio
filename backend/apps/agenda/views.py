@@ -1,14 +1,17 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import serializers as drf_serializers
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.agenda import services
 from apps.agenda.models import Cita, HorarioTrabajo
 from apps.agenda.serializers import (
     CitaCreateSerializer,
     CitaSerializer,
+    HorarioNegocioSemanalSerializer,
+    HorarioNegocioSerializer,
     HorarioSemanalSerializer,
     HorarioTrabajoSerializer,
 )
@@ -17,6 +20,64 @@ from apps.common.permissions import (
     requiere_capacidad,
     requiere_capacidad_o_ser_titular,
 )
+
+
+@extend_schema_view(
+    get=extend_schema(
+        responses={200: HorarioNegocioSerializer(many=True)},
+        description=(
+            "Horario de atención del negocio del usuario autenticado.\n\n"
+            "Es el horario que rige por defecto para todo el equipo: quien no "
+            "tenga horario propio cargado trabaja este. Lo puede leer cualquier "
+            "miembro."
+        ),
+    ),
+    put=extend_schema(
+        request=HorarioNegocioSemanalSerializer,
+        responses={200: HorarioNegocioSerializer(many=True)},
+        description=(
+            "Reemplaza el horario de atención del negocio en una sola "
+            "transacción. Requiere `puede_gestionar_agenda`.\n\n"
+            "Cambiarlo acá cambia la disponibilidad de **todos** los empleados "
+            "que lo heredan, que es el caso normal. Los que tienen horario "
+            "propio (ver `PUT /api/agenda/horarios/semana/`) no se ven "
+            "afectados.\n\n"
+            "Semántica de **reemplazo**: las franjas enviadas pasan a ser el "
+            "horario completo; lo que no venga se borra. Enviar `franjas: []` "
+            "deja al negocio sin horario, y entonces nadie que herede tiene "
+            "disponibilidad."
+        ),
+    ),
+)
+class HorarioNegocioView(APIView):
+    """Horario de atención del negocio: la fuente de verdad de la agenda.
+
+    El negocio nunca viaja en el body — sale de la membresía del token,
+    como todo lo demás (ver `CONTRATO.md` sección 5.5).
+    """
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [TieneMembresiaActiva()]
+        return [requiere_capacidad("puede_gestionar_agenda")()]
+
+    def get(self, request):
+        horarios = request.membresia.negocio.horarios.all()
+        return Response(HorarioNegocioSerializer(horarios, many=True).data)
+
+    def put(self, request):
+        entrada = HorarioNegocioSemanalSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        try:
+            horarios = services.reemplazar_horario_negocio(
+                negocio=request.membresia.negocio,
+                franjas=entrada.validated_data["franjas"],
+            )
+        except (services.HorarioInvalido, services.FranjasSolapadas) as error:
+            raise drf_serializers.ValidationError({"non_field_errors": [str(error)]})
+
+        return Response(HorarioNegocioSerializer(horarios, many=True).data)
 
 
 class HorarioTrabajoViewSet(viewsets.ModelViewSet):
@@ -43,13 +104,23 @@ class HorarioTrabajoViewSet(viewsets.ModelViewSet):
         request=HorarioSemanalSerializer,
         responses={200: HorarioTrabajoSerializer(many=True)},
         description=(
-            "Reemplaza de una vez el horario semanal completo de un empleado, "
-            "en una sola transacción.\n\n"
+            "Reemplaza el horario **propio** de uno o varios empleados, en una "
+            "sola transacción.\n\n"
+            "El horario propio es la **excepción** al horario del negocio (ver "
+            "`PUT /api/agenda/horario-negocio/`), para quien no trabaja como el "
+            "resto: medio tiempo, solo sábados, turno de tarde. Si un empleado "
+            "no tiene horario propio, hereda el del negocio — que es el caso "
+            "normal y no requiere llamar a este endpoint.\n\n"
+            "`miembros` es una lista porque los de medio tiempo suelen "
+            "compartir turno. Un solo empleado es el caso `miembros: [id]`.\n\n"
             "Semántica de **reemplazo**: las franjas enviadas pasan a ser el "
-            "horario completo del empleado; lo que no venga en la lista se "
-            "borra. Enviar `franjas: []` lo deja sin disponibilidad.\n\n"
-            "Existe para que el frontend no tenga que emitir un DELETE/POST "
-            "por franja al editar la semana, que no era atómico."
+            "horario propio completo de **cada** empleado señalado. Enviar "
+            "`franjas: []` le quita el horario propio y lo devuelve a heredar "
+            "el del negocio; para que alguien no atienda, la palanca es "
+            "`activo=False` en su membresía, no un horario vacío.\n\n"
+            "Todo o nada: si la semana es inválida, o si alguno de los "
+            "`miembros` no pertenece al negocio, responde `400` y no se toca el "
+            "horario de nadie."
         ),
     )
     @action(detail=False, methods=["put"], url_path="semana")
@@ -59,7 +130,7 @@ class HorarioTrabajoViewSet(viewsets.ModelViewSet):
 
         try:
             horarios = services.reemplazar_horario_semanal(
-                miembro=entrada.validated_data["miembro"],
+                miembros=entrada.validated_data["miembros"],
                 franjas=entrada.validated_data["franjas"],
             )
         except (services.HorarioInvalido, services.FranjasSolapadas) as error:

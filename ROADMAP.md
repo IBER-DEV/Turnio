@@ -22,7 +22,24 @@
 - Multi-tenancy: shared DB + `tenant_id`, no schema-per-tenant.
 - Permisos por capacidades, no roles fijos.
 - Agenda por empleado desde el inicio (Fase 1), no operador único como
-  caso central.
+  caso central. **Matizado el 2026-07-26** (ver siguiente punto): sigue
+  siendo por empleado, pero el horario se hereda del negocio en vez de
+  cargarse empleado por empleado.
+- **El horario es del negocio; el del empleado es la excepción**
+  (confirmado por el humano, 2026-07-26). `HorarioNegocio` es la fuente
+  de verdad de la disponibilidad y todo empleado lo hereda; quien
+  trabaja distinto (medio tiempo, solo sábados, turno de tarde) tiene
+  horario propio que lo reemplaza. Nace de una observación de uso real
+  ("al usuario le toca asignarle el horario a sus empleados uno por
+  uno") y de la corrección que la reencuadró ("los horarios son de los
+  negocios, no de empleados"). Se señaló la tensión con la decisión de
+  arriba antes de proceder: **no se eliminó la disponibilidad por
+  empleado** —eso habría roto al barbero de medio tiempo y los turnos
+  rotativos—, se le puso un valor por defecto que antes no existía.
+  Reglas completas en `CONTRATO.md` sección 5.7. Es cambio con ruptura
+  (`PUT /api/agenda/horarios/semana/` pasa de `miembro` a `miembros[]`,
+  y `franjas: []` cambió de significado); backend y frontend se
+  entregaron juntos.
 - Búsqueda/reserva de negocios sube al MVP (Fase 2), no se pospone.
 - Capa de servicios (`services.py`) por app, sin event bus formal
   (Django signals cuando haga falta desacoplar side-effects).

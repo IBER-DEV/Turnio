@@ -201,6 +201,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agenda/horario-negocio/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Horario de atención del negocio del usuario autenticado.
+         *
+         *     Es el horario que rige por defecto para todo el equipo: quien no tenga horario propio cargado trabaja este. Lo puede leer cualquier miembro.
+         */
+        get: operations["agenda_horario_negocio_list"];
+        /**
+         * @description Reemplaza el horario de atención del negocio en una sola transacción. Requiere `puede_gestionar_agenda`.
+         *
+         *     Cambiarlo acá cambia la disponibilidad de **todos** los empleados que lo heredan, que es el caso normal. Los que tienen horario propio (ver `PUT /api/agenda/horarios/semana/`) no se ven afectados.
+         *
+         *     Semántica de **reemplazo**: las franjas enviadas pasan a ser el horario completo; lo que no venga se borra. Enviar `franjas: []` deja al negocio sin horario, y entonces nadie que herede tiene disponibilidad.
+         */
+        put: operations["agenda_horario_negocio_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agenda/horarios/": {
         parameters: {
             query?: never;
@@ -248,11 +276,15 @@ export interface paths {
         };
         get?: never;
         /**
-         * @description Reemplaza de una vez el horario semanal completo de un empleado, en una sola transacción.
+         * @description Reemplaza el horario **propio** de uno o varios empleados, en una sola transacción.
          *
-         *     Semántica de **reemplazo**: las franjas enviadas pasan a ser el horario completo del empleado; lo que no venga en la lista se borra. Enviar `franjas: []` lo deja sin disponibilidad.
+         *     El horario propio es la **excepción** al horario del negocio (ver `PUT /api/agenda/horario-negocio/`), para quien no trabaja como el resto: medio tiempo, solo sábados, turno de tarde. Si un empleado no tiene horario propio, hereda el del negocio — que es el caso normal y no requiere llamar a este endpoint.
          *
-         *     Existe para que el frontend no tenga que emitir un DELETE/POST por franja al editar la semana, que no era atómico.
+         *     `miembros` es una lista porque los de medio tiempo suelen compartir turno. Un solo empleado es el caso `miembros: [id]`.
+         *
+         *     Semántica de **reemplazo**: las franjas enviadas pasan a ser el horario propio completo de **cada** empleado señalado. Enviar `franjas: []` le quita el horario propio y lo devuelve a heredar el del negocio; para que alguien no atienda, la palanca es `activo=False` en su membresía, no un horario vacío.
+         *
+         *     Todo o nada: si la semana es inválida, o si alguno de los `miembros` no pertenece al negocio, responde `400` y no se toca el horario de nadie.
          */
         put: operations["agenda_horarios_semana_update"];
         post?: never;
@@ -631,14 +663,37 @@ export interface components {
             /** Format: time */
             hora_fin: string;
         };
+        HorarioNegocio: {
+            readonly id: number;
+            dia_semana: components["schemas"]["DiaSemanaEnum"];
+            /** Format: time */
+            hora_inicio: string;
+            /** Format: time */
+            hora_fin: string;
+        };
+        /**
+         * @description Entrada de `PUT /api/agenda/horario-negocio/`.
+         *
+         *     Solo `franjas`: el negocio sale del token, nunca del body (ver
+         *     CONTRATO.md sección 5.5). Semántica de reemplazo, igual que el horario
+         *     por empleado.
+         */
+        HorarioNegocioSemanal: {
+            franjas: components["schemas"]["FranjaHorario"][];
+        };
         /**
          * @description Entrada de `PUT /api/agenda/horarios/semana/`.
          *
-         *     Semántica de reemplazo: la lista es el horario completo del empleado,
-         *     no un agregado. Mandar `franjas: []` lo deja sin disponibilidad.
+         *     `miembros` es una lista porque lo normal es que todo el equipo comparta
+         *     el mismo horario; un solo empleado es el caso n=1, no una forma aparte.
+         *     Va vacía nunca: sin destinatarios no hay nada que aplicar.
+         *
+         *     Semántica de reemplazo: la lista de franjas es el horario completo de
+         *     **cada** empleado señalado, no un agregado. Mandar `franjas: []` los
+         *     deja sin disponibilidad.
          */
         HorarioSemanal: {
-            miembro: number;
+            miembros: number[];
             franjas: components["schemas"]["FranjaHorario"][];
         };
         HorarioTrabajo: {
@@ -1025,6 +1080,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Cita"];
+                };
+            };
+        };
+    };
+    agenda_horario_negocio_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HorarioNegocio"][];
+                };
+            };
+        };
+    };
+    agenda_horario_negocio_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HorarioNegocioSemanal"];
+                "application/x-www-form-urlencoded": components["schemas"]["HorarioNegocioSemanal"];
+                "multipart/form-data": components["schemas"]["HorarioNegocioSemanal"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HorarioNegocio"][];
                 };
             };
         };

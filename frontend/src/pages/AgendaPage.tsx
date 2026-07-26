@@ -18,11 +18,13 @@ import { Tabs, TabsLista, TabsTrigger } from "../ui/Tabs";
 import { ToggleGroup, ToggleGroupItem } from "../ui/ToggleGroup";
 import { useToast } from "../ui/Toast";
 import { ModalHorarioSemanal } from "./agenda/ModalHorarioSemanal";
+import { franjasDeEmpleado, franjasDelEquipo } from "./agenda/horarioEfectivo";
 import { VistaSemana } from "./agenda/VistaSemana";
 
 type Cita = components["schemas"]["Cita"];
 type Servicio = components["schemas"]["Servicio"];
 type MiembroEquipo = components["schemas"]["MiembroEquipo"];
+type HorarioNegocio = components["schemas"]["HorarioNegocio"];
 type HorarioTrabajo = components["schemas"]["HorarioTrabajo"];
 type AccionCita = "confirmar" | "completar" | "cancelar";
 
@@ -74,6 +76,7 @@ export function AgendaPage() {
   const [empleados, setEmpleados] = useState<MiembroEquipo[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [horarios, setHorarios] = useState<HorarioTrabajo[]>([]);
+  const [horarioNegocio, setHorarioNegocio] = useState<HorarioNegocio[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
 
@@ -86,12 +89,14 @@ export function AgendaPage() {
   async function cargar() {
     setCargando(true);
     setError(false);
-    const [citasResp, empleadosResp, serviciosResp, horariosResp] = await Promise.all([
-      conReintentoDeAuth(() => apiClient.GET("/api/agenda/citas/")),
-      conReintentoDeAuth(() => apiClient.GET("/api/negocios/equipo/")),
-      conReintentoDeAuth(() => apiClient.GET("/api/servicios/")),
-      conReintentoDeAuth(() => apiClient.GET("/api/agenda/horarios/")),
-    ]);
+    const [citasResp, empleadosResp, serviciosResp, horariosResp, horarioNegocioResp] =
+      await Promise.all([
+        conReintentoDeAuth(() => apiClient.GET("/api/agenda/citas/")),
+        conReintentoDeAuth(() => apiClient.GET("/api/negocios/equipo/")),
+        conReintentoDeAuth(() => apiClient.GET("/api/servicios/")),
+        conReintentoDeAuth(() => apiClient.GET("/api/agenda/horarios/")),
+        conReintentoDeAuth(() => apiClient.GET("/api/agenda/horario-negocio/")),
+      ]);
 
     if (citasResp.error || !citasResp.data) {
       setError(true);
@@ -103,6 +108,7 @@ export function AgendaPage() {
     setEmpleados(empleadosResp.data ?? []);
     setServicios(serviciosResp.data ?? []);
     setHorarios(horariosResp.data ?? []);
+    setHorarioNegocio(horarioNegocioResp.data ?? []);
     setCargando(false);
   }
 
@@ -114,6 +120,21 @@ export function AgendaPage() {
     .filter((cita) => mismoDia(cita.fecha_hora_inicio, diaSeleccionado))
     .filter((cita) => empleadoFiltro === "todos" || cita.empleado === empleadoFiltro)
     .sort((a, b) => a.fecha_hora_inicio.localeCompare(b.fecha_hora_inicio));
+
+  // La banda de disponibilidad de la grilla ya no sale directo de
+  // `horarios`: la mayoría de los empleados no tiene horario propio y
+  // hereda el del negocio (ver CONTRATO.md 5.7).
+  const franjasVisibles = useMemo(
+    () =>
+      empleadoFiltro === "todos"
+        ? franjasDelEquipo(
+            empleados.map((empleado) => empleado.id),
+            horarios,
+            horarioNegocio,
+          )
+        : franjasDeEmpleado(empleadoFiltro, horarios, horarioNegocio),
+    [empleadoFiltro, empleados, horarios, horarioNegocio],
+  );
 
   async function transicionar(cita: Cita, accion: AccionCita) {
     const path = { id: cita.id };
@@ -250,11 +271,7 @@ export function AgendaPage() {
                 ? citas
                 : citas.filter((cita) => cita.empleado === empleadoFiltro)
             }
-            horarios={
-              empleadoFiltro === "todos"
-                ? horarios
-                : horarios.filter((horario) => horario.miembro === empleadoFiltro)
-            }
+            horarios={franjasVisibles}
             diaSeleccionado={diaSeleccionado}
             onSeleccionarDia={setDiaSeleccionado}
             onAbrirCita={(cita) => {
@@ -397,6 +414,7 @@ export function AgendaPage() {
         abierto={panelHorarios}
         onCerrar={() => setPanelHorarios(false)}
         empleados={empleados}
+        horarioNegocio={horarioNegocio}
         horarios={horarios}
         onCambio={cargar}
       />
