@@ -96,7 +96,9 @@ siempre vive en [`backend/openapi.yaml`](backend/openapi.yaml) /
 | GET/POST | `/api/negocios/empleados/` | Lista/agrega empleados del negocio (crear requiere `puede_gestionar_empleados`) |
 | GET/PATCH | `/api/negocios/empleados/{id}/` | Detalle/edición de capacidades y especialidad de un empleado |
 | GET/POST/PATCH/DELETE | `/api/servicios/` | CRUD de servicios (escribir requiere `puede_editar_precios`) |
-| GET/POST/PATCH/DELETE | `/api/agenda/horarios/` | Disponibilidad semanal por empleado (requiere `puede_gestionar_agenda`) |
+| GET/PUT | `/api/agenda/horario-negocio/` | Horario de atención del local — lo hereda todo el equipo (escribir requiere `puede_gestionar_agenda`) |
+| GET/POST/PATCH/DELETE | `/api/agenda/horarios/` | Horario **propio** de un empleado, como excepción al del negocio (requiere `puede_gestionar_agenda`) |
+| PUT | `/api/agenda/horarios/semana/` | Reemplaza la semana completa de uno o varios empleados a la vez |
 | GET/POST | `/api/agenda/citas/` | Lista/agenda citas (`empleado` opcional = "cualquiera disponible") |
 | POST | `/api/agenda/citas/{id}/confirmar\|completar\|cancelar/` | Transiciones de la máquina de estados de `Cita` |
 

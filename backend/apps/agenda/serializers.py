@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.agenda.models import Cita, DiaSemana, HorarioTrabajo
+from apps.agenda.models import Cita, DiaSemana, HorarioNegocio, HorarioTrabajo
 from apps.servicios.models import Servicio
 from apps.usuarios.models import MiembroNegocio
 
@@ -34,18 +34,49 @@ class FranjaHorarioSerializer(serializers.Serializer):
 class HorarioSemanalSerializer(serializers.Serializer):
     """Entrada de `PUT /api/agenda/horarios/semana/`.
 
-    Semántica de reemplazo: la lista es el horario completo del empleado,
-    no un agregado. Mandar `franjas: []` lo deja sin disponibilidad.
+    `miembros` es una lista porque lo normal es que todo el equipo comparta
+    el mismo horario; un solo empleado es el caso n=1, no una forma aparte.
+    Va vacía nunca: sin destinatarios no hay nada que aplicar.
+
+    Semántica de reemplazo: la lista de franjas es el horario completo de
+    **cada** empleado señalado, no un agregado. Mandar `franjas: []` los
+    deja sin disponibilidad.
     """
 
-    miembro = serializers.PrimaryKeyRelatedField(queryset=MiembroNegocio.objects.all())
+    miembros = serializers.PrimaryKeyRelatedField(
+        queryset=MiembroNegocio.objects.all(), many=True, allow_empty=False
+    )
     franjas = FranjaHorarioSerializer(many=True, allow_empty=True)
 
-    def validate_miembro(self, miembro):
+    def validate_miembros(self, miembros):
         request = self.context["request"]
-        if miembro.negocio_id != request.membresia.negocio_id:
-            raise serializers.ValidationError("Ese empleado no pertenece a tu negocio.")
-        return miembro
+        ajenos = [
+            miembro
+            for miembro in miembros
+            if miembro.negocio_id != request.membresia.negocio_id
+        ]
+        if ajenos:
+            # Sin decir cuál ni cuántos: quien pregunta por un id ajeno no
+            # debe poder deducir nada sobre él (ver CONTRATO.md 5.5).
+            raise serializers.ValidationError("Alguno de esos empleados no pertenece a tu negocio.")
+        return miembros
+
+
+class HorarioNegocioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HorarioNegocio
+        fields = ["id", "dia_semana", "hora_inicio", "hora_fin"]
+
+
+class HorarioNegocioSemanalSerializer(serializers.Serializer):
+    """Entrada de `PUT /api/agenda/horario-negocio/`.
+
+    Solo `franjas`: el negocio sale del token, nunca del body (ver
+    CONTRATO.md sección 5.5). Semántica de reemplazo, igual que el horario
+    por empleado.
+    """
+
+    franjas = FranjaHorarioSerializer(many=True, allow_empty=True)
 
 
 class CitaSerializer(serializers.ModelSerializer):

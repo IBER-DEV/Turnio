@@ -4,6 +4,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.agenda.models import HorarioNegocio, HorarioTrabajo
 from apps.negocios import services as negocios_services
 
 pytestmark = pytest.mark.django_db
@@ -199,7 +200,7 @@ def test_semana_reemplaza_el_horario_completo_de_un_empleado(
     respuesta = cliente_autenticado_dueno.put(
         "/api/agenda/horarios/semana/",
         {
-            "miembro": membresia.id,
+            "miembros": [membresia.id],
             "franjas": [
                 {"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "13:00:00"},
                 {"dia_semana": 0, "hora_inicio": "14:00:00", "hora_fin": "18:00:00"},
@@ -221,7 +222,7 @@ def test_semana_rechaza_franjas_cruzadas_sin_tocar_lo_existente(
     cliente_autenticado_dueno.put(
         "/api/agenda/horarios/semana/",
         {
-            "miembro": membresia.id,
+            "miembros": [membresia.id],
             "franjas": [{"dia_semana": 4, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}],
         },
         format="json",
@@ -230,7 +231,7 @@ def test_semana_rechaza_franjas_cruzadas_sin_tocar_lo_existente(
     respuesta = cliente_autenticado_dueno.put(
         "/api/agenda/horarios/semana/",
         {
-            "miembro": membresia.id,
+            "miembros": [membresia.id],
             "franjas": [
                 {"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "14:00:00"},
                 {"dia_semana": 0, "hora_inicio": "13:00:00", "hora_fin": "18:00:00"},
@@ -255,7 +256,7 @@ def test_semana_no_permite_editar_el_horario_de_otro_negocio(cliente_autenticado
     respuesta = cliente_autenticado_dueno.put(
         "/api/agenda/horarios/semana/",
         {
-            "miembro": otra_membresia.id,
+            "miembros": [otra_membresia.id],
             "franjas": [{"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}],
         },
         format="json",
@@ -263,6 +264,183 @@ def test_semana_no_permite_editar_el_horario_de_otro_negocio(cliente_autenticado
 
     assert respuesta.status_code == 400
     assert otra_membresia.horarios.count() == 0
+
+
+def test_semana_aplica_a_varios_empleados_en_un_request(
+    cliente_autenticado_dueno, negocio_con_dueno
+):
+    negocio, _dueno, membresia = negocio_con_dueno
+    _usuario, otro = negocios_services.agregar_empleado(
+        negocio=negocio, email="otro@test.com", password="claveSegura123", nombre="Otro"
+    )
+
+    respuesta = cliente_autenticado_dueno.put(
+        "/api/agenda/horarios/semana/",
+        {
+            "miembros": [membresia.id, otro.id],
+            "franjas": [{"dia_semana": 5, "hora_inicio": "09:00:00", "hora_fin": "14:00:00"}],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 200, respuesta.data
+    assert len(respuesta.data) == 2
+    assert membresia.horarios.count() == 1
+    assert otro.horarios.count() == 1
+
+
+def test_semana_con_un_miembro_ajeno_en_la_lista_no_toca_a_ninguno(
+    cliente_autenticado_dueno, negocio_con_dueno
+):
+    """Colar un id ajeno entre ids propios no debe pasar ni a medias."""
+    _negocio, _dueno, membresia = negocio_con_dueno
+    _otro_negocio, _otro_dueno, otra_membresia = negocios_services.registrar_negocio(
+        nombre_negocio="Barbería Ajena",
+        email_dueno="ajeno@test.com",
+        password_dueno="claveSegura123",
+        nombre_dueno="Ajeno",
+    )
+
+    respuesta = cliente_autenticado_dueno.put(
+        "/api/agenda/horarios/semana/",
+        {
+            "miembros": [membresia.id, otra_membresia.id],
+            "franjas": [{"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert membresia.horarios.count() == 0
+    assert otra_membresia.horarios.count() == 0
+
+
+def test_semana_rechaza_lista_de_miembros_vacia(cliente_autenticado_dueno):
+    respuesta = cliente_autenticado_dueno.put(
+        "/api/agenda/horarios/semana/",
+        {
+            "miembros": [],
+            "franjas": [{"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+
+
+# --- GET/PUT /api/agenda/horario-negocio/ ---
+
+
+def test_horario_negocio_se_carga_una_vez_y_lo_hereda_todo_el_equipo(
+    cliente_autenticado_dueno, negocio_con_dueno, servicio_de_prueba
+):
+    """La mejora completa, de punta a punta: el dueño carga el horario del
+    local y puede agendar con cualquiera sin configurar a nadie."""
+    negocio, _dueno, _membresia = negocio_con_dueno
+    negocios_services.agregar_empleado(
+        negocio=negocio, email="empleada@test.com", password="claveSegura123", nombre="Empleada"
+    )
+
+    respuesta = cliente_autenticado_dueno.put(
+        "/api/agenda/horario-negocio/",
+        {"franjas": [{"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}]},
+        format="json",
+    )
+    assert respuesta.status_code == 200, respuesta.data
+
+    # Nadie tiene horario propio cargado...
+    assert not HorarioTrabajo.objects.filter(miembro__negocio=negocio).exists()
+
+    # ...y aun así se puede agendar "cualquiera disponible".
+    cita = cliente_autenticado_dueno.post(
+        "/api/agenda/citas/",
+        {
+            "servicio": servicio_de_prueba.id,
+            "fecha_hora_inicio": LUNES_10AM.isoformat(),
+            "nombre_cliente": "Cliente",
+        },
+        format="json",
+    )
+    assert cita.status_code == 201, cita.data
+
+
+def test_horario_negocio_lo_lee_cualquier_miembro_pero_solo_lo_edita_quien_gestiona_agenda(
+    cliente_autenticado_dueno, negocio_con_dueno
+):
+    negocio, _dueno, _membresia = negocio_con_dueno
+    cliente_autenticado_dueno.put(
+        "/api/agenda/horario-negocio/",
+        {"franjas": [{"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}]},
+        format="json",
+    )
+    negocios_services.agregar_empleado(
+        negocio=negocio, email="raso@test.com", password="claveSegura123", nombre="Raso"
+    )
+    cliente_raso = APIClient()
+    login = cliente_raso.post(
+        "/api/auth/login/",
+        {"email": "raso@test.com", "password": "claveSegura123"},
+        format="json",
+    )
+    cliente_raso.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+
+    lectura = cliente_raso.get("/api/agenda/horario-negocio/")
+    assert lectura.status_code == 200
+    assert len(lectura.data) == 1
+
+    escritura = cliente_raso.put(
+        "/api/agenda/horario-negocio/",
+        {"franjas": [{"dia_semana": 1, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}]},
+        format="json",
+    )
+    assert escritura.status_code == 403
+    assert negocio.horarios.count() == 1
+
+
+def test_horario_negocio_no_deja_ver_el_de_otro_negocio(cliente_autenticado_dueno):
+    otro_negocio, _otro_dueno, _otra_membresia = negocios_services.registrar_negocio(
+        nombre_negocio="Barbería Ajena",
+        email_dueno="ajeno@test.com",
+        password_dueno="claveSegura123",
+        nombre_dueno="Ajeno",
+    )
+    HorarioNegocio.objects.create(
+        tenant=otro_negocio.tenant,
+        negocio=otro_negocio,
+        dia_semana=0,
+        hora_inicio=datetime.time(9, 0),
+        hora_fin=datetime.time(18, 0),
+    )
+
+    respuesta = cliente_autenticado_dueno.get("/api/agenda/horario-negocio/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data == []
+
+
+def test_horario_negocio_rechaza_franjas_cruzadas_sin_tocar_lo_existente(
+    cliente_autenticado_dueno, negocio_con_dueno
+):
+    negocio, _dueno, _membresia = negocio_con_dueno
+    cliente_autenticado_dueno.put(
+        "/api/agenda/horario-negocio/",
+        {"franjas": [{"dia_semana": 4, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}]},
+        format="json",
+    )
+
+    respuesta = cliente_autenticado_dueno.put(
+        "/api/agenda/horario-negocio/",
+        {
+            "franjas": [
+                {"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "14:00:00"},
+                {"dia_semana": 0, "hora_inicio": "13:00:00", "hora_fin": "18:00:00"},
+            ]
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert list(negocio.horarios.values_list("dia_semana", flat=True)) == [4]
 
 
 # --- Transiciones sobre citas propias, sin puede_gestionar_agenda ---

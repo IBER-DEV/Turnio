@@ -13,8 +13,45 @@ class DiaSemana(models.IntegerChoices):
     DOMINGO = 6, "Domingo"
 
 
+class HorarioNegocio(TenantScopedModel):
+    """Bloque recurrente de las horas en que el negocio atiende.
+
+    Es la **fuente de verdad** de la disponibilidad: todo empleado hereda
+    este horario salvo que tenga uno propio cargado (ver
+    `HorarioTrabajo`). Antes no existía, y el horario había que cargarlo
+    empleado por empleado aunque el equipo entero trabajara igual —
+    duplicando el mismo dato N veces y dejando a cada empleado nuevo sin
+    disponibilidad hasta que alguien se acordara de asignársela.
+
+    Igual que el horario por empleado, admite varios bloques el mismo día
+    para modelar el cierre de mediodía.
+    """
+
+    negocio = models.ForeignKey(
+        "negocios.Negocio", on_delete=models.CASCADE, related_name="horarios"
+    )
+    dia_semana = models.IntegerField(choices=DiaSemana.choices)
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+
+    class Meta:
+        ordering = ["dia_semana", "hora_inicio"]
+
+    def __str__(self):
+        return f"{self.negocio} - {self.get_dia_semana_display()} {self.hora_inicio}-{self.hora_fin}"
+
+
 class HorarioTrabajo(TenantScopedModel):
-    """Bloque recurrente de disponibilidad semanal de un empleado.
+    """Horario propio de un empleado, que **reemplaza** al del negocio.
+
+    Es la excepción, no la regla: si un empleado no tiene ninguna fila
+    acá, trabaja el horario del negocio (`HorarioNegocio`). Existe para
+    el barbero de medio tiempo, el que solo viene sábados o el que hace
+    turno de tarde.
+
+    Cuando un empleado sí tiene horario propio, ese horario es el suyo
+    completo: no se interseca con el del negocio (ver
+    `apps.agenda.services._franjas_vigentes`).
 
     Un empleado puede tener varios bloques por día (ej. mañana y
     tarde con descanso al medio día). No modela excepciones puntuales

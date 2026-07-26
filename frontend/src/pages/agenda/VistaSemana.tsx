@@ -3,9 +3,9 @@ import { useMemo } from "react";
 import type { components } from "../../api/schema";
 import { cn } from "../../ui/cn";
 import { ESTILO_ESTADO } from "../../ui/EstadoCita";
+import type { Franja } from "./horarioEfectivo";
 
 type Cita = components["schemas"]["Cita"];
-type HorarioTrabajo = components["schemas"]["HorarioTrabajo"];
 
 const DIAS_CORTOS = ["LUN", "MAR", "MIE", "JUE", "VIE", "SAB", "DOM"];
 /** Alto en px de una hora de la grilla. Define la escala de todo. */
@@ -77,7 +77,9 @@ export function VistaSemana({
 }: {
   dias: Date[];
   citas: Cita[];
-  horarios: HorarioTrabajo[];
+  /** Franjas ya resueltas por el llamador: propias del empleado o
+   * heredadas del negocio (ver `horarioEfectivo.ts`). */
+  horarios: Franja[];
   diaSeleccionado: Date;
   onSeleccionarDia: (dia: Date) => void;
   onAbrirCita: (cita: Cita) => void;
@@ -172,7 +174,7 @@ export function VistaSemana({
                     Number(franja.hora_fin.slice(0, 2)) * 60 + Number(franja.hora_fin.slice(3, 5));
                   return (
                     <div
-                      key={franja.id}
+                      key={`${franja.dia_semana}-${franja.hora_inicio}-${franja.hora_fin}`}
                       aria-hidden="true"
                       className="absolute inset-x-0 bg-surface-container-low/60"
                       style={{

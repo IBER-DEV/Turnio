@@ -5,7 +5,7 @@ import { Icon } from "./Icon";
 import type { NombreIcono } from "./Icon";
 
 type Variante = "primary" | "secondary" | "accent" | "danger" | "ghost";
-type Tamano = "md" | "lg";
+type Tamano = "sm" | "md" | "lg";
 
 const VARIANTES: Record<Variante, string> = {
   primary: "bg-menta text-white hover:bg-menta-oscura shadow-suave",
@@ -16,6 +16,10 @@ const VARIANTES: Record<Variante, string> = {
 };
 
 const TAMANOS: Record<Tamano, string> = {
+  // 36px: por debajo del objetivo táctil de 44px, así que se reserva para
+  // acciones secundarias dentro de una tarjeta ya densa (las de una cita),
+  // no para acciones principales.
+  sm: "min-h-[36px] px-3 py-1.5",
   md: "min-h-[44px] px-5 py-2.5",
   lg: "min-h-[52px] px-7 py-3.5",
 };

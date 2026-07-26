@@ -500,3 +500,128 @@ propia cita sin la capacidad, que la cita de otro empleado sigue dando
 Ampliación, no ruptura: quien antes podía, sigue pudiendo. `CONTRATO.md`
 sección 5.3 reescrita + entrada en el historial. `openapi.yaml`
 regenerado (cambia la descripción del endpoint).
+
+## El horario pasa a ser del negocio, con el del empleado como excepción (2026-07-26)
+
+> Salió de una observación del humano usando la app: "al usuario le toca
+> asignarle el horario a sus empleados uno por uno, cuando lo normal es
+> que un negocio maneje el mismo horario para todos". Y acto seguido, la
+> corrección que reencuadró el problema: **"los horarios son de los
+> negocios, no de empleados"**.
+
+### El diagnóstico, y por qué la primera solución era la equivocada
+La lectura inicial fue "hay que poder aplicar el mismo horario a varios
+empleados de una", y se empezó a implementar como una escritura en lote:
+`PUT .../semana/` recibiendo `miembros: []` y copiando las mismas franjas
+a cada uno. Eso automatizaba el síntoma. El horario seguía viviendo N
+veces —una por empleado—, así que cambiar la hora de apertura del local
+obligaba a re-aplicarla a todo el equipo, y cada empleado nuevo entraba
+sin disponibilidad hasta que alguien se acordara de configurárselo.
+
+La causa real era que **no existía el concepto de horario del negocio**.
+Ya estaba anotado como hueco conocido en la sección de Fase 1 de este
+mismo archivo ("`Cita` no valida que el negocio esté abierto ese día/hora
+porque no existe todavía un concepto de horario del negocio separado del
+horario por empleado"); no se había conectado con este problema.
+
+### Tensión con una decisión de arquitectura ya tomada
+"Agenda por empleado desde el inicio" está registrado en `../ROADMAP.md`
+y en `../CLAUDE.md`. Se señaló explícitamente la contradicción antes de
+proceder, como manda la regla 5 de gestión del roadmap. **La decisión del
+humano fue el punto medio, no la lectura literal**: el negocio manda, el
+empleado puede diferir. La disponibilidad por empleado sigue existiendo y
+sigue siendo lo que resuelve la agenda — solo que ahora casi siempre se
+deriva del negocio en vez de cargarse a mano. Se descartó explícitamente
+la variante de eliminar `HorarioTrabajo` (rompía al barbero de medio
+tiempo, al de solo sábados y a los turnos rotativos).
+
+### Qué se implementó
+- **Modelo `HorarioNegocio`** (`agenda.0003_horarionegocio`): mismo shape
+  que `HorarioTrabajo` pero colgando de `Negocio`. Admite varios bloques
+  el mismo día (cierre de mediodía del local), igual que el del empleado.
+- **`services.reemplazar_horario_negocio()`** y extracción de
+  `_validar_franjas()`, que ahora comparten el horario del negocio y el
+  del empleado: la validación de la semana (horas coherentes, sin cruces
+  dentro del día) es independiente de a quién se le aplique.
+- **`services._franjas_vigentes()`** — la resolución de la herencia, que
+  es el corazón del cambio. `empleado_disponible()` ahora la usa en vez
+  de leer `HorarioTrabajo` directo.
+- **`GET/PUT /api/agenda/horario-negocio/`** (`HorarioNegocioView`,
+  `APIView` anotada con `@extend_schema_view`): leer solo requiere
+  pertenecer al negocio, escribir requiere `puede_gestionar_agenda`. El
+  negocio sale del token, nunca del body.
+- **`PUT /api/agenda/horarios/semana/` pasa a recibir `miembros: []`**
+  (ver "sobre la generalización" abajo).
+
+### Decisiones técnicas y su justificación
+- **Se pregunta si el empleado tiene horario propio en TODA la semana, no
+  día por día.** Si se preguntara por día, un empleado configurado "solo
+  sábados" heredaría el lunes del negocio — exactamente lo contrario de
+  lo que quiso decir quien lo configuró así. Hay test dedicado
+  (`test_horario_propio_de_un_dia_no_hace_heredar_los_demas`) porque es
+  la clase de sutileza que alguien "arregla" de buena fe filtrando por
+  día en el mismo query.
+- **El horario propio reemplaza, no interseca con el del negocio.** Si el
+  local abre 9–18 y a alguien se le puso 8–20, vale 8–20. Se evaluó
+  intersecar (más "correcto" en el sentido de que el local está cerrado a
+  las 8) y se descartó: hay quien abre temprano con llave propia, y sobre
+  todo, un recorte silencioso es imposible de explicar en la UI —
+  "configuré las 8 y el sistema agenda desde las 9" es un bug reportado,
+  no una feature entendida.
+- **`franjas: []` cambió de significado**: antes dejaba al empleado sin
+  disponibilidad, ahora le quita la excepción y lo devuelve a heredar. La
+  palanca para "esta persona no atiende" es `activo=False`, que ya
+  existía y expresa exactamente eso. Tener dos formas de decir "no
+  trabaja" sería peor que reusar la que ya está.
+- **`empleado_disponible()` ahora chequea `activo`.** No es un extra: con
+  herencia, un miembro inactivo sin franjas propias tomaría las del local
+  y quedaría agendable. Antes quedaba fuera por accidente (no tenía
+  franjas), no por diseño.
+
+### Sobre la generalización de `/semana/` a `miembros: []`
+Se mantuvo aunque la herencia le quita la mayor parte de su razón de ser
+original. Sigue sirviendo al caso real de "los tres de medio tiempo
+comparten turno", es coherente con el principio del proyecto de tratar al
+equipo como plural (un empleado es el caso n=1), y ya estaba escrita y
+probada. Es un cambio con ruptura: quien mande `miembro` singular recibe
+`400`. El único consumidor era el modal del frontend, que se reescribió
+en el mismo cambio.
+
+### Tests
+16 nuevos (81 en total, antes 65), priorizando la capa de servicios.
+Cubren la herencia (empleado sin horario propio, empleado recién dado de
+alta disponible sin configurarle nada), la excepción (propio reemplaza y
+no amplía; propio de un día no hace heredar los demás), el inactivo que
+no debe quedar agendable por herencia, `franjas: []` devolviendo a
+heredar, y del lado del lote: varios empleados de una, empleado repetido
+sin duplicar franjas, atomicidad con varios, y un id ajeno colado entre
+ids propios que no debe pasar ni a medias.
+
+Verificado además de punta a punta contra el contenedor: negocio nuevo →
+no se puede agendar sin horario → se carga el horario del negocio una
+sola vez → se agenda "cualquiera disponible" con **cero** horarios
+propios cargados → se marca a la empleada como excepción y deja de tomar
+citas el lunes → se le vacía el horario propio y vuelve a heredar.
+
+### Contrato
+`openapi.yaml` regenerado y validado. `../CONTRATO.md`: nueva sección 5.7
+(la jerarquía de horarios y sus reglas de resolución), sección 5.6
+actualizada, y entrada de historial marcada como **cambio con ruptura**
+con los cuatro puntos que rompen.
+
+### Pendiente / a medio hacer
+- El hueco de "`Cita` no valida que el negocio esté abierto" queda **a
+  medias a propósito**: ya existe el dato contra el cual validar, y de
+  hecho la disponibilidad heredada lo usa. Pero no se agregó una
+  validación explícita de "el negocio está cerrado ese día" para el caso
+  de un empleado con horario propio fuera del horario del local, porque
+  esa es justamente la excepción que se decidió permitir (ver arriba).
+- Sigue sin haber excepciones puntuales de fecha (vacaciones,
+  incapacidad). El modelo nuevo no las acerca ni las aleja.
+- Los negocios ya existentes en una base de datos con datos quedan sin
+  `HorarioNegocio` cargado y con el horario propio de cada empleado
+  intacto, así que **siguen funcionando igual que antes** (todos son
+  excepciones). No se escribió una migración de datos que promueva "el
+  horario que comparten todos" a horario del negocio: con el proyecto
+  todavía sin negocios reales en producción, adivinar esa promoción es
+  más riesgoso que dejar que el dueño cargue el horario del local una vez.

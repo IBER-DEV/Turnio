@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.db import transaction
 
-from apps.agenda.models import Cita, HorarioTrabajo
+from apps.agenda.models import Cita, HorarioNegocio, HorarioTrabajo
 
 
 class HorarioInvalido(Exception):
@@ -41,18 +41,11 @@ class FranjasSolapadas(Exception):
     """Dos franjas del mismo día se cruzan entre sí."""
 
 
-@transaction.atomic
-def reemplazar_horario_semanal(*, miembro, franjas):
-    """Deja el horario semanal de `miembro` exactamente como dice `franjas`.
+def _validar_franjas(franjas):
+    """Valida la semana en sí: horas coherentes y sin cruces dentro del día.
 
-    Reemplaza, no acumula: lo que no venga en la lista se borra. Existe
-    porque el frontend editaba la semana con N llamadas (un DELETE o un
-    POST por franja), lo que no es atómico — si fallaba a la mitad, el
-    empleado quedaba con media semana cargada y sin forma de saberlo.
-
-    `franjas` es una lista de dicts con `dia_semana`, `hora_inicio` y
-    `hora_fin`. Borrar horarios no afecta a las citas ya agendadas: la
-    `Cita` guarda su propia fecha/hora y no se recalcula desde acá.
+    Es independiente de a quién se le aplique — por eso se valida una sola
+    vez aunque el horario vaya para varios empleados.
     """
     for franja in franjas:
         if franja["hora_inicio"] >= franja["hora_fin"]:
@@ -75,12 +68,28 @@ def reemplazar_horario_semanal(*, miembro, franjas):
                     f"{siguiente['hora_inicio']}–{siguiente['hora_fin']}"
                 )
 
-    miembro.horarios.all().delete()
-    return HorarioTrabajo.objects.bulk_create(
+
+@transaction.atomic
+def reemplazar_horario_negocio(*, negocio, franjas):
+    """Deja el horario de atención del negocio exactamente como dice `franjas`.
+
+    Este es el horario que rige por defecto para **todo** el equipo: quien
+    no tenga horario propio cargado, trabaja este. Cambiarlo acá cambia la
+    disponibilidad de todos los que heredan, en un solo lugar — que es
+    justamente lo que no se podía hacer cuando el horario solo existía por
+    empleado.
+
+    Mismo reemplazo atómico que el horario por empleado: la lista enviada
+    es el horario completo, y si algo es inválido no se toca nada.
+    """
+    _validar_franjas(franjas)
+
+    negocio.horarios.all().delete()
+    return HorarioNegocio.objects.bulk_create(
         [
-            HorarioTrabajo(
-                tenant=miembro.tenant,
-                miembro=miembro,
+            HorarioNegocio(
+                tenant=negocio.tenant,
+                negocio=negocio,
                 dia_semana=franja["dia_semana"],
                 hora_inicio=franja["hora_inicio"],
                 hora_fin=franja["hora_fin"],
@@ -90,14 +99,91 @@ def reemplazar_horario_semanal(*, miembro, franjas):
     )
 
 
+@transaction.atomic
+def reemplazar_horario_semanal(*, miembros, franjas):
+    """Deja el horario **propio** de cada uno de `miembros` exactamente como
+    dice `franjas`.
+
+    El horario propio es la excepción al horario del negocio, para quien
+    no trabaja como el resto (medio tiempo, solo sábados, turno de tarde).
+    Mandar `franjas: []` le quita el horario propio y lo devuelve a heredar
+    el del negocio — para dejar a alguien sin trabajar, la palanca es
+    `activo=False` en su membresía, no un horario vacío.
+
+    Recibe **varios** empleados por la misma razón que el resto del módulo
+    trata al equipo como plural: los tres de medio tiempo suelen compartir
+    turno. Un solo empleado es el caso n=1 de esta misma firma.
+
+    Reemplaza, no acumula: lo que no venga en la lista se borra. Existe
+    porque el frontend editaba la semana con N llamadas (un DELETE o un
+    POST por franja), lo que no es atómico — si fallaba a la mitad, el
+    empleado quedaba con media semana cargada y sin forma de saberlo. Con
+    varios empleados esa garantía importa más, no menos: o queda el equipo
+    completo, o no cambia nadie.
+
+    `franjas` es una lista de dicts con `dia_semana`, `hora_inicio` y
+    `hora_fin`. Borrar horarios no afecta a las citas ya agendadas: la
+    `Cita` guarda su propia fecha/hora y no se recalcula desde acá.
+    """
+    _validar_franjas(franjas)
+
+    # Repetir un empleado en la lista no debe duplicarle las franjas.
+    unicos = list({miembro.pk: miembro for miembro in miembros}.values())
+
+    HorarioTrabajo.objects.filter(miembro__in=unicos).delete()
+    return HorarioTrabajo.objects.bulk_create(
+        [
+            HorarioTrabajo(
+                tenant=miembro.tenant,
+                miembro=miembro,
+                dia_semana=franja["dia_semana"],
+                hora_inicio=franja["hora_inicio"],
+                hora_fin=franja["hora_fin"],
+            )
+            for miembro in unicos
+            for franja in franjas
+        ]
+    )
+
+
+def _franjas_vigentes(*, empleado, dia_semana):
+    """Las franjas que realmente rigen para `empleado` ese día.
+
+    El horario del negocio es el que manda: todo empleado lo hereda. Solo
+    si el empleado tiene horario propio cargado, ese **reemplaza** al del
+    negocio por completo.
+
+    Dos decisiones que no son obvias:
+
+    - Se pregunta si tiene horario propio **en toda la semana**, no ese
+      día. Si no, un empleado con horario propio solo los sábados
+      heredaría el del negocio de lunes a viernes — o sea, lo contrario
+      de lo que quiso decir quien lo configuró así.
+    - El horario propio **no se interseca** con el del negocio. Si el
+      dueño le pone 8–20 a alguien y el local abre 9–18, vale 8–20: hay
+      quien abre temprano con llave propia, y explicar "puse 8 pero el
+      sistema agenda desde las 9" es peor que respetar lo que se
+      configuró explícitamente.
+    """
+    if HorarioTrabajo.objects.filter(miembro=empleado).exists():
+        return HorarioTrabajo.objects.filter(miembro=empleado, dia_semana=dia_semana)
+    return HorarioNegocio.objects.filter(negocio=empleado.negocio, dia_semana=dia_semana)
+
+
 def empleado_disponible(*, empleado, inicio, fin):
+    # Un empleado inactivo no atiende, herede lo que herede. Importa desde
+    # que el horario se hereda: antes un empleado inactivo simplemente no
+    # tenía franjas propias y quedaba fuera solo, sin necesidad de este
+    # chequeo.
+    if not empleado.activo:
+        return False
+
     dia_semana = inicio.weekday()
-    tiene_horario = HorarioTrabajo.objects.filter(
-        miembro=empleado,
-        dia_semana=dia_semana,
-        hora_inicio__lte=inicio.time(),
-        hora_fin__gte=fin.time(),
-    ).exists()
+    tiene_horario = (
+        _franjas_vigentes(empleado=empleado, dia_semana=dia_semana)
+        .filter(hora_inicio__lte=inicio.time(), hora_fin__gte=fin.time())
+        .exists()
+    )
     if not tiene_horario:
         return False
 
