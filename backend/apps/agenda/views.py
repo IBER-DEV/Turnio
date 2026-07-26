@@ -37,7 +37,9 @@ from apps.common.permissions import (
         responses={200: HorarioNegocioSerializer(many=True)},
         description=(
             "Reemplaza el horario de atención del negocio en una sola "
-            "transacción. Requiere `puede_gestionar_agenda`.\n\n"
+            "transacción. Requiere `puede_configurar_horarios` — decidir "
+            "cuándo abre el local es una decisión distinta de operar la "
+            "agenda del día.\n\n"
             "Cambiarlo acá cambia la disponibilidad de **todos** los empleados "
             "que lo heredan, que es el caso normal. Los que tienen horario "
             "propio (ver `PUT /api/agenda/horarios/semana/`) no se ven "
@@ -59,7 +61,7 @@ class HorarioNegocioView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [TieneMembresiaActiva()]
-        return [requiere_capacidad("puede_gestionar_agenda")()]
+        return [requiere_capacidad("puede_configurar_horarios")()]
 
     def get(self, request):
         horarios = request.membresia.negocio.horarios.all()
@@ -81,14 +83,20 @@ class HorarioNegocioView(APIView):
 
 
 class HorarioTrabajoViewSet(viewsets.ModelViewSet):
-    """Horario semanal recurrente de los empleados del negocio."""
+    """Horario propio de un empleado, como excepción al del negocio.
+
+    Escribir requiere `puede_configurar_horarios`, no
+    `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+    decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+    sección 5.8).
+    """
 
     serializer_class = HorarioTrabajoSerializer
 
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             return [TieneMembresiaActiva()]
-        return [requiere_capacidad("puede_gestionar_agenda")()]
+        return [requiere_capacidad("puede_configurar_horarios")()]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -151,6 +159,11 @@ class CitaViewSet(viewsets.ModelViewSet):
     cualquier miembro sobre **sus propias** citas: marcar que el cliente
     llegó no es un acto administrativo, es el empleado haciendo su
     trabajo. Ver `CONTRATO.md` sección 5.6.
+
+    Listar devuelve solo las citas propias salvo que se tenga
+    `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+    cliente, así que la agenda completa **es** la libreta de clientes del
+    negocio (ver `CONTRATO.md` sección 5.8).
     """
 
     serializer_class = CitaSerializer
@@ -170,9 +183,14 @@ class CitaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Cita.objects.none()
-        return self.request.membresia.negocio.citas.select_related(
-            "servicio", "empleado__usuario"
-        ).all()
+
+        membresia = self.request.membresia
+        citas = membresia.negocio.citas.select_related("servicio", "empleado__usuario")
+        if membresia.puede_ver_agenda_completa:
+            return citas.all()
+        # Acota también `retrieve` y las transiciones: una cita ajena
+        # responde 404, igual que una inexistente (CONTRATO.md 5.2).
+        return citas.filter(empleado=membresia)
 
     @extend_schema(request=CitaCreateSerializer, responses={201: CitaSerializer})
     def create(self, request, *args, **kwargs):

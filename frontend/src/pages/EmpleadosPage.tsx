@@ -47,7 +47,17 @@ const CAPACIDADES: Array<{ campo: Capacidad; etiqueta: string; descripcion: stri
   {
     campo: "puede_gestionar_agenda",
     etiqueta: "Puede gestionar la agenda",
-    descripcion: "Agendar citas y definir horarios.",
+    descripcion: "Agendar, mover y cancelar citas de cualquiera.",
+  },
+  {
+    campo: "puede_configurar_horarios",
+    etiqueta: "Puede configurar horarios",
+    descripcion: "Definir el horario del local y el de cada empleado.",
+  },
+  {
+    campo: "puede_ver_agenda_completa",
+    etiqueta: "Puede ver la agenda completa",
+    descripcion: "Sin esto solo ve sus propias citas, no las del resto.",
   },
 ];
 
@@ -61,6 +71,8 @@ const NUEVO_VACIO: EmpleadoAlta = {
   puede_editar_precios: false,
   puede_gestionar_empleados: false,
   puede_gestionar_agenda: false,
+  puede_configurar_horarios: false,
+  puede_ver_agenda_completa: false,
 };
 
 export function EmpleadosPage() {
@@ -99,6 +111,7 @@ export function EmpleadosPage() {
   }, []);
 
   const seleccionado = empleados.find((empleado) => empleado.id === seleccionadoId) ?? null;
+  const esUnoMismo = seleccionado?.id === membresia?.id;
 
   async function actualizarEmpleado(empleado: MiembroNegocio, cambios: Partial<MiembroNegocio>) {
     const { data, error: errorRespuesta } = await conReintentoDeAuth(() =>
@@ -190,12 +203,9 @@ export function EmpleadosPage() {
           <ul className="flex-1 space-y-2">
             {empleados.map((empleado) => {
               const activo = empleado.id === seleccionadoId;
-              const esAdmin =
-                empleado.puede_gestionar_empleados &&
-                empleado.puede_editar_precios &&
-                empleado.puede_cobrar &&
-                empleado.puede_gestionar_agenda &&
-                empleado.puede_ver_reportes;
+              // Derivado de la lista, no de flags escritos a mano: agregar
+              // una capacidad no debe dejar el badge mintiendo.
+              const esAdmin = CAPACIDADES.every(({ campo }) => empleado[campo]);
 
               return (
                 <li key={empleado.id} className="animate-slide-in-bottom">
@@ -290,22 +300,42 @@ export function EmpleadosPage() {
               </h3>
 
               <div className="space-y-4">
-                {CAPACIDADES.map(({ campo, etiqueta, descripcion }) => (
-                  <Switch
-                    key={campo}
-                    label={etiqueta}
-                    descripcion={descripcion}
-                    checked={Boolean(seleccionado[campo])}
-                    disabled={!puedeGestionar}
-                    onChange={(valor) => actualizarEmpleado(seleccionado, { [campo]: valor })}
-                  />
-                ))}
+                {CAPACIDADES.map(({ campo, etiqueta, descripcion }) => {
+                  // Espeja las dos reglas del backend (CONTRATO.md 5.9): no
+                  // editas tus propias capacidades, y no concedes una que no
+                  // tienes. Quitar una que no tienes sí se permite, así que
+                  // solo se bloquea cuando el interruptor está apagado.
+                  const noPuedeConceder =
+                    !membresia?.[campo] && !seleccionado[campo];
+                  return (
+                    <Switch
+                      key={campo}
+                      label={etiqueta}
+                      descripcion={descripcion}
+                      checked={Boolean(seleccionado[campo])}
+                      disabled={!puedeGestionar || esUnoMismo || noPuedeConceder}
+                      onChange={(valor) => actualizarEmpleado(seleccionado, { [campo]: valor })}
+                    />
+                  );
+                })}
               </div>
 
-              {!puedeGestionar && (
+              {!puedeGestionar ? (
                 <p className="mt-5 rounded-lg bg-surface-container-low p-3 text-[11px] text-on-surface-variant">
                   Solo lectura: no tienes la capacidad de gestionar el equipo.
                 </p>
+              ) : esUnoMismo ? (
+                <p className="mt-5 rounded-lg bg-surface-container-low p-3 text-[11px] text-on-surface-variant">
+                  No puedes cambiar tus propias capacidades. Pídeselo a otra persona que gestione
+                  el equipo.
+                </p>
+              ) : (
+                CAPACIDADES.some(({ campo }) => !membresia?.[campo]) && (
+                  <p className="mt-5 rounded-lg bg-surface-container-low p-3 text-[11px] text-on-surface-variant">
+                    Los permisos que tú no tienes aparecen bloqueados: solo puedes conceder lo que
+                    ya posees.
+                  </p>
+                )
               )}
             </Card>
           )}

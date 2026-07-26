@@ -625,3 +625,124 @@ con los cuatro puntos que rompen.
   horario que comparten todos" a horario del negocio: con el proyecto
   todavía sin negocios reales en producción, adivinar esa promoción es
   más riesgoso que dejar que el dueño cargue el horario del local una vez.
+
+## Auditoría del modelo de permisos: dos capacidades nuevas y cierre de una escalada (2026-07-26)
+
+> El humano preguntó si era momento de introducir **roles**, a partir de un
+> caso concreto: *"un dueño quiere que uno de sus empleados gestione las
+> citas pero no el horario del negocio"*, y pidió evaluar qué otros
+> permisos harían falta sí o sí antes de seguir agregando de a uno.
+
+### La respuesta sobre roles: no, y el caso citado es la evidencia
+Los roles agrupan capacidades. No dicen nada sobre **alcance** (sobre qué
+objetos se puede actuar), que es el eje donde estaban saliendo los
+problemas: el de "citas propias" del 25 y este de "ver la agenda ajena".
+Con roles habría hecho falta igual la excepción de propiedad por encima
+del rol. Se mantiene la decisión de arquitectura registrada (capacidades,
+no roles fijos), con un disparador explícito para reabrirla: cuando el
+formulario de alta pase de ~8 flags, o cuando se repita la misma
+combinación una y otra vez. Si el dolor real es lo tedioso del alta, la
+salida barata son **presets de UI** sobre las capacidades existentes —
+cero cambios de modelo.
+
+Nota honesta: este cambio nos deja en 7 capacidades, cerca de ese umbral.
+
+### Lo que encontró la auditoría
+Se revisaron todos los gates de todas las vistas. `puede_gestionar_agenda`
+estaba decidiendo cuatro cosas distintas (horario del local, horario de
+empleados, operar citas, supervisar citas ajenas), y aparecieron dos
+problemas más:
+
+- **Escalada de privilegios, explotable en ese momento**:
+  `EmpleadoDetailView` es un `RetrieveUpdateAPIView` con
+  `MiembroNegocioSerializer` —cuyos flags `puede_*` son escribibles— y su
+  queryset es `negocio.miembros.all()`, que incluye la propia membresía
+  del solicitante. Cualquiera con `puede_gestionar_empleados` podía
+  concederse el resto de capacidades con un `PATCH` sobre sí mismo.
+- **Fuga de la libreta de clientes**: `GET /api/agenda/citas/` no
+  filtraba por miembro y `CitaSerializer` incluye `nombre_cliente` y
+  `telefono_cliente`. Cualquier empleado podía exportarse los clientes de
+  todo el negocio — relevante dado el modelo de alquiler de silla /
+  comisión que describe `../ESTRATEGIA-COMPETITIVA.md`.
+
+### Qué se implementó
+- **`puede_configurar_horarios`** — `PUT /api/agenda/horario-negocio/` y
+  todo `/api/agenda/horarios/` (incluido `/semana/`). `puede_gestionar_agenda`
+  se queda con operar citas.
+- **`puede_ver_agenda_completa`** — `CitaViewSet.get_queryset()` filtra a
+  `empleado=membresia` sin ella. Se filtró en el **queryset** y no en un
+  permiso a propósito: así acota también `retrieve` y las transiciones, y
+  una cita ajena responde `404` en vez de `403` — que además es la
+  respuesta correcta según `../CONTRATO.md` 5.2, porque un `403`
+  confirmaba que la cita existía.
+- **`negocios.services.validar_cambio_de_capacidades()`** — las dos
+  reglas anti-escalada, en la capa de servicios y llamada desde los dos
+  serializers que aceptan flags (`MiembroNegocioSerializer` en edición y
+  `EmpleadoAltaSerializer` en alta).
+
+### Decisiones y su justificación
+- **La escalada se cerró con reglas, no con una capacidad nueva.** No
+  hay nada que conceder: es un límite sobre cómo se ejerce una capacidad
+  que ya existe. Agregar un flag habría sido responder a un problema de
+  alcance con más agrupación, justo lo que se le criticó a los roles.
+- **Quitar una capacidad que uno no tiene sí se permite.** Reducir
+  permisos ajenos no amplía los propios, y bloquearlo dejaría a un
+  administrador sin poder frenar a alguien con más capacidades que él —
+  exactamente cuando más falta hace.
+- **Solo cuentan los cambios reales.** Reenviar una capacidad con el
+  valor que ya tenía no se considera intento de auto-ascenso; si no, un
+  `PATCH` idempotente del frontend rebotaría sin motivo.
+- **`puede_gestionar_agenda` conservó el nombre** en vez de renombrarse a
+  `puede_gestionar_citas`. Es su uso más frecuente, y así la migración de
+  datos no toca a nadie que ya la tuviera.
+- **No se separó `puede_editar_precios`** (catálogo vs. precios): en una
+  barbería pequeña la distinción es marginal. **Pero queda anotado como
+  bloqueante de Fase 3**, ver abajo.
+
+### Migración de datos
+`0003_miembronegocio_puede_configurar_horarios_and_more` incluye un
+`RunPython` que pone las dos capacidades nuevas en `true` para quien ya
+tenía `puede_gestionar_agenda`. Esas membresías no notan nada. Para el
+resto **sí hay cambio de comportamiento** —un empleado raso deja de ver
+la agenda del negocio— y ese es precisamente el objetivo.
+
+### Tests
+23 nuevos (104 en total, antes 81), en dos archivos:
+- `apps/negocios/tests/test_escalada_privilegios.py` (8)
+- `apps/agenda/tests/test_capacidades.py` (15)
+
+**Se verificó que miden el hueco real**: neutralizando
+`validar_cambio_de_capacidades`, los 3 tests de restricción fallan con
+`200 == 400` y los 5 de "esto sigue permitido" pasan igual — o sea que la
+suite distingue las dos direcciones y no afirma algo trivialmente cierto.
+
+Un test viejo cambió de expectativa: `test_empleado_sin_gestionar_agenda_no_puede_tocar_la_cita_de_otro`
+pasó de esperar `403` a `404`, con el porqué escrito en su docstring.
+
+Hay además un test de deriva (`test_el_alta_de_empleados_cubre_todas_las_capacidades_del_modelo`)
+que falla si se agrega una capacidad al modelo y se olvida en
+`EmpleadoAltaSerializer`, que fue justo el tipo de despiste que este
+cambio pudo cometer (y de hecho cometió con `MiMembresiaSerializer`: lo
+atrapó su propio test antes de llegar al frontend).
+
+Verificado además de punta a punta contra el contenedor: 13 casos
+cubriendo el escenario de la recepcionista, la visibilidad de la libreta
+de clientes y los seis casos de escalada.
+
+### Pendiente / a medio hacer
+- **Bloqueante de Fase 3**: `porcentaje_comision` vive en `Servicio` y es
+  escribible por `puede_editar_precios`. Hoy es inerte porque
+  `calcular_comision()` no se invoca en ningún flujo, pero cuando exista
+  Caja, quien pueda editar servicios podrá subirse su propia comisión.
+  **Separar antes de conectar el cálculo real.**
+- `puede_cobrar` y `puede_ver_reportes` siguen declarados y sin
+  enforcement (son de Fase 3 y 4). La UI ya muestra sus interruptores, o
+  sea que el dueño los activa y no pasa nada. Decidir si se ocultan hasta
+  que sirvan o se marcan como "próximamente".
+- Nada impide que alguien con `puede_gestionar_empleados` **desactive**
+  (`activo=False`) al dueño o a sí mismo. Es denegación de servicio, no
+  escalada, y no se abordó en este cambio.
+- El alta de empleados en `POST /api/negocios/registro/` no aplica las
+  reglas anti-escalada porque no hay solicitante todavía. Es correcto —el
+  dueño se crea con todo en ese request— pero conviene recordarlo si
+  alguna vez ese endpoint deja de ser el registro inicial.

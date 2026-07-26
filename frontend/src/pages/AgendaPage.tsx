@@ -67,6 +67,10 @@ export function AgendaPage() {
   const { membresia } = useAuth();
   const { mostrar } = useToast();
   const puedeGestionar = membresia?.puede_gestionar_agenda ?? false;
+  const puedeConfigurarHorarios = membresia?.puede_configurar_horarios ?? false;
+  // Sin esto el backend solo devuelve las citas propias, así que filtrar
+  // por compañero no tiene nada que filtrar (ver CONTRATO.md 5.8).
+  const veAgendaCompleta = membresia?.puede_ver_agenda_completa ?? false;
 
   const dias = useMemo(() => proximosDias(), []);
   const [diaSeleccionado, setDiaSeleccionado] = useState<Date>(dias[0]);
@@ -124,17 +128,20 @@ export function AgendaPage() {
   // La banda de disponibilidad de la grilla ya no sale directo de
   // `horarios`: la mayoría de los empleados no tiene horario propio y
   // hereda el del negocio (ver CONTRATO.md 5.7).
-  const franjasVisibles = useMemo(
-    () =>
-      empleadoFiltro === "todos"
-        ? franjasDelEquipo(
-            empleados.map((empleado) => empleado.id),
-            horarios,
-            horarioNegocio,
-          )
-        : franjasDeEmpleado(empleadoFiltro, horarios, horarioNegocio),
-    [empleadoFiltro, empleados, horarios, horarioNegocio],
-  );
+  const franjasVisibles = useMemo(() => {
+    // Quien solo ve sus citas ve también solo su propia disponibilidad:
+    // pintar la banda del equipo entero contradiría la lista de al lado.
+    if (!veAgendaCompleta) {
+      return membresia ? franjasDeEmpleado(membresia.id, horarios, horarioNegocio) : [];
+    }
+    return empleadoFiltro === "todos"
+      ? franjasDelEquipo(
+          empleados.map((empleado) => empleado.id),
+          horarios,
+          horarioNegocio,
+        )
+      : franjasDeEmpleado(empleadoFiltro, horarios, horarioNegocio);
+  }, [veAgendaCompleta, membresia, empleadoFiltro, empleados, horarios, horarioNegocio]);
 
   async function transicionar(cita: Cita, accion: AccionCita) {
     const path = { id: cita.id };
@@ -180,40 +187,47 @@ export function AgendaPage() {
             </p>
           </div>
         </div>
-        {puedeGestionar && (
+        {(puedeConfigurarHorarios || puedeGestionar) && (
           <div className="flex shrink-0 gap-2">
-            <Button
-              variante="secondary"
-              icono="schedule"
-              onClick={() => setPanelHorarios(true)}
-              aria-label="Gestionar horarios"
-            >
-              <span className="hidden sm:inline">Horarios</span>
-            </Button>
-            <Button
-              icono="add"
-              onClick={() => setFormularioCita(true)}
-              aria-label="Agendar cita"
-            >
-              <span className="hidden sm:inline">Agendar</span>
-            </Button>
+            {puedeConfigurarHorarios && (
+              <Button
+                variante="secondary"
+                icono="schedule"
+                onClick={() => setPanelHorarios(true)}
+                aria-label="Gestionar horarios"
+              >
+                <span className="hidden sm:inline">Horarios</span>
+              </Button>
+            )}
+            {puedeGestionar && (
+              <Button
+                icono="add"
+                onClick={() => setFormularioCita(true)}
+                aria-label="Agendar cita"
+              >
+                <span className="hidden sm:inline">Agendar</span>
+              </Button>
+            )}
           </div>
         )}
       </header>
 
-      {/* Filtro por empleado */}
-      <ToggleGroup
-        valor={String(empleadoFiltro)}
-        onChange={(val) => setEmpleadoFiltro(val === "todos" ? "todos" : Number(val))}
-        className="-mx-margin-mobile px-margin-mobile md:mx-0 md:px-0"
-      >
-        <ToggleGroupItem value="todos">Todos</ToggleGroupItem>
-        {empleados.map((empleado) => (
-          <ToggleGroupItem key={empleado.id} value={String(empleado.id)}>
-            {empleado.nombre}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      {/* Filtro por empleado. Sin ver la agenda completa no hay nada que
+          filtrar: el backend ya devuelve solo las citas propias. */}
+      {veAgendaCompleta && (
+        <ToggleGroup
+          valor={String(empleadoFiltro)}
+          onChange={(val) => setEmpleadoFiltro(val === "todos" ? "todos" : Number(val))}
+          className="-mx-margin-mobile px-margin-mobile md:mx-0 md:px-0"
+        >
+          <ToggleGroupItem value="todos">Todos</ToggleGroupItem>
+          {empleados.map((empleado) => (
+            <ToggleGroupItem key={empleado.id} value={String(empleado.id)}>
+              {empleado.nombre}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      )}
 
       {/* Selector de vista */}
       <div className="hidden justify-end lg:flex">

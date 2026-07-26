@@ -23,6 +23,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         get: operations["agenda_citas_list"];
         put?: never;
@@ -38,6 +43,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         post: operations["agenda_citas_create"];
         delete?: never;
@@ -65,6 +75,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         get: operations["agenda_citas_retrieve"];
         /**
@@ -79,6 +94,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         put: operations["agenda_citas_update"];
         post?: never;
@@ -94,6 +114,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         delete: operations["agenda_citas_destroy"];
         options?: never;
@@ -110,6 +135,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         patch: operations["agenda_citas_partial_update"];
         trace?: never;
@@ -135,6 +165,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         post: operations["agenda_citas_cancelar_create"];
         delete?: never;
@@ -164,6 +199,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         post: operations["agenda_citas_completar_create"];
         delete?: never;
@@ -193,6 +233,11 @@ export interface paths {
          *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
          *     llegó no es un acto administrativo, es el empleado haciendo su
          *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         post: operations["agenda_citas_confirmar_create"];
         delete?: never;
@@ -215,7 +260,7 @@ export interface paths {
          */
         get: operations["agenda_horario_negocio_list"];
         /**
-         * @description Reemplaza el horario de atención del negocio en una sola transacción. Requiere `puede_gestionar_agenda`.
+         * @description Reemplaza el horario de atención del negocio en una sola transacción. Requiere `puede_configurar_horarios` — decidir cuándo abre el local es una decisión distinta de operar la agenda del día.
          *
          *     Cambiarlo acá cambia la disponibilidad de **todos** los empleados que lo heredan, que es el caso normal. Los que tienen horario propio (ver `PUT /api/agenda/horarios/semana/`) no se ven afectados.
          *
@@ -236,10 +281,24 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Horario semanal recurrente de los empleados del negocio. */
+        /**
+         * @description Horario propio de un empleado, como excepción al del negocio.
+         *
+         *     Escribir requiere `puede_configurar_horarios`, no
+         *     `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+         *     decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+         *     sección 5.8).
+         */
         get: operations["agenda_horarios_list"];
         put?: never;
-        /** @description Horario semanal recurrente de los empleados del negocio. */
+        /**
+         * @description Horario propio de un empleado, como excepción al del negocio.
+         *
+         *     Escribir requiere `puede_configurar_horarios`, no
+         *     `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+         *     decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+         *     sección 5.8).
+         */
         post: operations["agenda_horarios_create"];
         delete?: never;
         options?: never;
@@ -254,16 +313,44 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Horario semanal recurrente de los empleados del negocio. */
+        /**
+         * @description Horario propio de un empleado, como excepción al del negocio.
+         *
+         *     Escribir requiere `puede_configurar_horarios`, no
+         *     `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+         *     decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+         *     sección 5.8).
+         */
         get: operations["agenda_horarios_retrieve"];
-        /** @description Horario semanal recurrente de los empleados del negocio. */
+        /**
+         * @description Horario propio de un empleado, como excepción al del negocio.
+         *
+         *     Escribir requiere `puede_configurar_horarios`, no
+         *     `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+         *     decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+         *     sección 5.8).
+         */
         put: operations["agenda_horarios_update"];
         post?: never;
-        /** @description Horario semanal recurrente de los empleados del negocio. */
+        /**
+         * @description Horario propio de un empleado, como excepción al del negocio.
+         *
+         *     Escribir requiere `puede_configurar_horarios`, no
+         *     `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+         *     decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+         *     sección 5.8).
+         */
         delete: operations["agenda_horarios_destroy"];
         options?: never;
         head?: never;
-        /** @description Horario semanal recurrente de los empleados del negocio. */
+        /**
+         * @description Horario propio de un empleado, como excepción al del negocio.
+         *
+         *     Escribir requiere `puede_configurar_horarios`, no
+         *     `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+         *     decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+         *     sección 5.8).
+         */
         patch: operations["agenda_horarios_partial_update"];
         trace?: never;
     };
@@ -643,6 +730,10 @@ export interface components {
             puede_gestionar_empleados: boolean;
             /** @default false */
             puede_gestionar_agenda: boolean;
+            /** @default false */
+            puede_configurar_horarios: boolean;
+            /** @default false */
+            puede_ver_agenda_completa: boolean;
         };
         /**
          * @description * `agendada` - Agendada
@@ -724,6 +815,8 @@ export interface components {
             readonly puede_editar_precios: boolean;
             readonly puede_gestionar_empleados: boolean;
             readonly puede_gestionar_agenda: boolean;
+            readonly puede_configurar_horarios: boolean;
+            readonly puede_ver_agenda_completa: boolean;
             readonly activo: boolean;
         };
         /**
@@ -756,6 +849,8 @@ export interface components {
             puede_editar_precios?: boolean;
             puede_gestionar_empleados?: boolean;
             puede_gestionar_agenda?: boolean;
+            puede_configurar_horarios?: boolean;
+            puede_ver_agenda_completa?: boolean;
             activo?: boolean;
         };
         Negocio: {
@@ -802,6 +897,8 @@ export interface components {
             puede_editar_precios?: boolean;
             puede_gestionar_empleados?: boolean;
             puede_gestionar_agenda?: boolean;
+            puede_configurar_horarios?: boolean;
+            puede_ver_agenda_completa?: boolean;
             activo?: boolean;
         };
         PatchedServicio: {

@@ -432,3 +432,51 @@ todos. Es coherente con la semántica de reemplazo del endpoint y con el
 caso de uso (marcar varios = quiero que compartan turno), pero no hay
 aviso visual de que se van a pisar horarios distintos. Si en uso real
 resulta confuso, el arreglo es advertirlo antes de guardar.
+
+## Dos capacidades nuevas y las reglas anti-escalada en la UI (2026-07-26)
+
+> Contraparte del cambio de backend del mismo día (ver `../CONTRATO.md`
+> secciones 5.8 y 5.9). Tipos regenerados desde el schema.
+
+### Agenda
+- El botón **Horarios** pasa a depender de `puede_configurar_horarios`; el
+  de **Agendar**, de `puede_gestionar_agenda`. Antes ambos colgaban del
+  mismo flag, que es justo lo que se partió: una recepcionista agenda
+  citas pero no decide a qué hora abre el local.
+- **El filtro por empleado se oculta sin `puede_ver_agenda_completa`.** El
+  backend ya devuelve solo las citas propias, así que el filtro no tenía
+  nada que filtrar y sugería que existían citas de otros que no se estaban
+  mostrando.
+- La banda de disponibilidad de la vista semana también se acota a la
+  propia en ese caso: pintar la del equipo entero contradecía la lista de
+  al lado.
+
+### Equipo
+- Dos interruptores nuevos en el panel de permisos.
+- **Los interruptores ahora se deshabilitan según las reglas del backend**
+  (`CONTRATO.md` 5.9), con el mensaje correspondiente debajo:
+  - los propios, porque nadie cambia sus propias capacidades;
+  - los de capacidades que quien mira no posee, **solo cuando están
+    apagados** — quitarle a otro algo que uno no tiene sí está permitido,
+    así que ese interruptor queda activo.
+
+  Sin esto la UI ofrecía acciones que el backend rechaza con `400`, que es
+  la peor combinación: el usuario cree que puede y descubre que no al
+  guardar.
+- El badge "Admin" pasa a derivarse de la lista `CAPACIDADES` en vez de
+  enumerar cinco flags a mano. Con siete capacidades, la versión escrita a
+  mano ya estaba mintiendo (marcaba Admin a quien no tenía las dos
+  nuevas).
+
+### Dashboard
+Corregido el texto del acceso "Gestionar equipo": decía "Permisos y
+horarios" y los horarios nunca estuvieron ahí — ahora menos que nunca,
+porque dependen de una capacidad distinta.
+
+### Duda abierta
+`puede_cobrar` y `puede_ver_reportes` se siguen mostrando como
+interruptores funcionales en el panel de permisos, pero el backend no los
+usa en ningún endpoint (son de Fase 3 y 4). El dueño los activa y no pasa
+nada en ninguna parte. Habría que ocultarlos hasta que sirvan, o marcarlos
+como "próximamente" — pendiente de decidir con backend, anotado también en
+`../backend/ROADMAP-BACKEND.md`.

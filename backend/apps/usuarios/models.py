@@ -68,7 +68,18 @@ class MiembroNegocio(TenantScopedModel):
     puede_ver_reportes = models.BooleanField(default=False)
     puede_editar_precios = models.BooleanField(default=False)
     puede_gestionar_empleados = models.BooleanField(default=False)
+
+    # Operar la agenda del día: crear, mover y borrar citas de cualquiera.
+    # No incluye decidir el horario — un recepcionista agenda, pero no
+    # define a qué hora abre el local.
     puede_gestionar_agenda = models.BooleanField(default=False)
+    # Definir cuándo se trabaja: horario del negocio y horario propio de
+    # los empleados.
+    puede_configurar_horarios = models.BooleanField(default=False)
+    # Ver las citas de todo el negocio. Sin esta capacidad, un miembro
+    # solo ve las suyas: las citas traen nombre y teléfono del cliente, o
+    # sea la libreta de clientes del negocio.
+    puede_ver_agenda_completa = models.BooleanField(default=False)
 
     activo = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
