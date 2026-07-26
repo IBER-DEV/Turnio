@@ -3,37 +3,33 @@ import type { NombreIcono } from "./Icon";
 
 type Estado = components["schemas"]["EstadoEnum"];
 
-/** Sistema de color de los 4 estados de `Cita`. Vive en un solo lugar
- * para que el bloque de la lista, el de la grilla semanal, el badge y
- * cualquier vista futura no se desincronicen entre sí: si un estado
- * cambia de color, se cambia acá y no hay que cazar usos sueltos. */
 export const ESTILO_ESTADO: Record<
   Estado,
   { etiqueta: string; bloque: string; borde: string; titulo: string; texto: string; badge: string }
 > = {
   agendada: {
     etiqueta: "Agendada",
-    bloque: "bg-surface-variant",
-    borde: "border-primary-fixed-dim",
+    bloque: "bg-agendada/10",
+    borde: "border-agendada",
     titulo: "text-primary",
     texto: "text-on-surface-variant",
-    badge: "bg-surface-variant text-primary-fixed-dim",
+    badge: "bg-agendada/15 text-agendada",
   },
   confirmada: {
     etiqueta: "Confirmada",
-    bloque: "bg-secondary-fixed/30 ring-2 ring-secondary-container/20",
-    borde: "border-secondary-container",
-    titulo: "text-on-secondary-fixed",
-    texto: "text-on-secondary-fixed-variant",
-    badge: "bg-secondary-fixed text-on-secondary-fixed-variant",
+    bloque: "bg-confirmada/10 ring-2 ring-confirmada/10",
+    borde: "border-confirmada",
+    titulo: "text-primary",
+    texto: "text-on-surface-variant",
+    badge: "bg-confirmada/15 text-confirmada",
   },
   completada: {
     etiqueta: "Completada",
-    bloque: "bg-green-50 opacity-80",
-    borde: "border-green-500",
-    titulo: "text-green-900",
-    texto: "text-green-700",
-    badge: "bg-green-100 text-green-700",
+    bloque: "bg-completada/10 opacity-80",
+    borde: "border-completada",
+    titulo: "text-primary",
+    texto: "text-on-surface-variant",
+    badge: "bg-completada/15 text-completada",
   },
   cancelada: {
     etiqueta: "Cancelada",
@@ -41,13 +37,10 @@ export const ESTILO_ESTADO: Record<
     borde: "border-outline-variant",
     titulo: "text-on-surface-variant line-through italic",
     texto: "text-on-surface-variant",
-    badge: "bg-surface-container text-on-surface-variant",
+    badge: "bg-cancelada/10 text-cancelada",
   },
 };
 
-/** Transiciones válidas según la máquina de estados del backend
- * (`apps/agenda/services.py`). El backend valida de todos modos y
- * responde 400; esto solo evita ofrecer acciones imposibles. */
 export const ACCIONES_POR_ESTADO: Record<
   Estado,
   Array<{ accion: "confirmar" | "completar" | "cancelar"; etiqueta: string; icono: NombreIcono }>

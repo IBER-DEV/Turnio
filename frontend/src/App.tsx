@@ -10,10 +10,12 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegistroNegocioPage } from "./pages/RegistroNegocioPage";
 import { ServiciosPage } from "./pages/ServiciosPage";
 import { ToastProvider } from "./ui/Toast";
+import { TooltipProvider } from "./ui/Tooltip";
 
 function App() {
   return (
     <BrowserRouter>
+      <TooltipProvider>
       <ToastProvider>
         <AuthProvider>
           <Routes>
@@ -63,6 +65,7 @@ function App() {
           </Routes>
         </AuthProvider>
       </ToastProvider>
+      </TooltipProvider>
     </BrowserRouter>
   );
 }

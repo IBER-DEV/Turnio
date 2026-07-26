@@ -6,15 +6,13 @@ import { Icon } from "./Icon";
 import type { NombreIcono } from "./Icon";
 
 const BASE_CAMPO =
-  "w-full rounded-lg border border-outline-variant bg-surface-bright py-3 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/10";
+  "w-full rounded-xl border border-outline-variant bg-white py-3 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-outline focus:border-menta focus:ring-2 focus:ring-menta/20";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
-  /** Nombre del icono de Material Symbols dentro del campo. */
   icono?: NombreIcono;
   ayuda?: string;
   error?: string;
-  /** Contenido a la derecha del label (ej. "¿Olvidaste tu contraseña?"). */
   accionLabel?: ReactNode;
 }
 
@@ -34,8 +32,6 @@ export function Input({
   const idAyuda = `${idCampo}-ayuda`;
   const idError = `${idCampo}-error`;
 
-  // Los campos de contraseña llevan botón de mostrar/ocultar (diseño de
-  // Login), así que el `type` real puede diferir del declarado.
   const [visible, setVisible] = useState(false);
   const esPassword = type === "password";
   const tipoReal = esPassword && visible ? "text" : type;
@@ -53,7 +49,7 @@ export function Input({
         {icono && (
           <Icon
             name={icono}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-outline transition-colors group-focus-within:text-primary"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-outline transition-colors group-focus-within:text-menta"
           />
         )}
         <input
@@ -65,7 +61,7 @@ export function Input({
             BASE_CAMPO,
             icono ? "pl-12" : "pl-4",
             esPassword ? "pr-12" : "pr-4",
-            error && "border-error focus:border-error focus:ring-error/10",
+            error && "border-error focus:border-error focus:ring-error/20",
             className,
           )}
           {...props}
@@ -75,7 +71,7 @@ export function Input({
             type="button"
             onClick={() => setVisible((v) => !v)}
             aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-outline transition-colors hover:text-primary"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-outline transition-colors hover:text-menta"
           >
             <Icon name={visible ? "visibility_off" : "visibility"} />
           </button>

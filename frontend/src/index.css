@@ -1,15 +1,10 @@
-/* Fuentes autoalojadas (no CDN): la app final es un bundle Capacitor y
-   debe verse igual sin conexión. Pesos tomados del diseño.
-
-   Solo el subset `latin`: cubre todo el español (á é í ó ú ñ ü ¿ ¡).
-   Importar el paquete completo traía además cirílico, griego,
-   vietnamita y latin-ext — cientos de kB que esta app nunca dibuja, y
-   que en un bundle Capacitor son peso muerto permanente en el APK. */
-@import "@fontsource/montserrat/latin-600.css";
-@import "@fontsource/montserrat/latin-700.css";
-@import "@fontsource/inter/latin-400.css";
-@import "@fontsource/inter/latin-500.css";
-@import "@fontsource/inter/latin-600.css";
+/* Plus Jakarta Sans: la misma fuente de la landing page.
+   Autoalojada (no CDN): la app final es un bundle Capacitor y debe
+   verse igual sin conexión. Solo subset `latin` (cubre español). */
+@import "@fontsource/plus-jakarta-sans/latin-400.css";
+@import "@fontsource/plus-jakarta-sans/latin-500.css";
+@import "@fontsource/plus-jakarta-sans/latin-700.css";
+@import "@fontsource/plus-jakarta-sans/latin-800.css";
 
 @tailwind base;
 @tailwind components;
@@ -24,17 +19,10 @@
     @apply bg-background font-body-md text-body-md text-on-surface antialiased;
   }
 
-  /* Foco visible y consistente en toda la app (accesibilidad): el
-     diseño usa borde primario + halo suave en inputs, así que el foco
-     de teclado sigue la misma lógica en cualquier control. */
   :focus-visible {
-    @apply outline-none ring-2 ring-primary/40 ring-offset-2 ring-offset-background;
+    @apply outline-none ring-2 ring-secondary/40 ring-offset-2 ring-offset-background;
   }
 
-  /* Quien pidió menos movimiento al sistema operativo no debería recibir
-     ninguna de nuestras animaciones. No se desactivan del todo (eso
-     rompería transiciones que comunican estado): se reducen a algo
-     instantáneo. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -48,13 +36,10 @@
 }
 
 @layer components {
-  /* Skeleton de carga: pulso suave sobre gris claro. */
   .skeleton-pulse {
-    @apply animate-pulse bg-surface-container-high;
+    @apply animate-pulse rounded bg-surface-container;
   }
 
-  /* Feedback físico al presionar, sin depender de hover (que no
-     existe en móvil). */
   .tactile {
     @apply transition-transform duration-150 active:scale-[0.98];
   }

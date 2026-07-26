@@ -5,12 +5,11 @@ import { Button } from "./Button";
 import { Icon } from "./Icon";
 import type { NombreIcono } from "./Icon";
 
-/** Tarjeta base: superficie blanca + borde suave (nivel 1 de elevación). */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-outline-variant bg-surface-container-lowest",
+        "rounded-2xl border border-outline-variant bg-white",
         className,
       )}
     >
@@ -19,12 +18,11 @@ export function Card({ className, children }: { className?: string; children: Re
   );
 }
 
-/** Badge "soft pill": fondo de baja opacidad + texto de alto contraste. */
 export function Badge({ className, children }: { className?: string; children: ReactNode }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+        "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider",
         className,
       )}
     >
@@ -34,11 +32,9 @@ export function Badge({ className, children }: { className?: string; children: R
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("skeleton-pulse rounded", className)} />;
+  return <div className={cn("skeleton-pulse rounded-lg", className)} />;
 }
 
-/** Skeleton de lista: 3 filas con avatar + dos líneas (diseño del
- * dashboard). Se usa en cualquier pantalla que cargue una lista. */
 export function SkeletonLista({ filas = 3 }: { filas?: number }) {
   return (
     <div className="space-y-3" aria-busy="true" aria-live="polite">
@@ -46,7 +42,7 @@ export function SkeletonLista({ filas = 3 }: { filas?: number }) {
       {Array.from({ length: filas }).map((_, indice) => (
         <div
           key={indice}
-          className="flex items-center gap-4 rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-4"
+          className="flex items-center gap-4 rounded-2xl border border-outline-variant/40 bg-white p-4"
         >
           <Skeleton className="h-12 w-12 rounded-full" />
           <div className="flex-1 space-y-2">
@@ -59,8 +55,6 @@ export function SkeletonLista({ filas = 3 }: { filas?: number }) {
   );
 }
 
-/** Estado vacío: icono en terracota, mensaje y acción sugerida. Nunca
- * un "no hay datos" a secas — siempre dice qué hacer a continuación. */
 export function EstadoVacio({
   icono,
   titulo,
@@ -76,8 +70,8 @@ export function EstadoVacio({
 }) {
   return (
     <div className="flex flex-col items-center gap-md rounded-2xl border border-dashed border-outline-variant bg-surface-container-low/50 px-md py-xl text-center">
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary-fixed">
-        <Icon name={icono} className="text-[32px] text-secondary" />
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-menta/10">
+        <Icon name={icono} className="text-[32px] text-menta" />
       </span>
       <div className="space-y-1">
         <h3 className="font-headline-md text-headline-md-mobile text-primary">{titulo}</h3>
@@ -103,8 +97,6 @@ export function EstadoVacio({
   );
 }
 
-/** Estado de error con reintento: mensaje específico, no un texto rojo
- * suelto (ver plan-accion.md § 0.3). */
 export function EstadoError({
   mensaje,
   onReintentar,
@@ -115,7 +107,7 @@ export function EstadoError({
   return (
     <div
       role="alert"
-      className="flex flex-col items-center gap-md rounded-2xl border border-error/30 bg-error-container/40 px-md py-lg text-center"
+      className="flex flex-col items-center gap-md rounded-2xl border border-error/20 bg-error-container px-md py-lg text-center"
     >
       <Icon name="error" className="text-[32px] text-error" />
       <p className="font-body-md text-body-md text-on-error-container">{mensaje}</p>

@@ -7,8 +7,9 @@ import { conReintentoDeAuth } from "../../auth/refresh";
 import { Button } from "../../ui/Button";
 import { cn } from "../../ui/cn";
 import { Icon } from "../../ui/Icon";
-import { Input, Select } from "../../ui/Input";
+import { Input } from "../../ui/Input";
 import { Modal } from "../../ui/Modal";
+import { SelectCustom, SelectItem } from "../../ui/SelectCustom";
 import { Switch } from "../../ui/Switch";
 import { useToast } from "../../ui/Toast";
 
@@ -222,17 +223,17 @@ export function ModalHorarioSemanal({
       descripcion="Define de una vez la semana completa. Sin horario cargado, un empleado no puede recibir citas."
     >
       <form className="space-y-md" onSubmit={guardar}>
-        <Select
+        <SelectCustom
           label="Empleado"
-          value={miembroId}
-          onChange={(e) => setMiembroId(Number(e.target.value))}
+          valor={String(miembroId)}
+          onChange={(val) => setMiembroId(Number(val))}
         >
           {empleados.map((item) => (
-            <option key={item.id} value={item.id}>
+            <SelectItem key={item.id} value={String(item.id)}>
               {item.nombre}
-            </option>
+            </SelectItem>
           ))}
-        </Select>
+        </SelectCustom>
 
         <div>
           <p className="mb-2 font-label-md text-label-md text-on-surface-variant">
@@ -276,6 +277,7 @@ export function ModalHorarioSemanal({
                   label={`Trabaja el ${DIAS_SEMANA[indice]}`}
                   checked={dia.activo}
                   onChange={(valor) => alternarDia(indice, valor)}
+                  soloControl
                 />
               </div>
 
@@ -327,7 +329,7 @@ export function ModalHorarioSemanal({
                         franjas: [...dia.franjas, { inicio: "14:00", fin: "18:00" }],
                       })
                     }
-                    className="flex items-center gap-1 font-caption text-caption text-secondary hover:underline"
+                    className="flex items-center gap-1 font-caption text-caption text-menta hover:underline"
                   >
                     <Icon name="add" className="text-[16px]" />
                     Agregar descanso (partir el día)

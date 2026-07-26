@@ -9,9 +9,13 @@ import { Button } from "../ui/Button";
 import { cn } from "../ui/cn";
 import { ACCIONES_POR_ESTADO, ESTILO_ESTADO } from "../ui/EstadoCita";
 import { Badge, EstadoError, EstadoVacio, SkeletonLista } from "../ui/Feedback";
+import { DateTimePicker } from "../ui/DateTimePicker";
 import { Icon } from "../ui/Icon";
-import { Input, Select } from "../ui/Input";
+import { Input } from "../ui/Input";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
+import { SelectCustom, SelectItem } from "../ui/SelectCustom";
+import { Tabs, TabsLista, TabsTrigger } from "../ui/Tabs";
+import { ToggleGroup, ToggleGroupItem } from "../ui/ToggleGroup";
 import { useToast } from "../ui/Toast";
 import { ModalHorarioSemanal } from "./agenda/ModalHorarioSemanal";
 import { VistaSemana } from "./agenda/VistaSemana";
@@ -141,14 +145,19 @@ export function AgendaPage() {
 
   return (
     <div className="space-y-md">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-headline-lg text-headline-lg-mobile text-primary md:text-headline-lg">
-            Agenda
-          </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            Calendario por empleado y estado de cada cita.
-          </p>
+      <header className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
+            <Icon name="calendar_today" className="text-[20px] text-primary" />
+          </span>
+          <div>
+            <h1 className="font-headline-md text-headline-md-mobile font-bold text-primary md:text-headline-md">
+              Agenda
+            </h1>
+            <p className="text-[12px] text-on-surface-variant">
+              {citasVisibles.length} {citasVisibles.length === 1 ? "cita" : "citas"} · {diaSeleccionado.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "short" })}
+            </p>
+          </div>
         </div>
         {puedeGestionar && (
           <div className="flex shrink-0 gap-2">
@@ -172,68 +181,40 @@ export function AgendaPage() {
       </header>
 
       {/* Filtro por empleado */}
-      <div className="hide-scrollbar -mx-margin-mobile flex gap-2 overflow-x-auto px-margin-mobile md:mx-0 md:px-0">
-        <button
-          type="button"
-          onClick={() => setEmpleadoFiltro("todos")}
-          className={cn(
-            "tactile shrink-0 rounded-full px-5 py-2.5 font-label-md text-label-md transition-colors",
-            empleadoFiltro === "todos"
-              ? "bg-primary text-on-primary"
-              : "bg-surface-container text-on-surface-variant",
-          )}
-        >
-          Todos
-        </button>
+      <ToggleGroup
+        valor={String(empleadoFiltro)}
+        onChange={(val) => setEmpleadoFiltro(val === "todos" ? "todos" : Number(val))}
+        className="-mx-margin-mobile px-margin-mobile md:mx-0 md:px-0"
+      >
+        <ToggleGroupItem value="todos">Todos</ToggleGroupItem>
         {empleados.map((empleado) => (
-          <button
-            key={empleado.id}
-            type="button"
-            onClick={() => setEmpleadoFiltro(empleado.id)}
-            className={cn(
-              "tactile shrink-0 rounded-full px-5 py-2.5 font-label-md text-label-md transition-colors",
-              empleadoFiltro === empleado.id
-                ? "bg-primary text-on-primary"
-                : "bg-surface-container text-on-surface-variant",
-            )}
-          >
+          <ToggleGroupItem key={empleado.id} value={String(empleado.id)}>
             {empleado.nombre}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
 
-      {/* Selector de vista. La grilla semanal solo se ofrece donde cabe. */}
+      {/* Selector de vista */}
       <div className="hidden justify-end lg:flex">
-        <div className="inline-flex rounded-lg border border-outline-variant bg-surface-container-lowest p-1">
-          {(["lista", "semana"] as const).map((modo) => (
-            <button
-              key={modo}
-              type="button"
-              onClick={() => setVista(modo)}
-              aria-pressed={vista === modo}
-              className={cn(
-                "rounded-md px-4 py-1.5 font-label-md text-label-md transition-colors",
-                vista === modo
-                  ? "bg-primary text-on-primary"
-                  : "text-on-surface-variant hover:bg-surface-container",
-              )}
-            >
-              {modo === "lista" ? "Lista" : "Semana"}
-            </button>
-          ))}
-        </div>
+        <Tabs valor={vista} onChange={(val) => setVista(val as "lista" | "semana")}>
+          <TabsLista variante="pill">
+            <TabsTrigger value="lista" variante="pill">Lista</TabsTrigger>
+            <TabsTrigger value="semana" variante="pill">Semana</TabsTrigger>
+          </TabsLista>
+        </Tabs>
       </div>
 
-      {/* Selector de día (la grilla semanal ya trae el suyo en su encabezado) */}
+      {/* Selector de día */}
       <div
         className={cn(
-          "hide-scrollbar -mx-margin-mobile flex gap-3 overflow-x-auto px-margin-mobile pb-1 md:mx-0 md:px-0",
+          "hide-scrollbar -mx-margin-mobile flex gap-2 overflow-x-auto px-margin-mobile pb-1 md:mx-0 md:px-0",
           vista === "semana" && "lg:hidden",
         )}
       >
         {dias.map((dia) => {
           const activo = dia.toDateString() === diaSeleccionado.toDateString();
-          const indiceDia = (dia.getDay() + 6) % 7; // JS: domingo=0 → lunes=0
+          const indiceDia = (dia.getDay() + 6) % 7;
+          const tieneCitas = citas.some((c) => mismoDia(c.fecha_hora_inicio, dia));
           return (
             <button
               key={dia.toISOString()}
@@ -241,16 +222,19 @@ export function AgendaPage() {
               onClick={() => setDiaSeleccionado(dia)}
               aria-pressed={activo}
               className={cn(
-                "tactile flex h-[88px] w-[76px] shrink-0 flex-col items-center justify-center rounded-xl border transition-colors",
+                "tactile relative flex h-[80px] w-[68px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border transition-all",
                 activo
-                  ? "border-primary bg-primary text-on-primary"
-                  : "border-outline-variant bg-surface-container-lowest text-on-surface",
+                  ? "border-menta bg-menta text-white shadow-suave"
+                  : "border-outline-variant/60 bg-white text-on-surface hover:border-menta/40 hover:shadow-card-soft",
               )}
             >
-              <span className="font-label-md text-caption uppercase opacity-70">
+              <span className={cn("text-[11px] font-medium uppercase", !activo && "text-on-surface-variant")}>
                 {DIAS_CORTOS[indiceDia]}
               </span>
-              <span className="font-headline-md text-headline-md font-bold">{dia.getDate()}</span>
+              <span className="text-xl font-bold">{dia.getDate()}</span>
+              {tieneCitas && !activo && (
+                <span className="absolute bottom-2.5 h-1 w-1 rounded-full bg-menta" />
+              )}
             </button>
           );
         })}
@@ -301,53 +285,64 @@ export function AgendaPage() {
           }
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2.5">
           {citasVisibles.map((cita) => {
             const estilo = ESTILO_ESTADO[cita.estado];
             const acciones = ACCIONES_POR_ESTADO[cita.estado];
             const abierta = citaAbierta === cita.id;
-            // Un empleado sin `puede_gestionar_agenda` igual transiciona
-            // sus propias citas: marcar que su cliente llegó es su
-            // trabajo, no administración (ver CONTRATO.md 5.6).
             const puedeTransicionar = puedeGestionar || cita.empleado === membresia?.id;
 
             return (
-              <li key={cita.id} className="animate-slide-in-bottom flex gap-3">
-                <span className="w-[52px] shrink-0 pt-3 text-right font-label-md text-caption text-on-surface-variant opacity-70">
-                  {hora(cita.fecha_hora_inicio)}
-                </span>
-
+              <li key={cita.id} className="animate-slide-in-bottom">
                 <div
                   className={cn(
-                    "flex-1 rounded-lg border-l-4 p-3 transition-all",
-                    estilo.bloque,
-                    estilo.borde,
-                    abierta && "ring-2 ring-primary/20",
+                    "rounded-xl border bg-white transition-all",
+                    abierta ? "border-menta/30 shadow-card-soft" : "border-outline-variant/60 hover:shadow-card-soft",
                   )}
                 >
                   <button
                     type="button"
                     onClick={() => setCitaAbierta(abierta ? null : cita.id)}
                     aria-expanded={abierta}
-                    className="flex w-full items-start justify-between gap-3 text-left"
+                    className="flex w-full items-center gap-3 p-3.5 text-left"
                   >
-                    <div className="min-w-0">
-                      <h3 className={cn("font-label-md text-label-md", estilo.titulo)}>
-                        {cita.servicio_nombre}
-                      </h3>
-                      <p className={cn("truncate font-caption text-caption", estilo.texto)}>
-                        {cita.nombre_cliente} · {cita.empleado_nombre}
+                    {/* Hora */}
+                    <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-surface-container-low">
+                      <span className="text-[11px] font-bold leading-tight text-primary">
+                        {hora(cita.fecha_hora_inicio).split(":")[0]}
+                      </span>
+                      <span className="text-[10px] leading-tight text-on-surface-variant">
+                        :{hora(cita.fecha_hora_inicio).split(":")[1]}
+                      </span>
+                    </div>
+
+                    {/* Info */}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-label-md text-label-md text-on-surface">
+                        {cita.nombre_cliente}
+                      </p>
+                      <p className="truncate text-[12px] text-on-surface-variant">
+                        {cita.servicio_nombre} · {cita.empleado_nombre}
                       </p>
                     </div>
+
                     <Badge className={estilo.badge}>{estilo.etiqueta}</Badge>
                   </button>
 
                   {abierta && (
-                    <div className="animate-fade-in mt-3 space-y-3 border-t border-outline-variant/40 pt-3">
-                      <p className="font-caption text-caption text-on-surface-variant">
-                        {hora(cita.fecha_hora_inicio)} – {hora(cita.fecha_hora_fin)}
-                        {cita.telefono_cliente && ` · ${cita.telefono_cliente}`}
-                      </p>
+                    <div className="animate-fade-in border-t border-outline-variant/40 px-3.5 pb-3.5 pt-3">
+                      <div className="mb-3 flex flex-wrap gap-3 text-[12px] text-on-surface-variant">
+                        <span className="flex items-center gap-1">
+                          <Icon name="schedule" className="text-[14px]" />
+                          {hora(cita.fecha_hora_inicio)} – {hora(cita.fecha_hora_fin)}
+                        </span>
+                        {cita.telefono_cliente && (
+                          <span className="flex items-center gap-1">
+                            <Icon name="call" className="text-[14px]" />
+                            {cita.telefono_cliente}
+                          </span>
+                        )}
+                      </div>
 
                       {puedeTransicionar && acciones.length > 0 ? (
                         <div className="flex gap-2">
@@ -356,6 +351,7 @@ export function AgendaPage() {
                               key={accion}
                               variante={accion === "cancelar" ? "danger" : "accent"}
                               icono={icono}
+                              tamano="sm"
                               className="flex-1"
                               onClick={() => {
                                 if (accion === "cancelar") setPorCancelar(cita);
@@ -367,10 +363,10 @@ export function AgendaPage() {
                           ))}
                         </div>
                       ) : (
-                        <p className="font-caption text-caption text-on-surface-variant">
+                        <p className="text-[12px] text-on-surface-variant">
                           {acciones.length === 0
                             ? "Esta cita ya no admite cambios de estado."
-                            : "Esta cita es de otro empleado. Solo puedes cambiar el estado de las tuyas."}
+                            : "Solo puedes cambiar el estado de tus propias citas."}
                         </p>
                       )}
                     </div>
@@ -492,40 +488,39 @@ function ModalNuevaCita({
         />
       ) : (
         <form className="flex flex-col gap-md" onSubmit={handleSubmit}>
-          <Select
+          <SelectCustom
             label="Servicio"
-            value={servicio}
-            onChange={(e) => setServicio(Number(e.target.value))}
-            required
+            valor={servicio ? String(servicio) : ""}
+            onChange={(val) => setServicio(Number(val))}
+            placeholder="Elige un servicio"
           >
             {serviciosActivos.map((item) => (
-              <option key={item.id} value={item.id}>
+              <SelectItem key={item.id} value={String(item.id)}>
                 {item.nombre} ({item.duracion_minutos} min)
-              </option>
+              </SelectItem>
             ))}
-          </Select>
+          </SelectCustom>
 
-          <Select
+          <SelectCustom
             label="Empleado"
-            value={empleado}
-            onChange={(e) =>
-              setEmpleado(e.target.value === CUALQUIERA ? CUALQUIERA : Number(e.target.value))
+            valor={String(empleado)}
+            onChange={(val) =>
+              setEmpleado(val === CUALQUIERA ? CUALQUIERA : Number(val))
             }
             ayuda="«Cualquiera disponible» deja que el sistema elija por ti."
           >
-            <option value={CUALQUIERA}>✨ Cualquiera disponible</option>
+            <SelectItem value={CUALQUIERA}>✨ Cualquiera disponible</SelectItem>
             {empleados.map((item) => (
-              <option key={item.id} value={item.id}>
+              <SelectItem key={item.id} value={String(item.id)}>
                 {item.nombre}
-              </option>
+              </SelectItem>
             ))}
-          </Select>
+          </SelectCustom>
 
-          <Input
+          <DateTimePicker
             label="Fecha y hora"
-            type="datetime-local"
-            value={fechaHora}
-            onChange={(e) => setFechaHora(e.target.value)}
+            valor={fechaHora}
+            onChange={(val) => setFechaHora(val)}
             required
           />
 

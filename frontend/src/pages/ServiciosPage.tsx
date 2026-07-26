@@ -7,11 +7,11 @@ import type { ServicioInput } from "../api/types";
 import { conReintentoDeAuth } from "../auth/refresh";
 import { useAuth } from "../auth/AuthContext";
 import { Button } from "../ui/Button";
-import { Card, EstadoError, EstadoVacio, SkeletonLista } from "../ui/Feedback";
+import { EstadoError, EstadoVacio, SkeletonLista } from "../ui/Feedback";
 import { Icon } from "../ui/Icon";
 import { Input } from "../ui/Input";
+import { MenuAcciones, MenuAccionesItem, MenuAccionesSeparator } from "../ui/MenuAcciones";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
-import { Switch } from "../ui/Switch";
 import { useToast } from "../ui/Toast";
 import { cn } from "../ui/cn";
 import { ModalCatalogo } from "./servicios/ModalCatalogo";
@@ -146,14 +146,19 @@ export function ServiciosPage() {
 
   return (
     <div className="space-y-md">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-headline-lg text-headline-lg-mobile text-primary md:text-headline-lg">
-            Servicios
-          </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            Administra el catálogo de servicios de tu negocio.
-          </p>
+      <header className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-menta/8">
+            <Icon name="content_cut" className="text-[20px] text-menta" />
+          </span>
+          <div>
+            <h1 className="font-headline-md text-headline-md-mobile font-bold text-primary md:text-headline-md">
+              Servicios
+            </h1>
+            <p className="text-[12px] text-on-surface-variant">
+              {servicios.length} {servicios.length === 1 ? "servicio" : "servicios"} en tu catálogo
+            </p>
+          </div>
         </div>
         {puedeEditar && (
           <div className="flex shrink-0 gap-2">
@@ -194,72 +199,74 @@ export function ServiciosPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {servicios.map((servicio) => {
             const inactivo = !servicio.activo;
             return (
-              <Card
+              <div
                 key={servicio.id}
                 className={cn(
-                  "animate-slide-in-bottom p-4 transition-shadow hover:shadow-card",
-                  inactivo && "opacity-70",
+                  "group animate-slide-in-bottom rounded-xl border border-outline-variant/60 bg-white p-4 transition-all hover:border-menta/30 hover:shadow-card-soft",
+                  inactivo && "opacity-60",
                 )}
               >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-container-high">
-                    <Icon name="content_cut" className="text-primary" />
-                  </span>
-                  {puedeEditar && (
-                    <Switch
-                      label={`${servicio.activo ? "Desactivar" : "Activar"} ${servicio.nombre}`}
-                      checked={servicio.activo ?? false}
-                      onChange={(valor) => {
-                        // Desactivar deja de ofrecerse al agendar: se
-                        // confirma; activar es reversible sin fricción.
-                        if (!valor) setPorDesactivar(servicio);
-                        else cambiarActivo(servicio, true);
-                      }}
-                    />
-                  )}
-                </div>
-
-                <h2
-                  className={cn(
-                    "font-headline-md text-body-lg font-bold text-primary",
-                    inactivo && "text-on-surface-variant line-through",
-                  )}
-                >
-                  {servicio.nombre}
-                </h2>
-                <p className="font-caption text-caption text-secondary">
-                  {servicio.categoria || "Sin categoría"}
-                </p>
-
-                <div className="mt-3 flex items-end justify-between border-t border-outline-variant pt-3">
-                  <div>
-                    <p className="font-caption text-caption text-on-surface-variant">Precio</p>
-                    <p className="font-label-md text-label-md text-on-surface">
-                      {formatearPrecio(servicio.precio)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-caption text-caption text-on-surface-variant">Duración</p>
-                    <p className="font-label-md text-label-md text-on-surface">
-                      {servicio.duracion_minutos} min
-                    </p>
-                  </div>
-                  {puedeEditar && (
-                    <Button
-                      variante="ghost"
-                      onClick={() => abrirEdicion(servicio)}
-                      aria-label={`Editar ${servicio.nombre}`}
-                      className="px-2"
+                {/* Top: nombre + kebab */}
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h2
+                      className={cn(
+                        "truncate font-label-md text-label-md text-on-surface",
+                        inactivo && "text-on-surface-variant line-through",
+                      )}
                     >
-                      <Icon name="edit" />
-                    </Button>
+                      {servicio.nombre}
+                    </h2>
+                    {servicio.categoria && (
+                      <p className="mt-0.5 text-[11px] font-medium text-menta">
+                        {servicio.categoria}
+                      </p>
+                    )}
+                  </div>
+                  {puedeEditar && (
+                    <MenuAcciones
+                      trigger={
+                        <button
+                          type="button"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center text-primary"
+                          aria-label={`Acciones de ${servicio.nombre}`}
+                        >
+                        <Icon name="more_vert" className="text-[22px]" />
+                        </button>
+                      }
+                    >
+                      <MenuAccionesItem icono="edit" onClick={() => abrirEdicion(servicio)}>
+                        Editar
+                      </MenuAccionesItem>
+                      <MenuAccionesSeparator />
+                      <MenuAccionesItem
+                        icono={servicio.activo ? "visibility_off" : "visibility"}
+                        destructivo={servicio.activo ?? false}
+                        onClick={() => {
+                          if (servicio.activo) setPorDesactivar(servicio);
+                          else cambiarActivo(servicio, true);
+                        }}
+                      >
+                        {servicio.activo ? "Desactivar" : "Activar"}
+                      </MenuAccionesItem>
+                    </MenuAcciones>
                   )}
                 </div>
-              </Card>
+
+                {/* Bottom: precio + duración */}
+                <div className="mt-4 flex items-end justify-between">
+                  <span className="text-lg font-bold text-primary">
+                    {formatearPrecio(servicio.precio)}
+                  </span>
+                  <span className="rounded-full bg-surface-container-low px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant">
+                    {servicio.duracion_minutos} min
+                  </span>
+                </div>
+              </div>
             );
           })}
         </div>

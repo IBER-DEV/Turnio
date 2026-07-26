@@ -5,11 +5,13 @@ import { apiClient } from "../api/client";
 import type { components } from "../api/schema";
 import { conReintentoDeAuth } from "../auth/refresh";
 import { useAuth } from "../auth/AuthContext";
+import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { cn } from "../ui/cn";
 import { Badge, Card, EstadoError, SkeletonLista } from "../ui/Feedback";
 import { Icon } from "../ui/Icon";
 import { Input } from "../ui/Input";
+import { MenuAcciones, MenuAccionesItem } from "../ui/MenuAcciones";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
 import { Switch } from "../ui/Switch";
 import { useToast } from "../ui/Toast";
@@ -60,15 +62,6 @@ const NUEVO_VACIO: EmpleadoAlta = {
   puede_gestionar_empleados: false,
   puede_gestionar_agenda: false,
 };
-
-function iniciales(nombre: string): string {
-  return nombre
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((parte) => parte[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 export function EmpleadosPage() {
   const { membresia, refrescarMembresia } = useAuth();
@@ -155,14 +148,19 @@ export function EmpleadosPage() {
 
   return (
     <div className="space-y-md">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-headline-lg text-headline-lg-mobile text-primary md:text-headline-lg">
-            Equipo
-          </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            Administra tu personal y sus permisos.
-          </p>
+      <header className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
+            <Icon name="group" className="text-[20px] text-primary" />
+          </span>
+          <div>
+            <h1 className="font-headline-md text-headline-md-mobile font-bold text-primary md:text-headline-md">
+              Equipo
+            </h1>
+            <p className="text-[12px] text-on-surface-variant">
+              {empleados.length} {empleados.length === 1 ? "miembro" : "miembros"}
+            </p>
+          </div>
         </div>
         {puedeGestionar && (
           <Button
@@ -189,7 +187,7 @@ export function EmpleadosPage() {
       ) : (
         <div className="flex flex-col gap-lg md:flex-row">
           {/* Lista de empleados */}
-          <ul className="flex-1 space-y-3">
+          <ul className="flex-1 space-y-2">
             {empleados.map((empleado) => {
               const activo = empleado.id === seleccionadoId;
               const esAdmin =
@@ -206,43 +204,40 @@ export function EmpleadosPage() {
                     onClick={() => setSeleccionadoId(empleado.id)}
                     aria-pressed={activo}
                     className={cn(
-                      "group w-full rounded-xl border bg-surface-container-lowest p-4 text-left transition-all hover:shadow-card-soft",
+                      "group flex w-full items-center gap-3 rounded-xl border bg-white p-3.5 text-left transition-all",
                       activo
-                        ? "border-2 border-primary ring-2 ring-primary-container"
-                        : "border-outline-variant",
+                        ? "border-menta/40 bg-menta/3 shadow-card-soft"
+                        : "border-outline-variant/60 hover:border-menta/30 hover:shadow-card-soft",
                       !empleado.activo && "opacity-60",
                     )}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-4">
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-container-highest font-label-md text-label-md text-primary">
-                          {iniciales(empleado.nombre)}
-                        </span>
-                        <div className="min-w-0">
-                          <h2 className="truncate font-label-md text-label-md text-primary">
-                            {empleado.nombre}
-                          </h2>
-                          <p className="truncate font-caption text-caption text-secondary">
-                            {empleado.especialidad || "Sin especialidad"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        {!empleado.activo && (
-                          <Badge className="bg-surface-container text-on-surface-variant">
-                            Inactivo
-                          </Badge>
+                    <Avatar nombre={empleado.nombre} tamano="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-label-md text-label-md text-on-surface">
+                        {empleado.nombre}
+                      </p>
+                      <p className="truncate text-[11px] text-menta">
+                        {empleado.especialidad || "Sin especialidad"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {!empleado.activo && (
+                        <Badge className="bg-surface-container text-on-surface-variant">
+                          Inactivo
+                        </Badge>
+                      )}
+                      {esAdmin && (
+                        <Badge className="bg-primary/8 text-primary">
+                          Admin
+                        </Badge>
+                      )}
+                      <Icon
+                        name="chevron_right"
+                        className={cn(
+                          "text-[18px] transition-all",
+                          activo ? "text-menta" : "text-on-surface-variant opacity-0 group-hover:opacity-100",
                         )}
-                        {esAdmin && (
-                          <Badge className="bg-surface-container text-on-surface-variant">
-                            Admin
-                          </Badge>
-                        )}
-                        <Icon
-                          name="chevron_right"
-                          className="text-on-surface-variant opacity-0 transition-opacity group-hover:opacity-100"
-                        />
-                      </div>
+                      />
                     </div>
                   </button>
                 </li>
@@ -252,36 +247,49 @@ export function EmpleadosPage() {
 
           {/* Panel de permisos */}
           {seleccionado && (
-            <Card className="w-full self-start rounded-2xl p-md shadow-card-soft md:sticky md:top-24 md:w-[380px]">
-              <div className="mb-md flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="truncate font-headline-md text-headline-md text-primary">
+            <Card className="w-full self-start rounded-2xl p-5 shadow-card-soft md:sticky md:top-8 md:w-[380px]">
+              {/* Header con avatar */}
+              <div className="mb-5 flex items-center gap-4">
+                <Avatar nombre={seleccionado.nombre} tamano="lg" />
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate font-label-md text-label-md font-bold text-on-surface">
                     {seleccionado.nombre}
                   </h2>
-                  <p className="truncate font-caption text-caption text-secondary">
+                  <p className="truncate text-[11px] font-medium text-menta">
                     {seleccionado.especialidad || "Sin especialidad"}
                   </p>
-                  <p className="mt-1 truncate font-caption text-caption text-on-surface-variant">
+                  <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">
                     {seleccionado.email}
                   </p>
                 </div>
                 {puedeGestionar && seleccionado.email !== membresia?.email && (
-                  <button
-                    type="button"
-                    onClick={() => setPorDesactivar(seleccionado)}
-                    aria-label={seleccionado.activo ? "Desactivar empleado" : "Reactivar empleado"}
-                    className="shrink-0 rounded-full p-2 text-error transition-colors hover:bg-error-container"
+                  <MenuAcciones
+                    trigger={
+                      <button
+                        type="button"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center text-primary"
+                        aria-label="Acciones de empleado"
+                      >
+                        <Icon name="more_vert" className="text-[22px]" />
+                      </button>
+                    }
                   >
-                    <Icon name={seleccionado.activo ? "person_off" : "person_check"} />
-                  </button>
+                    <MenuAccionesItem
+                      icono={seleccionado.activo ? "person_off" : "person_check"}
+                      destructivo={seleccionado.activo}
+                      onClick={() => setPorDesactivar(seleccionado)}
+                    >
+                      {seleccionado.activo ? "Desactivar" : "Reactivar"}
+                    </MenuAccionesItem>
+                  </MenuAcciones>
                 )}
               </div>
 
-              <h3 className="border-b border-outline-variant pb-2 font-label-md text-label-md text-on-surface-variant">
-                Capacidades (Permisos)
+              <h3 className="mb-4 border-b border-outline-variant/60 pb-2 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                Permisos
               </h3>
 
-              <div className="mt-md space-y-md">
+              <div className="space-y-4">
                 {CAPACIDADES.map(({ campo, etiqueta, descripcion }) => (
                   <Switch
                     key={campo}
@@ -295,7 +303,7 @@ export function EmpleadosPage() {
               </div>
 
               {!puedeGestionar && (
-                <p className="mt-md rounded-lg bg-surface-container-low p-3 font-caption text-caption text-on-surface-variant">
+                <p className="mt-5 rounded-lg bg-surface-container-low p-3 text-[11px] text-on-surface-variant">
                   Solo lectura: no tienes la capacidad de gestionar el equipo.
                 </p>
               )}

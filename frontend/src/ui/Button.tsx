@@ -8,20 +8,16 @@ type Variante = "primary" | "secondary" | "accent" | "danger" | "ghost";
 type Tamano = "md" | "lg";
 
 const VARIANTES: Record<Variante, string> = {
-  // Fondo índigo profundo + texto blanco.
-  primary: "bg-primary text-on-primary hover:bg-primary-container shadow-sm",
-  // Fondo transparente + borde 1px índigo.
-  secondary: "border border-primary text-primary hover:bg-surface-container",
-  // Terracota-oro: acciones destacadas no destructivas (ej. Confirmar).
-  accent: "bg-secondary-container text-on-secondary-container hover:brightness-95",
-  danger: "border border-error text-error hover:bg-error-container",
-  ghost: "text-on-surface-variant hover:bg-surface-container",
+  primary: "bg-menta text-white hover:bg-menta-oscura shadow-suave",
+  secondary: "border border-menta/30 bg-menta/5 text-menta hover:bg-menta/10",
+  accent: "bg-primary text-on-primary hover:bg-primary-container",
+  danger: "border border-error/30 bg-error/5 text-error hover:bg-error/10",
+  ghost: "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface",
 };
 
 const TAMANOS: Record<Tamano, string> = {
-  // min-h 44px: objetivo táctil mínimo del sistema de diseño.
-  md: "min-h-[44px] px-4 py-2",
-  lg: "min-h-[52px] px-6 py-4",
+  md: "min-h-[44px] px-5 py-2.5",
+  lg: "min-h-[52px] px-7 py-3.5",
 };
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -47,7 +43,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "tactile inline-flex items-center justify-center gap-2 rounded-lg font-label-md text-label-md transition-colors",
+        "tactile inline-flex items-center justify-center gap-2 rounded-xl font-label-md text-label-md transition-all",
         "disabled:cursor-not-allowed disabled:opacity-60",
         VARIANTES[variante],
         TAMANOS[tamano],

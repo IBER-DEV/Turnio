@@ -12,6 +12,7 @@ import { Button } from "../../ui/Button";
 import { cn } from "../../ui/cn";
 import { Icon } from "../../ui/Icon";
 import { Modal } from "../../ui/Modal";
+import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
 import { useToast } from "../../ui/Toast";
 
 type Servicio = components["schemas"]["Servicio"];
@@ -101,24 +102,17 @@ export function ModalCatalogo({
     >
       <div className="space-y-md">
         {/* Filtro por categoría */}
-        <div className="hide-scrollbar -mx-md flex gap-2 overflow-x-auto px-md">
+        <ToggleGroup
+          valor={categoria}
+          onChange={setCategoria}
+          className="-mx-md px-md"
+        >
           {CATEGORIAS_CATALOGO.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setCategoria(item)}
-              aria-pressed={categoria === item}
-              className={cn(
-                "tactile shrink-0 rounded-full px-4 py-2 font-label-md text-label-md transition-colors",
-                categoria === item
-                  ? "bg-primary text-on-primary"
-                  : "bg-surface-container text-on-surface-variant",
-              )}
-            >
+            <ToggleGroupItem key={item} value={item}>
               {item}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
 
         <ul className="space-y-2">
           {visibles.map((item) => {
@@ -135,15 +129,15 @@ export function ModalCatalogo({
                   className={cn(
                     "tactile flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors",
                     elegido
-                      ? "border-primary bg-primary-fixed"
-                      : "border-outline-variant bg-surface-container-lowest",
+                      ? "border-menta bg-menta/10"
+                      : "border-outline-variant bg-white",
                     yaEsta && "cursor-not-allowed opacity-50",
                   )}
                 >
                   <span
                     className={cn(
                       "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                      elegido ? "border-primary bg-primary" : "border-outline",
+                      elegido ? "border-menta bg-menta" : "border-outline-variant",
                     )}
                   >
                     {elegido && <Icon name="check" className="text-[16px] text-on-primary" />}

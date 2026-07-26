@@ -100,10 +100,10 @@ export function VistaSemana({
   const hoy = new Date();
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest">
+    <div className="overflow-x-auto rounded-2xl border border-outline-variant bg-white">
       <div className="min-w-[720px]">
         {/* Encabezado de días */}
-        <div className="sticky top-0 z-10 flex border-b border-outline-variant bg-surface-container-lowest">
+        <div className="sticky top-0 z-10 flex border-b border-outline-variant bg-white">
           <div className="w-[56px] shrink-0" />
           {dias.map((dia) => {
             const esHoy = dia.toDateString() === hoy.toDateString();
@@ -116,7 +116,7 @@ export function VistaSemana({
                 aria-pressed={activo}
                 className={cn(
                   "flex flex-1 flex-col items-center gap-0.5 py-2 transition-colors",
-                  activo ? "bg-surface-container-high" : "hover:bg-surface-container-low",
+                  activo ? "bg-menta/10" : "hover:bg-surface-container-low",
                 )}
               >
                 <span className="font-label-md text-[10px] uppercase text-on-surface-variant">
@@ -125,7 +125,7 @@ export function VistaSemana({
                 <span
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-full font-label-md text-label-md",
-                    esHoy ? "bg-primary text-on-primary" : "text-on-surface",
+                    esHoy ? "bg-menta text-white" : "text-on-surface",
                   )}
                 >
                   {dia.getDate()}

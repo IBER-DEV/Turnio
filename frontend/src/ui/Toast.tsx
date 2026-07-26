@@ -14,18 +14,15 @@ interface Toast {
 }
 
 const ESTILOS: Record<TipoToast, { icono: NombreIcono; clases: string }> = {
-  exito: { icono: "check_circle", clases: "bg-primary text-on-primary" },
+  exito: { icono: "check_circle", clases: "bg-menta text-white" },
   error: { icono: "error", clases: "bg-error text-on-error" },
-  info: { icono: "info", clases: "bg-inverse-surface text-inverse-on-surface" },
+  info: { icono: "info", clases: "bg-primary text-on-primary" },
 };
 
 const ToastContext = createContext<{ mostrar: (tipo: TipoToast, mensaje: string) => void } | null>(
   null,
 );
 
-/** Feedback de éxito/error tras crear, editar o borrar algo. Se ubican
- * arriba-centro en móvil (lejos del pulgar y de la bottom nav) y
- * abajo-derecha en escritorio. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const temporizadores = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -41,8 +38,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     temporizadores.current.add(temporizador);
   }, []);
 
-  // Sin esto, un toast disparado justo antes de desmontar el provider
-  // deja un timer vivo apuntando a un componente que ya no existe.
   useEffect(() => {
     const pendientes = temporizadores.current;
     return () => {
@@ -65,9 +60,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             className={cn(
-              "pointer-events-auto flex w-full max-w-[420px] items-center gap-3 rounded-lg px-4 py-3 font-body-md text-body-md shadow-card",
-              // Entra desde arriba en móvil (donde se ancla) y desde
-              // abajo en escritorio, siguiendo su propia posición.
+              "pointer-events-auto flex w-full max-w-[420px] items-center gap-3 rounded-xl px-5 py-3.5 font-body-md text-body-md shadow-card",
               "animate-slide-in-top sm:animate-slide-in-bottom",
               ESTILOS[toast.tipo].clases,
             )}
