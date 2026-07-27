@@ -12,6 +12,10 @@ interface SelectCustomProps {
   ayuda?: string;
   error?: string;
   disabled?: boolean;
+  /** Oculta la etiqueta visualmente pero la deja para lectores de
+   * pantalla. Para layouts densos (una matriz) donde la columna ya dice
+   * de quién es el control y repetirlo lo haría ilegible. */
+  etiquetaOculta?: boolean;
   children: ReactNode;
   className?: string;
 }
@@ -24,12 +28,20 @@ export function SelectCustom({
   ayuda,
   error,
   disabled = false,
+  etiquetaOculta = false,
   children,
   className,
 }: SelectCustomProps) {
   return (
     <div className={cn("flex flex-col gap-xs", className)}>
-      <label className="font-label-md text-label-md text-on-surface">{label}</label>
+      <label
+        className={cn(
+          "font-label-md text-label-md text-on-surface",
+          etiquetaOculta && "sr-only",
+        )}
+      >
+        {label}
+      </label>
       <SelectPrimitive.Root value={valor} onValueChange={onChange} disabled={disabled}>
         <SelectPrimitive.Trigger
           className={cn(

@@ -18,6 +18,12 @@ const NAVEGACION = [
     icono: "group",
     capacidad: "puede_gestionar_empleados",
   },
+  {
+    to: "/configuracion/permisos",
+    etiqueta: "Permisos",
+    icono: "settings",
+    capacidad: "puede_gestionar_empleados",
+  },
 ] as const;
 
 export function Layout({ children }: { children: ReactNode }) {

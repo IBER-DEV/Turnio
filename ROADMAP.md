@@ -32,6 +32,19 @@
   combinación una y otra vez. Si el dolor es lo tedioso del alta, la
   salida barata son presets de UI sobre las capacidades existentes, sin
   tocar el modelo. Con las dos capacidades agregadas ese día vamos en 7.
+- **Tipos de empleado como plantilla de UI, no como rol persistido**
+  (confirmado por el humano, 2026-07-26). Cierra la discusión anterior:
+  el humano quiere que el dueño **escoja un tipo de empleado** y que
+  después pueda mover permiso por permiso — *"su negocio, sus reglas"*.
+  Los cuatro tipos (Barbero o estilista, Recepción, Encargado,
+  Administrador) viven **solo en el frontend** y no se guardan: precargan
+  capacidades y dejan de aplicar. El tipo que se muestra después se
+  **deduce** comparando capacidades ("Recepción · 2 cambios"). No
+  contradice la decisión de arriba: lo prohibido es un enum cerrado que
+  gobierne los permisos, y acá la fuente de verdad sigue siendo la
+  membresía. Si el rol se guardara, habría que resolver qué pasa con los
+  empleados ya asignados al cambiar la plantilla. Detalle en
+  `frontend/ROADMAP-FRONTEND.md`.
 - Agenda por empleado desde el inicio (Fase 1), no operador único como
   caso central. **Matizado el 2026-07-26** (ver siguiente punto): sigue
   siendo por empleado, pero el horario se hereda del negocio en vez de
@@ -131,12 +144,12 @@ NO hacer todavía.
    /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`, ambos
    transaccionales, y el frontend ya los consume. Ver `CONTRATO.md`
    sección 5.5 e historial.
-6. **Dos capacidades declaradas que no hacen nada todavía**:
-   `puede_cobrar` y `puede_ver_reportes` existen en el modelo y la UI ya
-   muestra sus interruptores, pero ningún endpoint las exige (son de Fase
-   3 y 4). Hoy el dueño las activa y no pasa nada en ninguna parte. Hay
-   que decidir entre ocultarlas hasta que sirvan o marcarlas como
-   "próximamente" — concierne a ambas partes.
+6. ~~**Dos capacidades declaradas que no hacen nada todavía**:
+   `puede_cobrar` y `puede_ver_reportes`.~~ Resuelta el 2026-07-26 en la
+   dirección honesta: la UI las marca con un chip "Pronto" y siguen
+   siendo configurables, pero ya no se presentan como si hicieran algo.
+   Se quita el chip cuando Caja (Fase 3) y Reportes (Fase 4) las exijan
+   de verdad.
 7. **Bloqueante de entrada a Fase 3**: `porcentaje_comision` vive en
    `Servicio` y lo controla `puede_editar_precios`. Hoy es inerte, pero
    cuando Caja conecte el cálculo real, quien pueda editar servicios
