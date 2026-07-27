@@ -303,6 +303,58 @@ excepción explícita, no como el camino por defecto. Cargar el horario
 empleado por empleado era justamente el problema que este modelo
 resuelve.
 
+### 5.8 Las tres capacidades de agenda, y por qué son tres
+
+`puede_gestionar_agenda` decidía cuatro cosas distintas a la vez. Se
+partió en tres capacidades porque un dueño quiere concederlas por
+separado — el caso que lo motivó: *"quiero que mi recepcionista agende
+citas, pero no que cambie el horario del local"*.
+
+| Capacidad | Habilita |
+|---|---|
+| `puede_gestionar_agenda` | Crear, mover y borrar citas de cualquiera. Transicionar citas ajenas. |
+| `puede_configurar_horarios` | `PUT /api/agenda/horario-negocio/` y todo `/api/agenda/horarios/` (horario propio de empleados). |
+| `puede_ver_agenda_completa` | Ver en `/api/agenda/citas/` las citas de todo el negocio, no solo las propias. |
+
+Lo que **no** es capacidad y sigue igual: transicionar tus **propias**
+citas no requiere ninguna (ver 5.3). Eso es propiedad, no permiso.
+
+Sobre la visibilidad: sin `puede_ver_agenda_completa`, `GET
+/api/agenda/citas/` devuelve solo las del propio miembro, y una cita
+ajena responde `404` tanto en detalle como en las transiciones —igual que
+una inexistente, según 5.2. El motivo es concreto: cada `Cita` incluye
+`nombre_cliente` y `telefono_cliente`, así que la agenda completa **es**
+la libreta de clientes del negocio.
+
+### 5.9 Límites de `puede_gestionar_empleados`
+
+Esa capacidad permite editar los flags `puede_*` de cualquier miembro, lo
+que sin límites la convertía en una escalada de privilegios: bastaba un
+`PATCH` sobre la propia membresía para concederse todo lo demás. Dos
+reglas la acotan, y ambas responden `400`:
+
+1. **Nadie cambia sus propias capacidades.** Editar el propio
+   `especialidad` sí se permite: no es una capacidad. Reenviar una
+   capacidad con el valor que ya tenía tampoco rebota — solo cuentan los
+   cambios reales.
+2. **Nadie concede una capacidad que no tiene.** Aplica tanto al `PATCH`
+   de un empleado como al `POST` de alta. Sin esta regla, la primera se
+   esquiva en dos pasos con un cómplice.
+
+**Quitar** una capacidad que uno no tiene sí se permite: reducir permisos
+ajenos no amplía los propios, y bloquearlo dejaría a un administrador sin
+poder frenar a alguien con más capacidades que él.
+
+La única excepción es el registro de un negocio
+(`POST /api/negocios/registro/`), donde no hay solicitante todavía: el
+dueño se crea en ese mismo request con todas las capacidades y puede dar
+de alta empleados con cualquier combinación.
+
+Implicación para la UI: los interruptores de capacidades del propio
+usuario deben ir deshabilitados, y también los de las capacidades que
+quien mira no posee — si no, el formulario ofrece acciones que el backend
+va a rechazar.
+
 ## 6. Historial de cambios al contrato
 
 > Quien cambie la forma de la API agrega una entrada acá (fecha,
@@ -426,3 +478,31 @@ resuelve.
 
   Implicación de UI en 5.7: la pantalla de horarios debe girar en torno al
   horario del negocio, con el del empleado como excepción explícita.
+- **2026-07-26** — **Cambio con ruptura**: dos capacidades nuevas
+  (`puede_configurar_horarios`, `puede_ver_agenda_completa`) y dos reglas
+  que acotan `puede_gestionar_empleados`. Ver 5.8 y 5.9. Salió de una
+  auditoría del modelo de permisos pedida tras el caso "quiero que mi
+  recepcionista agende citas pero no cambie el horario del local".
+  1. **`PUT /api/agenda/horario-negocio/` y todo `/api/agenda/horarios/`
+     pasan a exigir `puede_configurar_horarios`** en vez de
+     `puede_gestionar_agenda`. Quien tenía la vieja conserva ambas (ver
+     migración abajo), así que nadie pierde acceso al actualizar.
+  2. **`GET /api/agenda/citas/` ahora filtra por
+     `puede_ver_agenda_completa`.** Sin esa capacidad se devuelven solo
+     las citas propias. **Es un cambio de comportamiento real, no solo de
+     permisos**: antes cualquier miembro del negocio podía leer el
+     `nombre_cliente` y `telefono_cliente` de todas las citas. Una cita
+     ajena pasa a responder `404` en detalle y transiciones, donde antes
+     el detalle respondía `200` y la transición `403`.
+  3. **`puede_gestionar_empleados` deja de ser escalada de privilegios**
+     (ver 5.9). Era explotable: un `PATCH` sobre la propia membresía
+     bastaba para concederse las demás capacidades. Hay tests que fallan
+     contra el código anterior.
+  4. **`MiMembresia`, `MiembroNegocio` y `EmpleadoAlta` ganan los dos
+     campos nuevos.** El frontend debe regenerar tipos.
+
+  Migración de datos: `puede_configurar_horarios` y
+  `puede_ver_agenda_completa` se ponen en `true` para quien ya tenía
+  `puede_gestionar_agenda`. Para el resto quedan en `false`, que es
+  justamente el cambio buscado — un empleado raso deja de ver la agenda
+  del negocio entero.

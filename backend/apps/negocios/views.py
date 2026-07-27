@@ -93,7 +93,9 @@ class EmpleadoListCreateView(generics.ListCreateAPIView):
         return self.request.membresia.negocio.miembros.select_related("usuario").all()
 
     def create(self, request, *args, **kwargs):
-        serializer = EmpleadoAltaSerializer(data=request.data)
+        # El contexto lleva el request para que el serializer pueda aplicar
+        # la regla de "nadie concede una capacidad que no tiene".
+        serializer = EmpleadoAltaSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         datos = serializer.validated_data
 

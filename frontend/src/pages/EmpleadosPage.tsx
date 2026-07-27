@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
 
 import { apiClient } from "../api/client";
 import type { components } from "../api/schema";
@@ -13,43 +14,12 @@ import { Icon } from "../ui/Icon";
 import { Input } from "../ui/Input";
 import { MenuAcciones, MenuAccionesItem } from "../ui/MenuAcciones";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
-import { Switch } from "../ui/Switch";
 import { useToast } from "../ui/Toast";
+import { CAPACIDADES, DEFINICIONES } from "../permisos/catalogo";
+import { ROLES, capacidadesDe, etiquetaDeRol } from "../permisos/roles";
 
 type MiembroNegocio = components["schemas"]["MiembroNegocio"];
 type EmpleadoAlta = components["schemas"]["EmpleadoAlta"];
-type Capacidad = keyof EmpleadoAlta & keyof MiembroNegocio;
-
-/** Cada capacidad se explica en términos de lo que habilita, no con el
- * nombre técnico del campo: quien administra el negocio no tiene por
- * qué traducir `puede_editar_precios` a "puede tocar el catálogo". */
-const CAPACIDADES: Array<{ campo: Capacidad; etiqueta: string; descripcion: string }> = [
-  {
-    campo: "puede_cobrar",
-    etiqueta: "Puede cobrar",
-    descripcion: "Permite registrar pagos de citas.",
-  },
-  {
-    campo: "puede_ver_reportes",
-    etiqueta: "Puede ver reportes",
-    descripcion: "Estadísticas de ingresos del negocio.",
-  },
-  {
-    campo: "puede_editar_precios",
-    etiqueta: "Puede editar precios",
-    descripcion: "Modificar el catálogo de servicios.",
-  },
-  {
-    campo: "puede_gestionar_empleados",
-    etiqueta: "Puede gestionar el equipo",
-    descripcion: "Agregar empleados y cambiar sus permisos.",
-  },
-  {
-    campo: "puede_gestionar_agenda",
-    etiqueta: "Puede gestionar la agenda",
-    descripcion: "Agendar citas y definir horarios.",
-  },
-];
 
 const NUEVO_VACIO: EmpleadoAlta = {
   email: "",
@@ -61,6 +31,8 @@ const NUEVO_VACIO: EmpleadoAlta = {
   puede_editar_precios: false,
   puede_gestionar_empleados: false,
   puede_gestionar_agenda: false,
+  puede_configurar_horarios: false,
+  puede_ver_agenda_completa: false,
 };
 
 export function EmpleadosPage() {
@@ -75,6 +47,9 @@ export function EmpleadosPage() {
 
   const [formularioAbierto, setFormularioAbierto] = useState(false);
   const [nuevo, setNuevo] = useState<EmpleadoAlta>(NUEVO_VACIO);
+  // El tipo elegido en el alta no se guarda en ningún lado: solo decide
+  // con qué capacidades arranca la persona (ver permisos/roles.ts).
+  const [rolElegido, setRolElegido] = useState<string>(ROLES[0].id);
   const [errorFormulario, setErrorFormulario] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [porDesactivar, setPorDesactivar] = useState<MiembroNegocio | null>(null);
@@ -190,12 +165,9 @@ export function EmpleadosPage() {
           <ul className="flex-1 space-y-2">
             {empleados.map((empleado) => {
               const activo = empleado.id === seleccionadoId;
-              const esAdmin =
-                empleado.puede_gestionar_empleados &&
-                empleado.puede_editar_precios &&
-                empleado.puede_cobrar &&
-                empleado.puede_gestionar_agenda &&
-                empleado.puede_ver_reportes;
+              // Derivado de la lista, no de flags escritos a mano: agregar
+              // una capacidad no debe dejar el badge mintiendo.
+              const esAdmin = CAPACIDADES.every((capacidad) => empleado[capacidad]);
 
               return (
                 <li key={empleado.id} className="animate-slide-in-bottom">
@@ -285,27 +257,42 @@ export function EmpleadosPage() {
                 )}
               </div>
 
-              <h3 className="mb-4 border-b border-outline-variant/60 pb-2 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Permisos
+              {/* Resumen, no editor: los permisos se cambian en un solo
+                  lugar (Configuración › Permisos) para no tener dos
+                  pantallas que hacen lo mismo y se contradicen. */}
+              <h3 className="mb-3 border-b border-outline-variant/60 pb-2 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                Qué puede hacer
               </h3>
 
-              <div className="space-y-4">
-                {CAPACIDADES.map(({ campo, etiqueta, descripcion }) => (
-                  <Switch
-                    key={campo}
-                    label={etiqueta}
-                    descripcion={descripcion}
-                    checked={Boolean(seleccionado[campo])}
-                    disabled={!puedeGestionar}
-                    onChange={(valor) => actualizarEmpleado(seleccionado, { [campo]: valor })}
-                  />
-                ))}
-              </div>
+              <p className="mb-3 font-label-md text-label-md text-menta">
+                {etiquetaDeRol(seleccionado)}
+              </p>
 
-              {!puedeGestionar && (
-                <p className="mt-5 rounded-lg bg-surface-container-low p-3 text-[11px] text-on-surface-variant">
-                  Solo lectura: no tienes la capacidad de gestionar el equipo.
-                </p>
+              <ul className="space-y-1.5">
+                {CAPACIDADES.filter((capacidad) => seleccionado[capacidad]).map((capacidad) => (
+                  <li
+                    key={capacidad}
+                    className="flex items-start gap-1.5 text-[12px] text-on-surface"
+                  >
+                    <Icon name="check" className="shrink-0 text-[16px] text-menta" />
+                    {DEFINICIONES[capacidad].etiqueta}
+                  </li>
+                ))}
+                {CAPACIDADES.every((capacidad) => !seleccionado[capacidad]) && (
+                  <li className="text-[12px] text-on-surface-variant">
+                    Solo atiende y maneja sus propias citas.
+                  </li>
+                )}
+              </ul>
+
+              {puedeGestionar && (
+                <Link
+                  to="/configuracion/permisos"
+                  className="mt-4 flex items-center gap-1 font-caption text-caption text-menta hover:underline"
+                >
+                  <Icon name="settings" className="text-[16px]" />
+                  Cambiar permisos
+                </Link>
               )}
             </Card>
           )}
@@ -355,19 +342,55 @@ export function EmpleadosPage() {
 
           <div>
             <h3 className="mb-3 border-b border-outline-variant pb-2 font-label-md text-label-md text-on-surface-variant">
-              Capacidades
+              ¿Qué va a hacer en el negocio?
             </h3>
-            <div className="space-y-md">
-              {CAPACIDADES.map(({ campo, etiqueta, descripcion }) => (
-                <Switch
-                  key={campo}
-                  label={etiqueta}
-                  descripcion={descripcion}
-                  checked={Boolean(nuevo[campo])}
-                  onChange={(valor) => setNuevo({ ...nuevo, [campo]: valor })}
-                />
-              ))}
+            <div className="grid gap-2 sm:grid-cols-2">
+              {ROLES.map((rol) => {
+                const elegido = rol.id === rolElegido;
+                return (
+                  <label
+                    key={rol.id}
+                    className={cn(
+                      "tactile cursor-pointer rounded-xl border p-3 transition-colors",
+                      elegido
+                        ? "border-menta bg-menta/5"
+                        : "border-outline-variant bg-white hover:bg-surface-container-low",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="tipo-de-empleado"
+                      className="sr-only"
+                      checked={elegido}
+                      onChange={() => {
+                        setRolElegido(rol.id);
+                        setNuevo({ ...nuevo, ...capacidadesDe(rol) });
+                      }}
+                    />
+                    <span className="flex items-center gap-1.5">
+                      <Icon
+                        name={elegido ? "check_circle" : "person"}
+                        className={cn("text-[18px]", elegido ? "text-menta" : "text-outline")}
+                      />
+                      <span className="font-label-md text-label-md text-on-surface">
+                        {rol.nombre}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[11px] text-on-surface-variant">
+                      {rol.descripcion}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
+            <p className="mt-3 flex items-start gap-xs font-caption text-caption text-on-surface-variant">
+              <Icon name="info" className="shrink-0 text-[16px] text-menta" />
+              Es solo un punto de partida. Después puedes ajustarle los permisos uno por uno desde{" "}
+              <Link to="/configuracion/permisos" className="font-semibold text-menta underline">
+                Permisos
+              </Link>
+              .
+            </p>
           </div>
 
           {errorFormulario && (

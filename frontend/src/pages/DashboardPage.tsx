@@ -88,7 +88,9 @@ export function DashboardPage() {
     {
       visible: membresia.puede_gestionar_empleados,
       etiqueta: "Gestionar equipo",
-      descripcion: "Permisos y horarios",
+      // Los horarios ya no se tocan acá: viven en Agenda y dependen de
+      // `puede_configurar_horarios`, que es una capacidad distinta.
+      descripcion: "Permisos y especialidades",
       icono: "group_add",
       to: "/empleados",
     },

@@ -526,14 +526,24 @@ def test_empleado_sin_gestionar_agenda_puede_cancelar_lo_suyo(
 def test_empleado_sin_gestionar_agenda_no_puede_tocar_la_cita_de_otro(
     negocio_con_dueno, servicio_de_prueba
 ):
-    """La propiedad habilita solo lo propio: la agenda ajena sigue cerrada."""
+    """La propiedad habilita solo lo propio: la agenda ajena sigue cerrada.
+
+    Devolvía `403` hasta que se agregó `puede_ver_agenda_completa`
+    (2026-07-26): ahora el queryset ya no incluye las citas ajenas, así que
+    el filtro responde antes que el permiso. `404` es además la respuesta
+    correcta —un recurso que no puedes ver no debe distinguirse de uno que
+    no existe (`CONTRATO.md` 5.2)—; el `403` anterior confirmaba que la
+    cita existía.
+    """
     negocio, _dueno, membresia_dueno = negocio_con_dueno
     _membresia_raso, client = _barbero_sin_gestion_de_agenda(negocio)
     cita_del_dueno = _cita_para(negocio, membresia_dueno, servicio_de_prueba)
 
     respuesta = client.post(f"/api/agenda/citas/{cita_del_dueno.id}/confirmar/")
 
-    assert respuesta.status_code == 403
+    assert respuesta.status_code == 404
+    cita_del_dueno.refresh_from_db()
+    assert cita_del_dueno.estado == "agendada"
 
 
 def test_empleado_sin_gestionar_agenda_sigue_sin_poder_crear_citas(

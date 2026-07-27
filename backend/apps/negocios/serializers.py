@@ -2,7 +2,22 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from apps.negocios.models import Negocio
+from apps.negocios.services import (
+    CAMPOS_CAPACIDADES,
+    CambioDeCapacidadNoPermitido,
+    validar_cambio_de_capacidades,
+)
 from apps.usuarios.models import MiembroNegocio, Usuario
+
+
+def _solicitante(contexto):
+    """La membresía de quien hace el request, si la hay.
+
+    En el registro de un negocio no hay ninguna: el dueño se está creando
+    en ese mismo request y recibe todas las capacidades por definición.
+    """
+    request = contexto.get("request")
+    return getattr(request, "membresia", None) if request is not None else None
 
 
 class EmpleadoAltaSerializer(serializers.Serializer):
@@ -17,11 +32,29 @@ class EmpleadoAltaSerializer(serializers.Serializer):
     puede_editar_precios = serializers.BooleanField(default=False)
     puede_gestionar_empleados = serializers.BooleanField(default=False)
     puede_gestionar_agenda = serializers.BooleanField(default=False)
+    puede_configurar_horarios = serializers.BooleanField(default=False)
+    puede_ver_agenda_completa = serializers.BooleanField(default=False)
 
     def validate_email(self, value):
         if Usuario.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Ya existe un usuario con este email.")
         return value
+
+    def validate(self, datos):
+        solicitante = _solicitante(self.context)
+        if solicitante is None:
+            return datos
+
+        try:
+            validar_cambio_de_capacidades(
+                solicitante=solicitante,
+                capacidades_pedidas={
+                    campo: datos.get(campo, False) for campo in CAMPOS_CAPACIDADES
+                },
+            )
+        except CambioDeCapacidadNoPermitido as error:
+            raise serializers.ValidationError({"non_field_errors": [str(error)]})
+        return datos
 
 
 class RegistroNegocioSerializer(serializers.Serializer):
@@ -79,9 +112,31 @@ class MiembroNegocioSerializer(serializers.ModelSerializer):
             "puede_editar_precios",
             "puede_gestionar_empleados",
             "puede_gestionar_agenda",
+            "puede_configurar_horarios",
+            "puede_ver_agenda_completa",
             "activo",
         ]
         read_only_fields = ["id", "email", "nombre"]
+
+    def validate(self, datos):
+        solicitante = _solicitante(self.context)
+        if solicitante is None or self.instance is None:
+            return datos
+
+        # Solo los cambios reales: reenviar una capacidad con el valor que
+        # ya tenía no es un cambio y no debe rebotar.
+        pedidas = {
+            campo: datos[campo]
+            for campo in CAMPOS_CAPACIDADES
+            if campo in datos and datos[campo] != getattr(self.instance, campo)
+        }
+        try:
+            validar_cambio_de_capacidades(
+                solicitante=solicitante, objetivo=self.instance, capacidades_pedidas=pedidas
+            )
+        except CambioDeCapacidadNoPermitido as error:
+            raise serializers.ValidationError({"non_field_errors": [str(error)]})
+        return datos
 
 
 class MiembroEquipoSerializer(serializers.ModelSerializer):
@@ -131,6 +186,8 @@ class MiMembresiaSerializer(serializers.ModelSerializer):
             "puede_editar_precios",
             "puede_gestionar_empleados",
             "puede_gestionar_agenda",
+            "puede_configurar_horarios",
+            "puede_ver_agenda_completa",
             "activo",
         ]
         read_only_fields = fields

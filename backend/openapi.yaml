@@ -21,6 +21,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       tags:
       - agenda
       security:
@@ -48,6 +53,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       tags:
       - agenda
       requestBody:
@@ -86,6 +96,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       parameters:
       - in: path
         name: id
@@ -118,6 +133,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       parameters:
       - in: path
         name: id
@@ -162,6 +182,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       parameters:
       - in: path
         name: id
@@ -205,6 +230,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       parameters:
       - in: path
         name: id
@@ -234,6 +264,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       parameters:
       - in: path
         name: id
@@ -267,6 +302,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       parameters:
       - in: path
         name: id
@@ -300,6 +340,11 @@ paths:
         cualquier miembro sobre **sus propias** citas: marcar que el cliente
         llegó no es un acto administrativo, es el empleado haciendo su
         trabajo. Ver `CONTRATO.md` sección 5.6.
+
+        Listar devuelve solo las citas propias salvo que se tenga
+        `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+        cliente, así que la agenda completa **es** la libreta de clientes del
+        negocio (ver `CONTRATO.md` sección 5.8).
       parameters:
       - in: path
         name: id
@@ -341,7 +386,7 @@ paths:
     put:
       operationId: agenda_horario_negocio_update
       description: |-
-        Reemplaza el horario de atención del negocio en una sola transacción. Requiere `puede_gestionar_agenda`.
+        Reemplaza el horario de atención del negocio en una sola transacción. Requiere `puede_configurar_horarios` — decidir cuándo abre el local es una decisión distinta de operar la agenda del día.
 
         Cambiarlo acá cambia la disponibilidad de **todos** los empleados que lo heredan, que es el caso normal. Los que tienen horario propio (ver `PUT /api/agenda/horarios/semana/`) no se ven afectados.
 
@@ -374,7 +419,13 @@ paths:
   /api/agenda/horarios/:
     get:
       operationId: agenda_horarios_list
-      description: Horario semanal recurrente de los empleados del negocio.
+      description: |-
+        Horario propio de un empleado, como excepción al del negocio.
+
+        Escribir requiere `puede_configurar_horarios`, no
+        `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+        decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+        sección 5.8).
       tags:
       - agenda
       security:
@@ -390,7 +441,13 @@ paths:
           description: ''
     post:
       operationId: agenda_horarios_create
-      description: Horario semanal recurrente de los empleados del negocio.
+      description: |-
+        Horario propio de un empleado, como excepción al del negocio.
+
+        Escribir requiere `puede_configurar_horarios`, no
+        `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+        decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+        sección 5.8).
       tags:
       - agenda
       requestBody:
@@ -417,7 +474,13 @@ paths:
   /api/agenda/horarios/{id}/:
     get:
       operationId: agenda_horarios_retrieve
-      description: Horario semanal recurrente de los empleados del negocio.
+      description: |-
+        Horario propio de un empleado, como excepción al del negocio.
+
+        Escribir requiere `puede_configurar_horarios`, no
+        `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+        decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+        sección 5.8).
       parameters:
       - in: path
         name: id
@@ -438,7 +501,13 @@ paths:
           description: ''
     put:
       operationId: agenda_horarios_update
-      description: Horario semanal recurrente de los empleados del negocio.
+      description: |-
+        Horario propio de un empleado, como excepción al del negocio.
+
+        Escribir requiere `puede_configurar_horarios`, no
+        `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+        decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+        sección 5.8).
       parameters:
       - in: path
         name: id
@@ -471,7 +540,13 @@ paths:
           description: ''
     patch:
       operationId: agenda_horarios_partial_update
-      description: Horario semanal recurrente de los empleados del negocio.
+      description: |-
+        Horario propio de un empleado, como excepción al del negocio.
+
+        Escribir requiere `puede_configurar_horarios`, no
+        `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+        decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+        sección 5.8).
       parameters:
       - in: path
         name: id
@@ -503,7 +578,13 @@ paths:
           description: ''
     delete:
       operationId: agenda_horarios_destroy
-      description: Horario semanal recurrente de los empleados del negocio.
+      description: |-
+        Horario propio de un empleado, como excepción al del negocio.
+
+        Escribir requiere `puede_configurar_horarios`, no
+        `puede_gestionar_agenda`: decidir cuándo trabaja alguien es una
+        decisión distinta de operar la agenda del día (ver `CONTRATO.md`
+        sección 5.8).
       parameters:
       - in: path
         name: id
@@ -1185,6 +1266,12 @@ components:
         puede_gestionar_agenda:
           type: boolean
           default: false
+        puede_configurar_horarios:
+          type: boolean
+          default: false
+        puede_ver_agenda_completa:
+          type: boolean
+          default: false
       required:
       - email
       - nombre
@@ -1346,6 +1433,12 @@ components:
         puede_gestionar_agenda:
           type: boolean
           readOnly: true
+        puede_configurar_horarios:
+          type: boolean
+          readOnly: true
+        puede_ver_agenda_completa:
+          type: boolean
+          readOnly: true
         activo:
           type: boolean
           readOnly: true
@@ -1357,9 +1450,11 @@ components:
       - negocio
       - nombre
       - puede_cobrar
+      - puede_configurar_horarios
       - puede_editar_precios
       - puede_gestionar_agenda
       - puede_gestionar_empleados
+      - puede_ver_agenda_completa
       - puede_ver_reportes
     MiembroEquipo:
       type: object
@@ -1418,6 +1513,10 @@ components:
         puede_gestionar_empleados:
           type: boolean
         puede_gestionar_agenda:
+          type: boolean
+        puede_configurar_horarios:
+          type: boolean
+        puede_ver_agenda_completa:
           type: boolean
         activo:
           type: boolean
@@ -1537,6 +1636,10 @@ components:
         puede_gestionar_empleados:
           type: boolean
         puede_gestionar_agenda:
+          type: boolean
+        puede_configurar_horarios:
+          type: boolean
+        puede_ver_agenda_completa:
           type: boolean
         activo:
           type: boolean

@@ -432,3 +432,145 @@ todos. Es coherente con la semántica de reemplazo del endpoint y con el
 caso de uso (marcar varios = quiero que compartan turno), pero no hay
 aviso visual de que se van a pisar horarios distintos. Si en uso real
 resulta confuso, el arreglo es advertirlo antes de guardar.
+
+## Dos capacidades nuevas y las reglas anti-escalada en la UI (2026-07-26)
+
+> Contraparte del cambio de backend del mismo día (ver `../CONTRATO.md`
+> secciones 5.8 y 5.9). Tipos regenerados desde el schema.
+
+### Agenda
+- El botón **Horarios** pasa a depender de `puede_configurar_horarios`; el
+  de **Agendar**, de `puede_gestionar_agenda`. Antes ambos colgaban del
+  mismo flag, que es justo lo que se partió: una recepcionista agenda
+  citas pero no decide a qué hora abre el local.
+- **El filtro por empleado se oculta sin `puede_ver_agenda_completa`.** El
+  backend ya devuelve solo las citas propias, así que el filtro no tenía
+  nada que filtrar y sugería que existían citas de otros que no se estaban
+  mostrando.
+- La banda de disponibilidad de la vista semana también se acota a la
+  propia en ese caso: pintar la del equipo entero contradecía la lista de
+  al lado.
+
+### Equipo
+- Dos interruptores nuevos en el panel de permisos.
+- **Los interruptores ahora se deshabilitan según las reglas del backend**
+  (`CONTRATO.md` 5.9), con el mensaje correspondiente debajo:
+  - los propios, porque nadie cambia sus propias capacidades;
+  - los de capacidades que quien mira no posee, **solo cuando están
+    apagados** — quitarle a otro algo que uno no tiene sí está permitido,
+    así que ese interruptor queda activo.
+
+  Sin esto la UI ofrecía acciones que el backend rechaza con `400`, que es
+  la peor combinación: el usuario cree que puede y descubre que no al
+  guardar.
+- El badge "Admin" pasa a derivarse de la lista `CAPACIDADES` en vez de
+  enumerar cinco flags a mano. Con siete capacidades, la versión escrita a
+  mano ya estaba mintiendo (marcaba Admin a quien no tenía las dos
+  nuevas).
+
+### Dashboard
+Corregido el texto del acceso "Gestionar equipo": decía "Permisos y
+horarios" y los horarios nunca estuvieron ahí — ahora menos que nunca,
+porque dependen de una capacidad distinta.
+
+### Duda abierta
+`puede_cobrar` y `puede_ver_reportes` se siguen mostrando como
+interruptores funcionales en el panel de permisos, pero el backend no los
+usa en ningún endpoint (son de Fase 3 y 4). El dueño los activa y no pasa
+nada en ninguna parte. Habría que ocultarlos hasta que sirvan, o marcarlos
+como "próximamente" — pendiente de decidir con backend, anotado también en
+`../backend/ROADMAP-BACKEND.md`.
+
+## Tipos de empleado y permisos en lenguaje de negocio (2026-07-26)
+
+> Decisión de producto del humano: *"su negocio, sus reglas"* — que haya
+> roles para escoger rápido, pero que después el dueño pueda mover
+> permiso por permiso, y en un lenguaje que le diga algo a él y no al que
+> programó el modelo.
+>
+> **Cambio solo de frontend.** No toca el backend ni el contrato: las
+> capacidades ya existían, lo que cambia es cómo se eligen y cómo se
+> explican.
+
+### Por qué esto no contradice "capacidades, no roles fijos"
+La regla registrada prohíbe un enum cerrado de roles que gobierne los
+permisos. Acá el rol es una **plantilla de arranque que no se guarda en
+ningún lado**: precarga interruptores y deja de existir. La fuente de
+verdad siguen siendo las capacidades de cada membresía — que es
+exactamente lo que hace posible la segunda mitad de la frase del humano.
+Si el rol se guardara, habría que resolver qué pasa con los empleados ya
+asignados cuando la plantilla cambia, y el dueño terminaría peleando con
+una plantilla en vez de configurando a su gente.
+
+### Módulos nuevos en `src/permisos/`
+- **`catalogo.ts`** — la traducción de cada capacidad a lenguaje de
+  negocio (`etiqueta` = lo que la persona hace en el local,
+  `consecuencia` = qué significa en la práctica) y el agrupamiento en
+  Dinero / Agenda / Equipo. Es un `Record<Capacidad, …>` con `Capacidad`
+  derivado del schema: **si el backend agrega una capacidad, esto deja de
+  compilar** hasta que alguien decida cómo se le explica al usuario. Una
+  capacidad sin traducir sería un interruptor sin nombre.
+- **`roles.ts`** — las cuatro plantillas (Barbero o estilista, Recepción,
+  Encargado, Administrador) y `rolDe()`, que **deduce** el tipo mirando
+  las capacidades reales y reporta a cuántos interruptores está del más
+  cercano. Eso permite mostrar "Recepción · 2 cambios" en vez de un
+  "Personalizado" que no dice nada. Empates se resuelven por el rol más
+  acotado (`ROLES` va de menos a más permisos).
+- **`reglas.ts`** — `motivoBloqueo()`, que espeja `CONTRATO.md` 5.9.
+  Devuelve **el motivo en texto**, no un booleano, para poder explicarlo
+  donde ocurre — que es la mitad del punto de este rediseño.
+
+### Pantalla nueva: Configuración › Permisos
+Se eligió pantalla aparte sobre editar en la ficha del empleado (decisión
+del humano), por el valor de comparar a todo el equipo de un vistazo.
+Como la matriz no cabe en un teléfono y esto es una app Capacitor, es
+responsive de verdad y no un `overflow` con la esperanza de que se
+entienda:
+- **`lg` en adelante**: matriz `<table>` con los permisos como filas
+  agrupadas por área, las personas como columnas, y la primera columna
+  fija al hacer scroll horizontal. Fila de "tipo de empleado" arriba.
+- **Teléfono**: se elige una persona y se ven sus permisos agrupados, con
+  la línea de consecuencia bajo cada uno.
+
+Los interruptores bloqueados llevan `Tooltip` con el motivo concreto.
+Guardado optimista con reversión si el `PATCH` falla: mover un
+interruptor y esperar al servidor para verlo moverse se siente roto,
+sobre todo al ajustar varios seguidos.
+
+### Equipo deja de editar permisos
+Para no tener dos pantallas que hacen lo mismo y se contradicen, la ficha
+del empleado pasa a mostrar un **resumen de solo lectura** (el rol
+deducido + la lista de lo que puede hacer) con un enlace a Permisos. El
+alta gana el selector de tipo de empleado como tarjetas de radio, con la
+aclaración de que es un punto de partida.
+
+### `puede_cobrar` y `puede_ver_reportes` ahora dicen la verdad
+Llevan un chip **"Pronto"**: siguen siendo configurables —el dueño puede
+dejarlos listos— pero ya no se presentan como si hicieran algo. Cierra en
+la dirección honesta la duda abierta 6 de `../ROADMAP.md`, que era
+precisamente que la UI los mostraba como funcionales cuando ningún
+endpoint los exige todavía.
+
+### Cambio menor en el sistema de diseño
+`SelectCustom` gana `etiquetaOculta`, que deja la etiqueta para lectores
+de pantalla y la esconde visualmente. Hacía falta en la matriz, donde la
+columna ya dice de quién es el control y repetirlo lo haría ilegible.
+`npm run iconos` regenerado por el icono `settings` (43 iconos).
+
+### Tests
+15 nuevos en `src/permisos/roles.test.ts` (32 en total): que todas las
+capacidades estén en algún grupo y en uno solo, la deducción exacta y
+aproximada del rol, la pluralización de "cambios", y las cuatro ramas de
+`motivoBloqueo` — incluida la que más fácil se implementa mal, que
+**quitar** un permiso que uno no tiene sí está permitido.
+
+Un test falló al escribirlo y **tenía razón el código**: el caso que
+elegí para "2 cambios" quedaba en realidad a 1 cambio de Encargado. Se
+cambió el caso de prueba, no la implementación.
+
+### Duda abierta
+El conjunto de cuatro roles salió de la lectura del dominio
+(`../ESTRATEGIA-COMPETITIVA.md`: comisión, alquiler de silla), no de
+hablar con barberías. Revisarlo en las visitas pendientes (duda abierta 4
+de `../ROADMAP.md`) — sobre todo si hace falta un tipo específico para el
+barbero que alquila silla y maneja su propia plata.
