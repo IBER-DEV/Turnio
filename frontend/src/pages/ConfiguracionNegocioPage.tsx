@@ -6,12 +6,15 @@ import { cuerpoMultipart } from "../api/multipart";
 import type { components } from "../api/schema";
 import { useAuth } from "../auth/AuthContext";
 import { conReintentoDeAuth } from "../auth/refresh";
+import { CATALOGO_TEMAS } from "./publico/temas";
+import { SelectorColor } from "./negocio/SelectorColor";
 import { Button } from "../ui/Button";
 import { Card, EstadoError, Skeleton } from "../ui/Feedback";
 import { Icon } from "../ui/Icon";
 import { Input } from "../ui/Input";
 import { ModalConfirmacion } from "../ui/Modal";
 import { useToast } from "../ui/Toast";
+import { cn } from "../ui/cn";
 
 type MiNegocio = components["schemas"]["MiNegocio"];
 type PatchedMiNegocio = components["schemas"]["PatchedMiNegocio"];
@@ -58,9 +61,15 @@ export function ConfiguracionNegocioPage() {
   const [reordenando, setReordenando] = useState(false);
   const [fotoPorBorrar, setFotoPorBorrar] = useState<FotoNegocio | null>(null);
   const [quitandoLogo, setQuitandoLogo] = useState(false);
+  const [subiendoPortada, setSubiendoPortada] = useState(false);
+  const [quitandoPortada, setQuitandoPortada] = useState(false);
+  const [cambiandoTema, setCambiandoTema] = useState(false);
+  const [colorAbierto, setColorAbierto] = useState(false);
+  const [guardandoColor, setGuardandoColor] = useState(false);
 
   const inputLogo = useRef<HTMLInputElement>(null);
   const inputFoto = useRef<HTMLInputElement>(null);
+  const inputPortada = useRef<HTMLInputElement>(null);
 
   async function cargar() {
     setCargando(true);
@@ -107,7 +116,16 @@ export function ConfiguracionNegocioPage() {
     await refrescarMembresia();
   }
 
-  async function handleLogo(evento: ChangeEvent<HTMLInputElement>) {
+  /** Sube el logo o la portada: son el mismo flujo sobre distinto campo.
+   *
+   * `etiqueta` viaja solo para los mensajes — el usuario no piensa en
+   * "campos", piensa en "mi logo" y "mi portada". */
+  async function subirImagen(
+    campo: "logo" | "portada",
+    etiqueta: string,
+    evento: ChangeEvent<HTMLInputElement>,
+    marcarSubiendo: (subiendo: boolean) => void,
+  ) {
     const archivo = evento.target.files?.[0];
     // El input se limpia siempre: si no, elegir el mismo archivo dos
     // veces seguidas (por ejemplo tras un error) no dispara `change`.
@@ -119,35 +137,60 @@ export function ConfiguracionNegocioPage() {
       return;
     }
 
-    setSubiendoLogo(true);
+    marcarSubiendo(true);
     const { data, error: errorRespuesta } = await conReintentoDeAuth(() =>
       apiClient.PATCH("/api/negocios/mi-negocio/", {
-        body: cuerpoMultipart<PatchedMiNegocio>({ logo: archivo }),
+        body: cuerpoMultipart<PatchedMiNegocio>({ [campo]: archivo }),
       }),
     );
-    setSubiendoLogo(false);
+    marcarSubiendo(false);
 
     if (errorRespuesta || !data) {
-      mostrar("error", "No pudimos subir el logo. Intenta con otra imagen.");
+      mostrar("error", `No pudimos subir ${etiqueta}. Intenta con otra imagen.`);
       return;
     }
     setNegocio(data);
-    mostrar("exito", "Logo actualizado.");
+    mostrar("exito", "Imagen actualizada.");
   }
 
-  async function quitarLogo() {
-    setQuitandoLogo(true);
+  async function quitarImagen(
+    campo: "logo" | "portada",
+    etiqueta: string,
+    marcarQuitando: (quitando: boolean) => void,
+  ) {
+    marcarQuitando(true);
     const { data, error: errorRespuesta } = await conReintentoDeAuth(() =>
-      apiClient.PATCH("/api/negocios/mi-negocio/", { body: { logo: null } }),
+      apiClient.PATCH("/api/negocios/mi-negocio/", { body: { [campo]: null } }),
     );
-    setQuitandoLogo(false);
+    marcarQuitando(false);
 
     if (errorRespuesta || !data) {
-      mostrar("error", "No pudimos quitar el logo.");
+      mostrar("error", `No pudimos quitar ${etiqueta}.`);
       return;
     }
     setNegocio(data);
-    mostrar("exito", "Logo quitado.");
+    mostrar("exito", `Quitamos ${etiqueta}.`);
+  }
+
+  /** Cambia el tema o el color. Se guarda al instante, sin botón: son
+   * decisiones que se toman mirando el resultado, y obligar a confirmar
+   * cada prueba haría que nadie pruebe. */
+  async function guardarApariencia(
+    cambio: Pick<PatchedMiNegocio, "tema"> | Pick<PatchedMiNegocio, "color_acento">,
+    marcarGuardando: (guardando: boolean) => void,
+  ) {
+    marcarGuardando(true);
+    const { data, error: errorRespuesta } = await conReintentoDeAuth(() =>
+      apiClient.PATCH("/api/negocios/mi-negocio/", { body: cambio }),
+    );
+    marcarGuardando(false);
+
+    if (errorRespuesta || !data) {
+      mostrar("error", "No pudimos guardar el cambio.");
+      return false;
+    }
+    setNegocio(data);
+    return true;
   }
 
   async function handleFoto(evento: ChangeEvent<HTMLInputElement>) {
@@ -294,6 +337,103 @@ export function ConfiguracionNegocioPage() {
       </Card>
 
       <Card className="p-5">
+        <h2 className="mb-1 font-label-md text-label-md text-on-surface">Diseño de tu página</h2>
+        <p className="mb-4 font-caption text-caption text-on-surface-variant">
+          Elige cómo se arma tu página. Puedes cambiarlo cuando quieras.
+        </p>
+        <ul className="grid grid-cols-2 gap-3 sm:max-w-md">
+          {CATALOGO_TEMAS.map((tema) => {
+            const elegido = negocio.tema === tema.id;
+            return (
+              <li key={tema.id}>
+                <button
+                  type="button"
+                  disabled={cambiandoTema}
+                  aria-pressed={elegido}
+                  onClick={async () => {
+                    if (elegido) return;
+                    const ok = await guardarApariencia({ tema: tema.id }, setCambiandoTema);
+                    if (ok) mostrar("exito", `Diseño ${tema.nombre} aplicado.`);
+                  }}
+                  className={cn(
+                    "w-full rounded-xl border p-3 text-left transition-all disabled:opacity-60",
+                    elegido
+                      ? "border-menta bg-menta/5 ring-2 ring-menta/20"
+                      : "border-outline-variant hover:border-menta/40",
+                  )}
+                >
+                  {/* Miniatura dibujada, no una captura: una imagen del
+                      tema se desactualiza en silencio cada vez que se
+                      toca el perfil, y nadie se entera hasta que un dueño
+                      elige algo que no se parece a lo que recibe. */}
+                  <span
+                    aria-hidden="true"
+                    className="mb-2 flex h-24 w-full flex-col overflow-hidden rounded-lg border border-outline-variant bg-white"
+                  >
+                    {tema.id === "vitrina" ? (
+                      <>
+                        <span className="flex h-2/3 flex-col items-center justify-center gap-1 bg-primary">
+                          <span className="h-1.5 w-12 rounded-full bg-white/80" />
+                          <span className="h-2 w-8 rounded-full bg-acento" />
+                        </span>
+                        <span className="flex flex-1 flex-col justify-center gap-1 px-2">
+                          <span className="h-1 w-full rounded-full bg-surface-container" />
+                          <span className="h-1 w-2/3 rounded-full bg-surface-container" />
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex items-center gap-1 px-2 pt-2">
+                          <span className="h-4 w-4 rounded bg-primary" />
+                          <span className="h-1.5 w-10 rounded-full bg-surface-container-high" />
+                        </span>
+                        <span className="flex flex-1 flex-col justify-center gap-1.5 px-2">
+                          <span className="h-3 w-full rounded bg-surface-container" />
+                          <span className="h-3 w-full rounded bg-surface-container" />
+                          <span className="h-3 w-full rounded bg-surface-container" />
+                        </span>
+                      </>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-1.5 font-label-md text-label-md text-on-surface">
+                    {elegido && <Icon name="check_circle" className="text-[16px] text-menta" />}
+                    {tema.nombre}
+                  </span>
+                  <span className="mt-0.5 block font-caption text-caption text-on-surface-variant">
+                    {tema.descripcion}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="mb-4 font-label-md text-label-md text-on-surface">Color de tu negocio</h2>
+        <button
+          type="button"
+          onClick={() => setColorAbierto(true)}
+          className="flex w-full items-center gap-3 rounded-xl border border-outline-variant px-4 py-3 text-left transition-colors hover:border-menta/40"
+        >
+          <span
+            className="h-8 w-8 shrink-0 rounded-full border border-outline-variant"
+            style={{ backgroundColor: negocio.color_acento || undefined }}
+            aria-hidden="true"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block font-label-md text-label-md text-on-surface">
+              {negocio.color_acento || "Color de Turnio"}
+            </span>
+            <span className="block font-caption text-caption text-on-surface-variant">
+              Pinta los botones y los detalles de tu página
+            </span>
+          </span>
+          <Icon name="chevron_right" className="shrink-0 text-outline" />
+        </button>
+      </Card>
+
+      <Card className="p-5">
         <h2 className="mb-4 font-label-md text-label-md text-on-surface">Logo</h2>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low">
@@ -324,14 +464,14 @@ export function ConfiguracionNegocioPage() {
                   tamano="sm"
                   icono="delete"
                   cargando={quitandoLogo}
-                  onClick={quitarLogo}
+                  onClick={() => quitarImagen("logo", "el logo", setQuitandoLogo)}
                 >
                   Quitar
                 </Button>
               )}
             </div>
             <p className="font-caption text-caption text-on-surface-variant">
-              Es la imagen que aparece cuando compartes tu enlace por WhatsApp. Máximo {MAX_MB} MB.
+              Cuadrado se ve mejor. Máximo {MAX_MB} MB.
             </p>
           </div>
           <input
@@ -339,10 +479,59 @@ export function ConfiguracionNegocioPage() {
             type="file"
             accept="image/*"
             className="sr-only"
-            onChange={handleLogo}
+            onChange={(evento) => subirImagen("logo", "el logo", evento, setSubiendoLogo)}
             aria-label="Elegir archivo de logo"
           />
         </div>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="mb-1 font-label-md text-label-md text-on-surface">Portada</h2>
+        <p className="mb-4 font-caption text-caption text-on-surface-variant">
+          La imagen ancha del encabezado. Es también la que se ve al compartir tu enlace por
+          WhatsApp, así que conviene una foto del local.
+        </p>
+        <div className="flex h-36 w-full items-center justify-center overflow-hidden rounded-xl border border-outline-variant bg-surface-container-low">
+          {negocio.portada ? (
+            <img
+              src={negocio.portada}
+              alt={`Portada de ${negocio.nombre}`}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <Icon name="add_photo_alternate" className="text-[32px] text-outline" />
+          )}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <Button
+            variante="secondary"
+            tamano="sm"
+            icono="add_photo_alternate"
+            cargando={subiendoPortada}
+            onClick={() => inputPortada.current?.click()}
+          >
+            {negocio.portada ? "Cambiar portada" : "Subir portada"}
+          </Button>
+          {negocio.portada && (
+            <Button
+              variante="ghost"
+              tamano="sm"
+              icono="delete"
+              cargando={quitandoPortada}
+              onClick={() => quitarImagen("portada", "la portada", setQuitandoPortada)}
+            >
+              Quitar
+            </Button>
+          )}
+        </div>
+        <input
+          ref={inputPortada}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          onChange={(evento) => subirImagen("portada", "la portada", evento, setSubiendoPortada)}
+          aria-label="Elegir imagen de portada"
+        />
       </Card>
 
       <Card className="p-5">
@@ -478,6 +667,22 @@ export function ConfiguracionNegocioPage() {
           />
         </div>
       </Card>
+
+      {colorAbierto && (
+        <SelectorColor
+          abierto
+          colorActual={negocio.color_acento ?? ""}
+          guardando={guardandoColor}
+          onCerrar={() => setColorAbierto(false)}
+          onGuardar={async (color) => {
+            const ok = await guardarApariencia({ color_acento: color }, setGuardandoColor);
+            if (ok) {
+              setColorAbierto(false);
+              mostrar("exito", color ? "Color actualizado." : "Volviste al color de Turnio.");
+            }
+          }}
+        />
+      )}
 
       <ModalConfirmacion
         abierto={fotoPorBorrar !== null}

@@ -1289,3 +1289,54 @@ constantes en `apps.negocios.models` (`MAX_FOTOS_POR_NEGOCIO`,
   frontend seguirá en rojo contra esta rama hasta que se cierre — sigue
   siendo la señal correcta. Plan del lado frontend: el mismo de la
   entrada anterior, sin cambios.
+
+## Apariencia del negocio: tema, color y portada (2026-07-28)
+
+> Misma rama. Extiende lo de imágenes con lo que faltaba para que el
+> enlace público **se sienta del negocio** y no de Turnio, tomando como
+> referencia cómo lo resuelve Goldie.
+
+### Qué se agregó
+- **`Negocio.tema`** — `TextChoices` con `estandar` y `vitrina`. Catálogo
+  **cerrado**, al revés que los cargos: un tema no es configuración del
+  negocio sino una plantilla que este equipo diseña y mantiene.
+- **`Negocio.color_acento`** — `#rrggbb` o vacío (= el color de Turnio).
+  Validado **en el modelo** con `RegexValidator`, no solo en el
+  serializer: este valor termina inyectado en una variable CSS de una
+  página pública, así que una cadena arbitraria ahí no es un dato feo
+  sino una vía de entrada a la hoja de estilos.
+- **`Negocio.portada`** — imagen ancha del encabezado, con el mismo
+  tratamiento que el logo. `actualizar_negocio` pasó a barrer los
+  archivos viejos de **todos** los campos de imagen
+  (`CAMPOS_IMAGEN_NEGOCIO`) en vez de solo el logo.
+- Migración `0003`, los tres campos en `MiNegocioSerializer` (escritura,
+  gateada por `puede_editar_negocio`) y en `NegocioPublicoSerializer`.
+- **`og:image` prefiere la portada** sobre el logo: es la única imagen
+  pensada para ser ancha, que es la forma que pide una tarjeta de
+  WhatsApp. El logo y la primera foto quedan como respaldo, en ese orden.
+- **`theme-color`** con el color del negocio en la cáscara HTML.
+
+### El bug que encontró la verificación en vivo
+La primera versión **agregaba** la meta `theme-color`, y `index.html` ya
+trae una genérica (`#f8f9ff`). Ante dos, el navegador se queda con la
+primera del documento — que es la genérica, porque está antes del
+`<title>` donde se inyectan estas tags. **El color del negocio no se
+habría visto nunca, con los tests en verde.** Se detectó comparando la
+respuesta real del backend corriendo contra lo que el test daba por
+bueno. Ahora se **reemplaza**, y el test cuenta las apariciones en vez de
+solo comprobar presencia.
+
+Regla que sale de ahí: para una meta tag que debe ser única, un test de
+presencia no alcanza — hay que verificar unicidad.
+
+### Estado
+180 tests en verde (venían 171). `openapi.yaml` regenerado, `CONTRATO.md`
+5.12 ampliado con la sección de apariencia y entrada en el historial. Las
+decisiones de diseño de esta tanda están en `../DECISIONES.md` #12–#18.
+
+### Pendiente que deja
+- **Nadie redimensiona la portada.** Se sirve tal cual se subió, y en el
+  tema Vitrina ocupa la primera pantalla completa: es la imagen más
+  pesada del perfil público. Generar derivados (o al menos un `srcset`)
+  es el siguiente paso natural si el perfil se siente lento en móvil.
+- **`Servicio` sigue sin imagen.** Nada lo pide todavía.

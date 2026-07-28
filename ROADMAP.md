@@ -141,7 +141,7 @@
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
 | Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
-| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes entregadas el 2026-07-28** (backend y frontend): logo + galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio`, `og:image` real al compartir el enlace (ver `CONTRATO.md` 5.12), pantalla `/configuracion/negocio` y carrusel en el perfil público. Falta: decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
+| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes y personalización entregadas el 2026-07-28** (backend y frontend): logo, portada y galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio`, `og:image` y `theme-color` reales al compartir el enlace (ver `CONTRATO.md` 5.12), pantalla `/configuracion/negocio`, y **tematización por negocio** — dos temas de perfil y color de acento propio con validación de contraste. Falta: decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
@@ -162,27 +162,37 @@ NO hacer todavía.
    lint, tests, build (`tsc -b`) y verifica que `src/api/schema.ts` esté
    regenerado contra `backend/openapi.yaml` — el espejo del chequeo de
    contrato que ya hacía el CI de backend.
-4. **Validación con negocios reales pendiente** (ver
+4. **La menta de Turnio no pasa contraste AA** (hallazgo del
+   2026-07-28, concierne a app y landing). `#10b981` da **2.54** contra
+   blanco: el botón primario del panel (`bg-menta text-white`) está por
+   debajo del mínimo de WCAG AA para texto (4.5) y ni siquiera llega al
+   de elementos de interfaz (3). Salió al construir la validación de
+   contraste del color por negocio, que sí avisa cuando un color no se
+   lee. No se cambió porque es el color de marca y afecta a los dos
+   proyectos con interfaz — es decisión de producto. Ver `DECISIONES.md`
+   #14.
+
+5. **Validación con negocios reales pendiente** (ver
    `ESTRATEGIA-COMPETITIVA.md`): visitar ~10 barberías/salones locales
    para confirmar cómo agendan hoy, cómo pagan comisión a fin de
    semana, y qué pasa cuando se cae el internet, antes de comprometer
    el detalle de Fase 3 (Caja/Comisiones).
-5. ~~Petición de frontend a backend: escritura en lote.~~ Resuelta el
+6. ~~Petición de frontend a backend: escritura en lote.~~ Resuelta el
    2026-07-25 (la misma persona hizo ambos lados): se agregaron `PUT
    /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`, ambos
    transaccionales, y el frontend ya los consume. Ver `CONTRATO.md`
    sección 5.5 e historial.
-6. ~~**Dos capacidades declaradas que no hacen nada todavía**:
+7. ~~**Dos capacidades declaradas que no hacen nada todavía**:
    `puede_cobrar` y `puede_ver_reportes`.~~ Resuelta el 2026-07-26 en la
    dirección honesta: la UI las marca con un chip "Pronto" y siguen
    siendo configurables, pero ya no se presentan como si hicieran algo.
    Se quita el chip cuando Caja (Fase 3) y Reportes (Fase 4) las exijan
    de verdad.
-7. **Bloqueante de entrada a Fase 3**: `porcentaje_comision` vive en
+8. **Bloqueante de entrada a Fase 3**: `porcentaje_comision` vive en
    `Servicio` y lo controla `puede_editar_precios`. Hoy es inerte, pero
    cuando Caja conecte el cálculo real, quien pueda editar servicios
    podrá subirse su propia comisión. Separar antes de conectar.
-8. **Cambio de alcance de Fase 2 (2026-07-28, decisión del humano)**:
+9. **Cambio de alcance de Fase 2 (2026-07-28, decisión del humano)**:
    el reemplazo de "llamar o escribir por WhatsApp" es el **enlace
    único y público del negocio** (`turnio.app/{slug}`, compartido por
    el dueño en su bio de Instagram o WhatsApp Business), no un

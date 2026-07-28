@@ -100,6 +100,9 @@ class NegocioPublicoSerializer(serializers.ModelSerializer):
             "direccion",
             "telefono",
             "logo",
+            "portada",
+            "color_acento",
+            "tema",
             "fotos",
             "servicios",
             "profesionales",
@@ -108,7 +111,10 @@ class NegocioPublicoSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         # Igual que en `NegocioSerializer`: sin logo la respuesta trae
         # `null`, y el contrato tiene que decirlo.
-        extra_kwargs = {"logo": {"allow_null": True}}
+        extra_kwargs = {
+            "logo": {"allow_null": True},
+            "portada": {"allow_null": True},
+        }
 
     # Los tres `@extend_schema_field` no son decoración: sin ellos
     # drf-spectacular no puede inferir qué devuelve un

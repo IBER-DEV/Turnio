@@ -180,29 +180,36 @@ def agregar_empleado(*, negocio, email, password, nombre, especialidad="", cargo
     return usuario, membresia
 
 
+#: Los campos de imagen de `Negocio`, para el barrido de archivos viejos.
+CAMPOS_IMAGEN_NEGOCIO = ("logo", "portada")
+
+
 def actualizar_negocio(*, negocio, datos):
     """Aplica una edición parcial de la ficha del negocio.
 
     Existe como servicio y no como un `serializer.save()` pelado por una
-    sola razón: reemplazar el logo tiene un efecto de lado en disco.
+    sola razón: reemplazar una imagen tiene un efecto de lado en disco.
     Django **no** borra el archivo anterior cuando se sube uno nuevo, así
-    que sin esto cada cambio de logo dejaría basura acumulándose en
-    `MEDIA_ROOT` para siempre.
+    que sin esto cada cambio de logo o de portada dejaría basura
+    acumulándose en `MEDIA_ROOT` para siempre.
 
     El borrado va después del `save()` a propósito: si la escritura falla,
-    el negocio se queda con el logo que ya tenía y no con un campo
-    apuntando a un archivo que se borró.
+    el negocio se queda con las imágenes que ya tenía y no con campos
+    apuntando a archivos que se borraron.
     """
-    nombre_anterior = negocio.logo.name
-    storage = negocio.logo.storage
+    anteriores = {
+        campo: (getattr(negocio, campo).name, getattr(negocio, campo).storage)
+        for campo in CAMPOS_IMAGEN_NEGOCIO
+    }
 
     for campo, valor in datos.items():
         setattr(negocio, campo, valor)
     negocio.save()
 
-    reemplazo_el_logo = "logo" in datos and negocio.logo.name != nombre_anterior
-    if reemplazo_el_logo and nombre_anterior:
-        storage.delete(nombre_anterior)
+    for campo, (nombre_anterior, storage) in anteriores.items():
+        fue_reemplazado = campo in datos and getattr(negocio, campo).name != nombre_anterior
+        if fue_reemplazado and nombre_anterior:
+            storage.delete(nombre_anterior)
     return negocio
 
 

@@ -20,6 +20,7 @@ _INDEX_DE_PRUEBA = """<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <meta name="theme-color" content="#f8f9ff" />
     <title>Turnio</title>
     <script type="module" src="/assets/index-abc123.js"></script>
   </head>
@@ -153,6 +154,52 @@ def test_el_logo_se_convierte_en_og_image_absoluto(
     assert f'property="og:image" content="http://testserver{negocio.logo.url}"' in html
     assert 'name="twitter:card" content="summary_large_image"' in html
     assert f'property="og:image:alt" content="{negocio.nombre}"' in html
+
+
+def test_la_portada_le_gana_al_logo_como_og_image(
+    cliente, dist_index, imagen_de_prueba, media_temporal
+):
+    """La tarjeta de WhatsApp es ancha: la portada está pensada para ese
+    formato y un logo cuadrado ahí sale recortado."""
+    negocio = _crear_negocio()
+    negocio.logo = imagen_de_prueba("logo.png")
+    negocio.portada = imagen_de_prueba("portada.png", "blue")
+    negocio.save(update_fields=["logo", "portada"])
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert f'property="og:image" content="http://testserver{negocio.portada.url}"' in html
+    assert negocio.logo.url not in html
+
+
+def test_el_color_del_negocio_reemplaza_el_theme_color_generico(cliente, dist_index):
+    """Y **reemplaza**, no se suma.
+
+    Ante dos `theme-color`, el navegador se queda con el primero del
+    documento — que es el genérico de `index.html`, porque está antes del
+    `<title>` donde se inyectan estas tags. Agregar el del negocio sin
+    quitar el otro deja un color que no se ve nunca.
+    """
+    negocio = _crear_negocio()
+    negocio.color_acento = "#ff5733"
+    negocio.save(update_fields=["color_acento"])
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert html.count('name="theme-color"') == 1
+    assert '<meta name="theme-color" content="#ff5733">' in html
+
+
+def test_sin_color_propio_se_conserva_el_theme_color_de_turnio(cliente, dist_index):
+    negocio = _crear_negocio()
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert html.count('name="theme-color"') == 1
+    assert 'content="#f8f9ff"' in html
 
 
 def test_sin_logo_usa_la_primera_foto_de_la_galeria(

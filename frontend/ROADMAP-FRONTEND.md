@@ -1022,3 +1022,57 @@ con `twitter:card: summary_large_image`.
 - **"Cargos" sigue en la barra inferior** aunque es tan secundario como
   el perfil del negocio. Moverlo es cambiarle la navegación a quien ya
   la conoce: merece decidirse aparte.
+
+## Tematización por negocio: temas, color y portada (2026-07-28)
+
+> Misma rama y misma sesión que la entrada anterior. El pedido era
+> acercarse a cómo Goldie deja personalizar la página del negocio.
+
+### Qué se construyó
+- **`src/tema/colores.ts`** — luminancia WCAG, contraste, el color de
+  texto que va encima del acento, el aviso al dueño y los ocho presets.
+  **Sin librería de color**: los tonos derivados los hace el navegador
+  con `color-mix(in oklch, …)`. Ver `../DECISIONES.md` #12.
+- **Perfil público tematizado** — el color se aplica en el contenedor del
+  perfil, nunca en `:root` (es el mismo bundle que sirve el panel del
+  staff). La hoja de reserva de Vaul necesita las variables aparte
+  porque se monta en un portal fuera de ese árbol.
+- **Dos temas** (`estandar`, `vitrina`) como **composiciones** de las
+  mismas secciones, que se extrajeron a `publico/secciones.tsx`. Un tema
+  desconocido cae en `estandar` en vez de romper la página.
+- **Panel**: selector de tema con miniaturas dibujadas en CSS, selector
+  de color (presets + `react-colorful`) con vista previa y aviso de
+  contraste, y subida de portada.
+- **Firma "Turnio" fija** al pie del perfil, sin interruptor
+  (`../DECISIONES.md` #17).
+- 51 tests en verde (venían 36).
+
+### Dependencia nueva: `react-colorful`
+2 KB, accesible por teclado. Justificación: un picker a mano es trabajo
+real y el `<input type="color">` nativo se comporta distinto entre el
+WebView de Android y el de iOS, que es exactamente el escenario de esta
+app. Se evaluaron y **descartaron** `chroma-js` y `culori` (ver arriba).
+
+### Hallazgo de accesibilidad sobre el propio sistema de diseño
+Al escribir la validación de contraste quedó a la vista que la menta de
+Turnio (`#10b981`) da **2.54** contra blanco: el botón primario del panel
+(`bg-menta text-white`) está por debajo de WCAG AA, y ni siquiera llega
+al mínimo de 3 para elementos de interfaz. **No se tocó**: cambiar el
+color de marca afecta a la app y a la landing y es una decisión de
+producto, no un arreglo al pasar. Queda como pendiente explícito, y el
+preset "Menta" del selector usa `#047857` (5.48) en vez del color de
+marca justamente por esto.
+
+### Pendientes que deja
+- **El color de marca de Turnio no pasa AA** (arriba). Es la deuda más
+  grande que abre esta sesión.
+- **Nadie redimensiona ni recorta las imágenes** en el cliente (ya venía
+  de la entrada anterior; con la portada pesa más, porque en Vitrina
+  ocupa la primera pantalla).
+- **Solo dos temas.** La arquitectura aguanta más, pero cada uno es
+  diseño y mantenimiento real.
+- `temas.tsx` y `secciones.tsx` disparan el warning de `oxlint` sobre
+  fast refresh (mezclan componentes y constantes exportadas), igual que
+  `AuthContext.tsx` y `Toast.tsx`. Se dejó así a propósito: separar el
+  catálogo de la implementación haría que agregar un tema toque dos
+  archivos, que es justo lo que la organización actual evita.

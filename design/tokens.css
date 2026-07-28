@@ -79,6 +79,33 @@
   --color-texto: #334155;
   --color-texto-suave: #64748b;
 
+  /* --- Acento del negocio ------------------------------------------
+     El único color del sistema que **cambia en tiempo de ejecución**:
+     cada negocio elige el suyo y el perfil público (`turnio.app/{slug}`)
+     redeclara estas cuatro variables en su contenedor raíz, con lo que
+     todo lo que use `bg-acento`, `text-acento`, etc. se repinta solo.
+
+     Los valores de acá son el **default de Turnio**, que es lo que se ve
+     en la app del staff, en la landing y en el perfil de un negocio que
+     nunca eligió color.
+
+     Ojo con la trampa de las custom properties si algún día se toca
+     esto: **no** sirve declararlas como `var(--acento-negocio, …)` acá y
+     definir `--acento-negocio` más abajo en el árbol. La sustitución de
+     `var()` ocurre en el elemento donde se declara —o sea, en `:root`—
+     y los descendientes heredan el valor **ya resuelto** al fallback.
+     Por eso el contenedor del perfil redeclara estas mismas variables y
+     no una intermedia.
+
+     `--color-acento-fuerte` y `--color-acento-suave` se derivan con
+     `color-mix()` en tiempo de ejecución (ver `frontend/src/tema/`), no
+     con una librería de color en JavaScript: el navegador ya sabe
+     interpolar en oklch y hacerlo en CSS no pesa nada en el bundle. */
+  --color-acento: #10b981;
+  --color-acento-fuerte: #059669;
+  --color-acento-suave: #ecfdf5;
+  --color-sobre-acento: #ffffff;
+
   /* --- Estados de una cita ----------------------------------------- */
   --color-agendada: #f59e0b;
   --color-confirmada: #3b82f6;

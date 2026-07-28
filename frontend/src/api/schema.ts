@@ -1222,6 +1222,10 @@ export interface components {
             telefono?: string;
             /** Format: uri */
             logo?: string | null;
+            /** Format: uri */
+            portada?: string | null;
+            color_acento?: string;
+            tema?: components["schemas"]["TemaEnum"];
             readonly activo: boolean;
         };
         /**
@@ -1281,6 +1285,10 @@ export interface components {
             readonly telefono: string;
             /** Format: uri */
             readonly logo: string | null;
+            /** Format: uri */
+            readonly portada: string | null;
+            readonly color_acento: string;
+            readonly tema: components["schemas"]["TemaEnum"];
             readonly fotos: components["schemas"]["FotoPublica"][];
             readonly servicios: components["schemas"]["ServicioPublico"][];
             readonly profesionales: components["schemas"]["ProfesionalPublico"][];
@@ -1365,6 +1373,10 @@ export interface components {
             telefono?: string;
             /** Format: uri */
             logo?: string | null;
+            /** Format: uri */
+            portada?: string | null;
+            color_acento?: string;
+            tema?: components["schemas"]["TemaEnum"];
             readonly activo?: boolean;
         };
         /**
@@ -1498,6 +1510,12 @@ export interface components {
             readonly precio: string;
             readonly duracion_minutos: number;
         };
+        /**
+         * @description * `estandar` - Estándar
+         *     * `vitrina` - Vitrina
+         * @enum {string}
+         */
+        TemaEnum: "estandar" | "vitrina";
         /**
          * @description * `administracion` - Administración
          *     * `recepcion` - Recepción

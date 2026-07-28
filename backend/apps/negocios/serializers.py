@@ -212,18 +212,41 @@ class MiNegocioSerializer(serializers.ModelSerializer):
     logo = serializers.ImageField(
         required=False, allow_null=True, validators=[validar_peso_imagen]
     )
+    portada = serializers.ImageField(
+        required=False, allow_null=True, validators=[validar_peso_imagen]
+    )
 
     class Meta:
         model = Negocio
-        fields = ["id", "nombre", "slug", "ciudad", "direccion", "telefono", "logo", "activo"]
+        fields = [
+            "id",
+            "nombre",
+            "slug",
+            "ciudad",
+            "direccion",
+            "telefono",
+            "logo",
+            "portada",
+            "color_acento",
+            "tema",
+            "activo",
+        ]
         read_only_fields = ["id", "slug", "activo"]
+        extra_kwargs = {
+            # Vacío es un valor válido y significa "el color de Turnio"
+            # (ver `Negocio.color_acento`), así que el campo acepta la
+            # cadena vacía además de un `#rrggbb`.
+            "color_acento": {"allow_blank": True},
+        }
 
+    # Quitar una imagen se pide mandando el campo vacío (`null` en JSON, o
+    # el campo vacío en multipart, que DRF traduce a `None`). El modelo
+    # representa "sin imagen" con la cadena vacía, no con NULL —ver
+    # `Negocio.logo`—, así que la traducción va acá y no en los servicios.
     def validate_logo(self, imagen):
-        # Quitar el logo se pide mandando `logo` vacío (`null` en JSON, o
-        # el campo vacío en multipart, que DRF traduce a `None`). El
-        # modelo representa "sin logo" con la cadena vacía, no con NULL
-        # —ver `Negocio.logo`—, así que la traducción va acá y no en la
-        # capa de servicios.
+        return "" if imagen is None else imagen
+
+    def validate_portada(self, imagen):
         return "" if imagen is None else imagen
 
 

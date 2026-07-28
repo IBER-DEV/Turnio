@@ -22,6 +22,9 @@ const NEGOCIO = {
   direccion: "Cra 45 #10-20",
   telefono: "3001234567",
   logo: null,
+  portada: null,
+  color_acento: "",
+  tema: "estandar",
   fotos: [],
   servicios: [
     {
@@ -125,6 +128,57 @@ describe("PerfilNegocioPage", () => {
       "http://api.test/media/1.png",
       "http://api.test/media/2.png",
     ]);
+  });
+
+  it("el tema Vitrina muestra la portada y el llamado a reservar", async () => {
+    mockearGet({
+      "/api/publico/negocios/{slug}/": {
+        data: { ...NEGOCIO, tema: "vitrina", portada: "http://api.test/media/portada.png" },
+        error: undefined,
+      },
+    });
+
+    renderPerfil();
+
+    await screen.findByRole("heading", { name: "Barbería Castro" });
+    expect(await screen.findByRole("button", { name: "Reservar ahora" })).toBeInTheDocument();
+    const portada = document.querySelector('img[src="http://api.test/media/portada.png"]');
+    expect(portada).not.toBeNull();
+  });
+
+  it("un tema que esta versión de la app no conoce cae en el estándar", async () => {
+    // El backend puede ir por delante de la app instalada en un
+    // teléfono: recibir un tema nuevo no puede dejar la página en blanco.
+    mockearGet({
+      "/api/publico/negocios/{slug}/": {
+        data: { ...NEGOCIO, tema: "tema-del-futuro" },
+        error: undefined,
+      },
+    });
+
+    renderPerfil();
+
+    expect(await screen.findByRole("heading", { name: "Barbería Castro" })).toBeInTheDocument();
+    expect(screen.getByText("Corte clásico")).toBeInTheDocument();
+  });
+
+  it("el color del negocio se aplica al perfil, no a la app entera", async () => {
+    mockearGet({
+      "/api/publico/negocios/{slug}/": {
+        data: { ...NEGOCIO, color_acento: "#be123c" },
+        error: undefined,
+      },
+    });
+
+    const { container } = renderPerfil();
+
+    await screen.findByRole("heading", { name: "Barbería Castro" });
+    const contenedor = container.firstElementChild as HTMLElement;
+    expect(contenedor.style.getPropertyValue("--color-acento")).toBe("#be123c");
+    // La raíz del documento queda intacta: el mismo bundle sirve el panel
+    // del staff, y teñir `:root` dejaría la app con el color de la última
+    // barbería visitada.
+    expect(document.documentElement.style.getPropertyValue("--color-acento")).toBe("");
   });
 
   it("catálogo vacío ofrece el estado vacío, no una lista en blanco", async () => {

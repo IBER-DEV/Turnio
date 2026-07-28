@@ -27,6 +27,126 @@
 
 ---
 
+## 2026-07-28 — Tematización por negocio (Fase 2)
+
+Salieron de darle a cada negocio un tema, un color de marca y una
+portada para su enlace público, tomando como referencia cómo lo resuelve
+Goldie.
+
+### 12. No entra ninguna librería de color
+
+**Contexto.** La propuesta de partida incluía `chroma-js` o `culori` para
+generar la escala de tonos y calcular contrastes.
+
+**Decisión.** Ninguna de las dos. El trabajo se parte en dos mitades con
+respuestas distintas:
+- **Derivar tonos** (hover, fondo suave) lo hace el navegador con
+  `color-mix(in oklch, …)`, mejor que una interpolación en sRGB y sin
+  sumar nada al bundle.
+- **Decidir el color del texto encima** sí necesita JavaScript, y son
+  veinte líneas: la fórmula de luminancia relativa de la WCAG, congelada
+  desde 2008 (`frontend/src/tema/colores.ts`).
+
+**Cuándo reabrirlo.** Si hace falta generar una escala completa 50–900 o
+convertir entre espacios de color, ahí una librería sí paga su peso.
+
+**Costo aceptado.** `color-mix()` pide Chrome 111+ / Safari 16.2+. En un
+WebView de Capacitor de 2026 es seguro; en un Android muy viejo los tonos
+derivados caerían al valor por defecto, no a un color roto.
+
+### 13. `react-colorful` sí entra
+
+**Decisión.** 2 KB para el selector de color libre del panel.
+
+**Por qué esta sí.** Un picker accesible por teclado es trabajo real, y
+la alternativa nativa (`<input type="color">`) se comporta distinto entre
+el WebView de Android y el de iOS — justo el escenario de esta app.
+
+### 14. Se avisa del mal contraste, no se bloquea
+
+**Decisión.** El color libre acepta cualquier `#rrggbb`; si el contraste
+contra blanco no llega a 4.5 (AA para texto) se muestra un aviso con una
+vista previa del botón real. Los ocho presets, en cambio, pasan todos AA,
+con un test que lo verifica para que nadie agregue un pastel bonito sin
+darse cuenta.
+
+**Por qué avisar y no impedir.** Es la marca del negocio y puede tener
+razones para ese color exacto. Lo que no puede pasar es que se entere por
+un cliente que no pudo leer los precios.
+
+**Hallazgo incómodo que esto destapó.** La menta de Turnio (`#10b981`)
+da **2.54** contra blanco: no llega ni al mínimo de interfaz (3). Es
+decir, el botón primario del propio producto —`bg-menta text-white` en
+todo el panel— está por debajo de WCAG AA. No se tocó acá: cambiarlo es
+una decisión de marca que afecta app y landing, y merece su propia
+conversación. Queda anotado, y el aviso de contraste es honesto incluso
+cuando el que queda mal es uno mismo (hay un test que lo fija).
+
+### 15. El color se aplica en un contenedor, nunca en `:root`
+
+**Decisión.** El perfil público redeclara las cuatro variables de acento
+en su `<div>` raíz.
+
+**Por qué.** Es el mismo bundle que sirve el panel del staff: teñir la
+raíz dejaría la app entera con el color de la última barbería visitada.
+
+**Trampa que hay que conocer para no "simplificar" esto.** No sirve
+declarar en `:root` una variable intermedia (`var(--acento-negocio, …)`)
+y definirla más abajo en el árbol: la sustitución de `var()` ocurre en el
+elemento donde se declara, y los descendientes heredan el valor **ya
+resuelto al fallback**. Está comentado en `design/tokens.css`.
+
+**Consecuencia menos obvia.** La hoja de reserva (Vaul) se monta en un
+**portal** colgado del `body`, fuera de ese contenedor: hay que pasarle
+las variables explícitamente o sería la única pantalla del flujo con el
+color de Turnio.
+
+### 16. Los temas son composiciones, no implementaciones paralelas
+
+**Decisión.** Las secciones del perfil (servicios, equipo, horario,
+carrusel) viven sueltas en `secciones.tsx`; cada tema es un archivo que
+las **ordena** distinto. El catálogo lo define el backend como enum
+cerrado (`Negocio.Tema`), y el frontend degrada a `estandar` ante un
+valor que no conozca — el backend puede ir por delante de la app
+instalada en un teléfono.
+
+**Por qué.** Es lo que hace que un tema nuevo sea una composición y no
+una segunda implementación de la lista de servicios. Sin esta separación,
+el tercer tema es donde la idea se vuelve impagable.
+
+**Se entregan dos** (`estandar`, `vitrina`) y no cinco a propósito: cada
+tema es una variante real que hay que diseñar, probar y mantener.
+
+**Miniaturas dibujadas con CSS, no capturas de pantalla.** Una imagen del
+tema se desactualiza en silencio cada vez que se toca el perfil, y nadie
+se entera hasta que un dueño elige algo que no se parece a lo que recibe.
+
+### 17. La marca "Turnio" del pie no es configurable
+
+**Decisión del humano.** El pie del perfil público siempre dice que la
+agenda es de Turnio. No hay interruptor, ni campo en el modelo.
+
+**Por qué.** En Goldie quitarla es función de pago. Construir el
+interruptor abierto a todos regala hoy la palanca de conversión que Fase
+5 (planes) va a necesitar — y peor, cobrarla después significaría
+quitarle algo a quien ya lo tenía.
+
+### 18. `theme-color` se reemplaza, no se agrega
+
+**Decisión.** La cáscara HTML **borra** el `theme-color` genérico de
+`index.html` antes de inyectar el del negocio.
+
+**Por qué.** Ante dos `theme-color` aplicables, el navegador se queda con
+el primero del documento — y el genérico está antes del `<title>`, que es
+el punto de inyección. La primera versión solo agregaba la tag: el color
+del negocio no se habría visto **nunca**, con los tests en verde. Se
+detectó comparando la respuesta real del backend corriendo contra lo que
+el test daba por bueno, y quedó fijado con un test que cuenta las
+apariciones.
+
+**Regla que sale de ahí:** para meta tags únicas, un test que verifique
+presencia no alcanza; hay que verificar **unicidad**.
+
 ## 2026-07-28 — Imágenes del negocio (Fase 2)
 
 Todas salieron de construir el logo y la galería del negocio: `Negocio.logo`,

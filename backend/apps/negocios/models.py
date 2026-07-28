@@ -1,10 +1,23 @@
+import re
 from pathlib import Path
 from uuid import uuid4
 
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils.text import slugify
 
 from apps.common.models import TenantScopedModel
+
+#: Un color en notación `#rrggbb`, en minúsculas o mayúsculas.
+#:
+#: Se valida en el modelo y no solo en el serializer porque este valor
+#: termina **inyectado en una variable CSS** del perfil público. Una
+#: cadena arbitraria ahí no es un dato feo: es una vía para meter algo que
+#: no es un color en la hoja de estilos de una página pública.
+validar_color_hex = RegexValidator(
+    regex=re.compile(r"^#(?:[0-9a-fA-F]{6})$"),
+    message="Usa un color en formato #rrggbb, por ejemplo #10b981.",
+)
 
 #: Cuántas fotos puede tener la galería de un negocio (decisión del
 #: humano, 2026-07-28). Diez alcanza para mostrar el local y algunos
@@ -34,6 +47,10 @@ def _ruta_imagen(carpeta, nombre_archivo):
 
 def ruta_logo(instancia, nombre_archivo):
     return _ruta_imagen(f"negocios/{instancia.pk}/logo", nombre_archivo)
+
+
+def ruta_portada(instancia, nombre_archivo):
+    return _ruta_imagen(f"negocios/{instancia.pk}/portada", nombre_archivo)
 
 
 def ruta_foto(instancia, nombre_archivo):
@@ -88,6 +105,23 @@ SLUGS_RESERVADOS = frozenset(
 
 
 class Negocio(TenantScopedModel):
+    class Tema(models.TextChoices):
+        """Cómo se compone el perfil público.
+
+        Es un **catálogo cerrado**, al revés que los cargos: un tema no es
+        configuración del negocio sino una plantilla que este equipo
+        diseña, prueba y mantiene. Cada valor nuevo acá es una variante
+        real del perfil que hay que sostener en el tiempo, así que la
+        lista crece a propósito despacio.
+
+        El frontend elige el layout con esto; si recibe un tema que no
+        conoce (backend adelantado a una versión vieja de la app), cae en
+        `ESTANDAR` en vez de romperse.
+        """
+
+        ESTANDAR = "estandar", "Estándar"
+        VITRINA = "vitrina", "Vitrina"
+
     nombre = models.CharField(max_length=150)
     slug = models.SlugField(max_length=170, unique=True, blank=True)
     ciudad = models.CharField(max_length=100, blank=True)
@@ -98,6 +132,16 @@ class Negocio(TenantScopedModel):
     # de decir lo mismo (recomendación explícita de la documentación de
     # Django para campos basados en cadenas).
     logo = models.ImageField(upload_to=ruta_logo, blank=True)
+    # La imagen ancha del encabezado del perfil. Distinta del logo (que es
+    # la identidad, cuadrada) y de la galería (que son trabajos): es el
+    # fondo del saludo, y en el tema Vitrina ocupa la primera pantalla.
+    portada = models.ImageField(upload_to=ruta_portada, blank=True)
+    #: Vacío significa "el color de Turnio", no un color guardado. Así, si
+    #: algún día cambia la paleta del producto, los negocios que nunca
+    #: eligieron color acompañan el cambio en vez de quedarse con un
+    #: verde que ya nadie usa.
+    color_acento = models.CharField(max_length=7, blank=True, validators=[validar_color_hex])
+    tema = models.CharField(max_length=20, choices=Tema.choices, default=Tema.ESTANDAR)
     activo = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)

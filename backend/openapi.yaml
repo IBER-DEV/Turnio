@@ -2126,6 +2126,16 @@ components:
           type: string
           format: uri
           nullable: true
+        portada:
+          type: string
+          format: uri
+          nullable: true
+        color_acento:
+          type: string
+          pattern: ^#(?:[0-9a-fA-F]{6})$
+          maxLength: 7
+        tema:
+          $ref: '#/components/schemas/TemaEnum'
         activo:
           type: boolean
           readOnly: true
@@ -2267,6 +2277,18 @@ components:
           format: uri
           readOnly: true
           nullable: true
+        portada:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        color_acento:
+          type: string
+          readOnly: true
+        tema:
+          allOf:
+          - $ref: '#/components/schemas/TemaEnum'
+          readOnly: true
         fotos:
           type: array
           items:
@@ -2289,15 +2311,18 @@ components:
           readOnly: true
       required:
       - ciudad
+      - color_acento
       - direccion
       - fotos
       - horario
       - logo
       - nombre
+      - portada
       - profesionales
       - servicios
       - slug
       - telefono
+      - tema
     NegocioPublicoResumen:
       type: object
       description: Un negocio en la lista de resultados de búsqueda.
@@ -2458,6 +2483,16 @@ components:
           type: string
           format: uri
           nullable: true
+        portada:
+          type: string
+          format: uri
+          nullable: true
+        color_acento:
+          type: string
+          pattern: ^#(?:[0-9a-fA-F]{6})$
+          maxLength: 7
+        tema:
+          $ref: '#/components/schemas/TemaEnum'
         activo:
           type: boolean
           readOnly: true
@@ -2736,6 +2771,14 @@ components:
       - id
       - nombre
       - precio
+    TemaEnum:
+      enum:
+      - estandar
+      - vitrina
+      type: string
+      description: |-
+        * `estandar` - Estándar
+        * `vitrina` - Vitrina
     TipoEnum:
       enum:
       - administracion

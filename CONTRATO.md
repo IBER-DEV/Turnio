@@ -539,14 +539,44 @@ Reglas que el schema no captura:
 - **Subir una foto la agrega al final.** Ser la primera del carrusel es
   un gesto explícito de reordenamiento, no una consecuencia de subirla.
 
-**En la superficie pública** (5.11), `GET /api/publico/negocios/{slug}/`
-gana dos campos: `logo` (string o `null`) y `fotos` (array, ya ordenado
-por `orden`). Ambos traen **URLs absolutas**, no `/media/...`: el mismo
-JSON lo consume la app móvil, que no comparte origen con la API.
+### Apariencia: tema, color y portada
 
-`GET /{slug}/` (la cáscara HTML con meta tags) ahora emite `og:image` con
-el logo, o con la primera foto de la galería si no hay logo. Un negocio
-sin ninguna de las dos se comparte sin imagen, como antes.
+Los tres campos que deciden cómo se ve el perfil público viajan en el
+mismo `PATCH /api/negocios/mi-negocio/`:
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `tema` | enum | Catálogo **cerrado** que define el backend. Hoy: `estandar`, `vitrina`. |
+| `color_acento` | string | `#rrggbb` o **cadena vacía**. Vacío = usa el color de Turnio. |
+| `portada` | imagen | Igual que `logo`: multipart para subir, vacío para quitar. |
+
+- **`tema` es un enum del backend, no texto libre.** Un valor fuera del
+  catálogo responde `400`. El frontend debe **degradar** ante un tema que
+  no conozca (backend desplegado por delante de la app instalada en un
+  teléfono) cayendo en `estandar`, no romperse.
+- **`color_acento` vacío no es "sin color"**: significa "el de Turnio".
+  Guardar un color propio y después vaciarlo es cómo se vuelve al
+  default. Un valor que no sea `#rrggbb` responde `400` — se valida en el
+  **modelo**, no solo en el serializer, porque termina inyectado en una
+  variable CSS de una página pública.
+- **El backend no calcula contraste ni tonos derivados.** Manda el color
+  elegido y nada más; decidir si el texto encima va blanco o negro es del
+  frontend (`frontend/src/tema/colores.ts`).
+
+**En la superficie pública** (5.11), `GET /api/publico/negocios/{slug}/`
+gana cinco campos: `logo`, `portada` (string o `null`), `fotos` (array,
+ya ordenado por `orden`), `color_acento` y `tema`. Las imágenes traen
+**URLs absolutas**, no `/media/...`: el mismo JSON lo consume la app
+móvil, que no comparte origen con la API.
+
+`GET /{slug}/` (la cáscara HTML con meta tags):
+- `og:image` con la **portada**, o el logo, o la primera foto de la
+  galería, en ese orden. La portada va primera porque es la única pensada
+  para ser ancha, que es la forma que pide una tarjeta de WhatsApp.
+- `theme-color` con el color del negocio, **reemplazando** el genérico
+  que trae `index.html`. Reemplazar y no agregar: ante dos `theme-color`
+  el navegador se queda con el primero del documento, y el genérico está
+  antes del punto de inyección.
 
 **Almacenamiento**: los archivos van a `MEDIA_ROOT` en disco local y se
 sirven bajo `/media/` **solo con `DEBUG=1`**. Fuera de desarrollo eso lo
@@ -843,3 +873,28 @@ que `frontend/dist/` (ver `backend/ROADMAP-BACKEND.md`).
   diseñó: al regenerar el schema, lo único que dejó de compilar fue el
   `Record<Capacidad, …>` de `DEFINICIONES` — el compilador señaló
   exactamente la línea que había que atender.
+- **2026-07-28** — **Apariencia del negocio: tema, color de acento y
+  portada** (ver 5.12). Tres campos nuevos en `Negocio`, editables en
+  `PATCH /api/negocios/mi-negocio/` con `puede_editar_negocio` y
+  expuestos en `GET /api/publico/negocios/{slug}/`:
+
+  - `tema` — enum cerrado (`estandar`, `vitrina`). El frontend elige la
+    composición del perfil con esto y **degrada a `estandar`** ante un
+    valor que no conozca.
+  - `color_acento` — `#rrggbb` o cadena vacía (= el color de Turnio).
+    Validado en el modelo, no solo en el serializer: termina en una
+    variable CSS de una página pública, así que una cadena arbitraria ahí
+    no es un dato feo sino una vía de entrada a la hoja de estilos.
+  - `portada` — imagen ancha del encabezado, con el mismo tratamiento que
+    `logo` (multipart para subir, vacío para quitar, borrado del archivo
+    anterior al reemplazar).
+
+  **Cambio de comportamiento en `GET /{slug}/`**: `og:image` ahora
+  prefiere la portada sobre el logo, y se emite `theme-color` con el
+  color del negocio **reemplazando** el genérico de `index.html`. Lo
+  segundo se detectó verificando la respuesta real contra el backend
+  corriendo: la versión que solo agregaba la tag dejaba dos, y el
+  navegador usa la primera del documento — el color del negocio no se
+  habría visto nunca aunque el test pasara.
+
+  Aditivo en todo lo demás: ninguna respuesta existente cambió de forma.

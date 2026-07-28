@@ -212,6 +212,106 @@ def test_una_imagen_demasiado_pesada_se_rechaza(cliente_dueno):
     assert "logo" in respuesta.data
 
 
+# --- Tema, color y portada ------------------------------------------------
+
+
+def test_el_dueno_elige_tema_y_color_de_acento(cliente_dueno, negocio_y_dueno):
+    negocio, _dueno, _m = negocio_y_dueno
+
+    respuesta = cliente_dueno.patch(
+        "/api/negocios/mi-negocio/",
+        {"tema": "vitrina", "color_acento": "#ff5733"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    negocio.refresh_from_db()
+    assert negocio.tema == "vitrina"
+    assert negocio.color_acento == "#ff5733"
+
+
+def test_un_color_que_no_es_hex_se_rechaza(cliente_dueno, negocio_y_dueno):
+    """Este valor termina inyectado en una variable CSS del perfil
+    público: una cadena arbitraria no es un dato feo, es una vía de
+    entrada a la hoja de estilos de una página abierta a internet."""
+    negocio, _dueno, _m = negocio_y_dueno
+
+    for valor in ["rojo", "#12345", "javascript:alert(1)", "#12345g", "red; }"]:
+        respuesta = cliente_dueno.patch(
+            "/api/negocios/mi-negocio/", {"color_acento": valor}, format="json"
+        )
+        assert respuesta.status_code == 400, valor
+
+    negocio.refresh_from_db()
+    assert negocio.color_acento == ""
+
+
+def test_el_color_vacio_es_valido_y_significa_el_de_turnio(cliente_dueno, negocio_y_dueno):
+    negocio, _dueno, _m = negocio_y_dueno
+    negocio.color_acento = "#ff5733"
+    negocio.save(update_fields=["color_acento"])
+
+    respuesta = cliente_dueno.patch(
+        "/api/negocios/mi-negocio/", {"color_acento": ""}, format="json"
+    )
+
+    assert respuesta.status_code == 200
+    negocio.refresh_from_db()
+    assert negocio.color_acento == ""
+
+
+def test_un_tema_inventado_se_rechaza(cliente_dueno):
+    respuesta = cliente_dueno.patch(
+        "/api/negocios/mi-negocio/", {"tema": "el-mio-propio"}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+
+
+def test_la_portada_se_sube_y_reemplazarla_borra_la_anterior(
+    cliente_dueno, negocio_y_dueno, imagen_de_prueba
+):
+    negocio, _dueno, _m = negocio_y_dueno
+
+    cliente_dueno.patch(
+        "/api/negocios/mi-negocio/", {"portada": imagen_de_prueba()}, format="multipart"
+    )
+    negocio.refresh_from_db()
+    anterior = Path(negocio.portada.path)
+    assert anterior.exists()
+
+    cliente_dueno.patch(
+        "/api/negocios/mi-negocio/",
+        {"portada": imagen_de_prueba("otra.png", "blue")},
+        format="multipart",
+    )
+
+    negocio.refresh_from_db()
+    assert not anterior.exists()
+    assert Path(negocio.portada.path).exists()
+
+
+def test_cambiar_la_portada_no_toca_el_logo(cliente_dueno, negocio_y_dueno, imagen_de_prueba):
+    """El barrido de archivos viejos recorre los dos campos de imagen:
+    conviene fijar que no se lleve por delante el que no cambió."""
+    negocio, _dueno, _m = negocio_y_dueno
+    cliente_dueno.patch(
+        "/api/negocios/mi-negocio/", {"logo": imagen_de_prueba("logo.png")}, format="multipart"
+    )
+    negocio.refresh_from_db()
+    logo = Path(negocio.logo.path)
+
+    cliente_dueno.patch(
+        "/api/negocios/mi-negocio/",
+        {"portada": imagen_de_prueba("portada.png", "blue")},
+        format="multipart",
+    )
+
+    negocio.refresh_from_db()
+    assert logo.exists()
+    assert negocio.logo.name != ""
+
+
 # --- La galería -----------------------------------------------------------
 
 

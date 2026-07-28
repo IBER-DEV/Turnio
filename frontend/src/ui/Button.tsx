@@ -4,7 +4,7 @@ import { cn } from "./cn";
 import { Icon } from "./Icon";
 import type { NombreIcono } from "./Icon";
 
-type Variante = "primary" | "secondary" | "accent" | "danger" | "ghost";
+type Variante = "primary" | "secondary" | "accent" | "danger" | "ghost" | "negocio";
 type Tamano = "sm" | "md" | "lg";
 
 const VARIANTES: Record<Variante, string> = {
@@ -13,6 +13,11 @@ const VARIANTES: Record<Variante, string> = {
   accent: "bg-primary text-on-primary hover:bg-primary-container",
   danger: "border border-error/30 bg-error/5 text-error hover:bg-error/10",
   ghost: "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface",
+  // El color de marca **del negocio**, no el de Turnio: se resuelve en
+  // tiempo de ejecución contra las variables que pinta el contenedor del
+  // perfil público (ver `src/tema/`). Fuera de ese contenedor cae en el
+  // default del sistema, así que usarla por error no rompe nada.
+  negocio: "bg-acento text-sobre-acento hover:bg-acento-fuerte shadow-suave",
 };
 
 const TAMANOS: Record<Tamano, string> = {
