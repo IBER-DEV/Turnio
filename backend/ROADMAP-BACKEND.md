@@ -1066,3 +1066,277 @@ sigue vivo y con throttling propio. ¿Se deja tal cual hasta entonces, o
 se retira del menú de navegación pública para no ofrecer un flujo que
 el producto ya no prioriza? No se tocó nada del lado de rutas/UI de
 búsqueda en esta sesión — es pregunta para quien lleve frontend.
+
+## Imágenes del negocio: sesión cortada en la capacidad (2026-07-28)
+
+> Rama nueva `feature/backend-fase2-imagenes-negocio`, creada sobre
+> `feature/frontend-sistema-diseno` — cuyo PR #4 ya se mergeó a `main`
+> mientras se trabajaba en esta rama (ver ese roadmap). Se abrió aparte
+> para no seguir agregando commits a un PR que ya estaba en revisión.
+
+### Por qué existe esta sesión
+Cerrando Fase 2 quedaron dos huecos anotados en `../ROADMAP.md` decisión
+#8: el enlace compartido no tiene `og:image` (el preview de WhatsApp/
+Instagram va sin imagen) y no hay forma de mostrar fotos del negocio en
+el perfil público. Los dos dependen de lo mismo: **no existe ningún
+campo de imagen en `Negocio` ni `Servicio`**, y tampoco existe **ningún
+endpoint para editar el negocio** — ni el logo, ni el nombre, ni la
+dirección. Antes de tocar imágenes había que resolver el permiso.
+
+Decisiones tomadas con el humano antes de escribir código:
+1. **Capacidad nueva `puede_editar_negocio`**, no reusar
+   `puede_gestionar_empleados` ni `puede_editar_precios`. Quien decide
+   el nombre/logo del local no es necesariamente quien administra el
+   equipo ni quien pone precios.
+2. **Alcance: logo + galería de fotos** (no solo logo). Implica un
+   modelo `FotoNegocio` aparte (varias fotos, con orden), no un segundo
+   `ImageField` en `Negocio`.
+
+### Lo único que se hizo (deliberadamente poco)
+La sesión se cortó a propósito en el primer paso, con instrucción
+explícita de dejar todo documentado para retomar:
+
+- `apps.usuarios.models.CAPACIDADES`: se agregó `"puede_editar_negocio"`
+  a la tupla.
+- `Cargo.puede_editar_negocio` (`BooleanField(default=False)`), con
+  comentario explicando por qué está separada de
+  `puede_gestionar_empleados`.
+- Migración generada: `apps/usuarios/migrations/0005_cargo_puede_editar_negocio.py`.
+- **No hizo falta tocar nada más del lado de permisos**: `CargoSerializer`
+  (`fields = [..., *CAMPOS_CAPACIDADES]`), `sembrar_cargos_iniciales`
+  (usa `list(CAMPOS_CAPACIDADES)` para Administración), y las dos
+  funciones anti-escalada (`validar_cambio_de_capacidades`,
+  `validar_asignacion_de_cargo`) son todas genéricas sobre
+  `CAMPOS_CAPACIDADES` — agregar el campo a la tupla y al modelo alcanzó
+  para que todo el resto del sistema de capacidades lo reconociera solo.
+  Verificado corriendo la suite completa: **147 passed, sin tocar ningún
+  test** (el que fija que el dueño recibe todas las capacidades del
+  registro, `test_registrar_negocio_otorga_todas_las_capacidades_al_dueno`,
+  itera `CAMPOS_CAPACIDADES` genéricamente y ya lo cubrió).
+- `openapi.yaml` **regenerado**: `puede_editar_negocio` ya aparece en
+  `Cargo` y `PatchedCargo`. Es lo correcto del lado backend — el schema
+  debe reflejar lo que el backend realmente devuelve.
+- `frontend/src/api/schema.ts` **NO se regeneró, a propósito**. Ver
+  advertencia abajo.
+- `CONTRATO.md`: entrada agregada al historial (sección 6) con esta
+  misma explicación.
+
+### Advertencia para quien retome: hay drift de contrato intencional
+`catalogo.ts` (frontend) deriva `Capacidad` del schema y tiene
+`DEFINICIONES: Record<Capacidad, …>` — el comentario del propio archivo
+dice que si el backend agrega una capacidad, **eso debe dejar de
+compilar** hasta traducirla. Es el comportamiento correcto, pero
+significa que:
+
+- El CI de frontend (que verifica que `schema.ts` esté regenerado
+  contra `openapi.yaml`) **fallará** contra esta rama tal como está,
+  porque `openapi.yaml` ya tiene la capacidad y `schema.ts` no.
+- **No regenerar `schema.ts` todavía es la decisión correcta**: hacerlo
+  ahora rompería la compilación de todo el frontend (no solo de la
+  pantalla nueva) hasta escribir la traducción, y esta sesión no llega
+  a esa parte.
+- **La rama no se mergea así.** El siguiente paso obligatorio es
+  regenerar `schema.ts` y traducir la capacidad en `catalogo.ts` **en el
+  mismo commit** — nunca por separado, o queda un commit intermedio con
+  el frontend roto.
+
+### Lo que falta para que esto sirva de algo (plan completo, en orden)
+
+**Backend:**
+1. `pip install Pillow` (`requirements.txt`) — Django no puede validar
+   `ImageField` sin él.
+2. `MEDIA_ROOT` / `MEDIA_URL` en `settings.py`. Servir `/media/` en
+   `DEBUG` (mismo patrón que se usó para `frontend/dist/` en
+   `config/urls.py` — ver la vista `PerfilPublicoShellView` de esta
+   misma fase para el precedente de "solo en DEBUG, producción queda
+   pendiente"). `.gitignore` ya tiene `/backend/media/` reservado desde
+   antes.
+3. `Negocio.logo = models.ImageField(upload_to=..., blank=True, null=True)`.
+4. Modelo nuevo `FotoNegocio` (`negocio` FK, `imagen`, `orden` — mínimo
+   viable; evaluar límite de fotos por negocio para no dejar subir
+   cientos).
+5. Migraciones de `apps.negocios`.
+6. `PATCH /api/negocios/mi-negocio/` — no existe ningún endpoint de
+   edición del negocio hoy, hay que crearlo desde cero (nombre,
+   dirección, teléfono, ciudad, logo). Gate: `puede_editar_negocio`.
+   Usar `parser_classes` con `MultiPartParser` para el logo.
+7. Endpoints de fotos: subir, borrar, reordenar. Mismo gate.
+8. Serializers públicos (`apps/publico/serializers.py`): agregar `logo`
+   y `fotos` a `NegocioPublicoSerializer`. Ojo con URLs absolutas — un
+   `ImageField.url` es relativo, y el perfil público lo consume un
+   crawler que no tiene contexto de dominio; hay que construirlo con
+   `request.build_absolute_uri()` igual que ya hace
+   `PerfilPublicoShellView` con `og:url`.
+9. `views_shell.py`: agregar `og:image` con la URL absoluta del logo
+   (si existe) — ese es el objetivo final de todo esto.
+10. Tests: capacidad, permisos del PATCH, subida/borrado/reorden de
+    fotos, `og:image` presente cuando hay logo y ausente cuando no.
+11. Regenerar `openapi.yaml` otra vez (esta ronda si va a tener forma
+    real de request/response) y actualizar `CONTRATO.md`.
+
+**Frontend (bloqueado hasta que el backend tenga los endpoints):**
+1. Regenerar `schema.ts` + traducir `puede_editar_negocio` en
+   `catalogo.ts` (`DEFINICIONES`, `GRUPOS` — probablemente un área nueva
+   "Perfil del negocio" o sumarla a un área existente) **en el mismo
+   commit**.
+2. Nav: agregar entrada en `permisos/shell.ts` gateada por la capacidad
+   (ver patrón de `EQUIPO`/`CARGOS` en ese archivo), ruta sugerida
+   `/configuracion/negocio`.
+3. Pantalla nueva: editar nombre/dirección/teléfono, subir logo,
+   gestionar fotos (subir, borrar, reordenar).
+4. Perfil público (`PerfilNegocioPage`): mostrar el logo en vez de
+   `Avatar` con iniciales cuando exista, y el carrusel de fotos
+   (Blossom, evaluado y compatible con React 19 — ver entrada anterior
+   de `../frontend/ROADMAP-FRONTEND.md`).
+
+### Duda abierta para el humano
+¿Límite de fotos por negocio y peso máximo por imagen? No se decidió
+todavía — afecta el modelo `FotoNegocio` y la validación del endpoint de
+subida, así que hay que resolverlo antes del paso 4 del plan de backend.
+
+## Imágenes del negocio: plan ejecutado (2026-07-28, misma rama)
+
+> Retoma exactamente donde quedó la entrada anterior. Los 11 pasos de
+> backend que quedaron escritos allá están **todos hechos**; lo que sigue
+> documenta cómo, y en qué se desvió del plan.
+
+### La duda abierta, resuelta
+**10 fotos por negocio, 5 MB por imagen** (decisión del humano,
+2026-07-28). Diez alcanza para mostrar el local y algunos trabajos sin
+convertir el perfil en un álbum que hay que bajar por 4G antes de poder
+reservar; 5 MB cubre una foto de celular sin comprimir. Viven como
+constantes en `apps.negocios.models` (`MAX_FOTOS_POR_NEGOCIO`,
+`PESO_MAXIMO_IMAGEN_BYTES`) y están documentadas en `CONTRATO.md` 5.12.
+
+### Qué se construyó
+- **Pillow 10.4.0** en `requirements.txt` (única dependencia nueva: sin
+  ella `ImageField` ni siquiera pasa la validación de modelos).
+- **`MEDIA_ROOT`/`MEDIA_URL`** en `settings.py`, servidos bajo `/media/`
+  **solo con `DEBUG=1`** en `config/urls.py`, con el mismo comentario que
+  ya tenía `frontend/dist/`: no es despliegue, es desarrollo.
+- **`Negocio.logo`** (`ImageField`, `blank=True`) y **`FotoNegocio`**
+  (`negocio` FK con `related_name="fotos"`, `imagen`, `orden`,
+  `creado_en`), migración `negocios/0002_negocio_logo_fotonegocio.py`.
+- **`GET`/`PATCH /api/negocios/mi-negocio/`** — no existía **ningún**
+  endpoint para editar el negocio, ni el nombre. Leer solo pide
+  pertenecer al negocio; editar exige `puede_editar_negocio`.
+- **Fotos**: `GET`/`POST /api/negocios/mi-negocio/fotos/`,
+  `DELETE .../fotos/{id}/` y `PUT .../fotos/orden/`.
+- **Superficie pública**: `NegocioPublicoSerializer` gana `logo` y
+  `fotos` con URLs absolutas; `PerfilNegocioView` prefetchea `fotos`.
+- **`og:image`** en `views_shell.py` — el objetivo final de toda la
+  tanda: compartir el enlace por WhatsApp ahora muestra la imagen del
+  negocio.
+- **24 tests nuevos** (`apps/negocios/tests/test_imagenes.py` + tres en
+  `apps/publico/tests/`). Suite completa: **171 passed**, de 147.
+- **`openapi.yaml` regenerado** y **`CONTRATO.md` 5.12 + historial**.
+
+### Decisiones técnicas y desvíos del plan escrito
+1. **`logo` sin `null=True`**, contra lo que decía el paso 3 del plan. La
+   documentación de Django desaconseja `null` en campos basados en
+   cadenas: `""` ya significa "sin logo" y admitir además `NULL` daría
+   dos formas de decir lo mismo. Hacia afuera la API sí devuelve `null`
+   (`allow_null` declarado en los serializers), que es lo que el frontend
+   necesita para tiparlo.
+2. **Nombres de archivo aleatorios** (`uuid4().hex`) bajo
+   `negocios/<id>/logo/` y `negocios/<id>/fotos/`. Dos razones: el nombre
+   original viene de internet y `FileField` lo usaría tal cual para
+   escribir en disco, y un path estable haría que el navegador —o el
+   crawler de WhatsApp— siguiera sirviendo el logo viejo tras
+   reemplazarlo.
+3. **El borrado de archivos vive en `services.py`**, no en señales ni en
+   `Model.delete()`. Django no borra archivos huérfanos desde 1.3, así
+   que sin esto cada cambio de logo dejaría basura permanente en
+   `MEDIA_ROOT`. `actualizar_negocio` borra el logo reemplazado **después**
+   del `save()` (si la escritura falla, el negocio conserva el archivo
+   que ya tenía), y `eliminar_foto` borra archivo y fila juntos.
+4. **Reordenar exige la lista completa de ids**, no un `PATCH orden=n`
+   por foto. El orden es propiedad del conjunto: con una lista parcial
+   habría que inventar dónde caen las que faltan, y dos clientes
+   reordenando a medias dejarían un orden que ninguno pidió. Idempotente
+   y "el último request gana, entero". Mismo criterio que
+   `PUT /api/agenda/horarios/semana/`.
+5. **`slug` de solo lectura en el PATCH.** Salió al escribir el
+   serializer: es la URL que el dueño ya repartió, y dejarla editable
+   rompería en silencio todo lo que él mismo compartió, además de
+   liberar el slug viejo para otro negocio.
+6. **`og:image` cae en la primera foto de la galería si no hay logo**, y
+   `twitter:card` sube a `summary_large_image` solo cuando hay imagen —
+   con la variante grande y sin imagen, la tarjeta queda vacía.
+7. **`extra_kwargs = {"logo": {"allow_null": True}}`** en los serializers
+   de solo lectura. Sin eso el schema declaraba `logo: string` mientras
+   la API devolvía `null`: exactamente el mismo tipo de mentira
+   sintácticamente válida que el bug de los `SerializerMethodField` de la
+   sesión anterior, y que `--validate` tampoco atrapa.
+8. **Fixtures compartidas en `conftest.py`** (`media_temporal`,
+   `imagen_de_prueba`): cualquier test que suba una imagen escribe
+   archivos de verdad, y sin `MEDIA_ROOT` temporal la suite iría dejando
+   basura en `backend/media/` a cada corrida.
+
+### Lo que sigue sin resolverse (heredado, no nuevo)
+- **Almacenamiento local en disco.** Sirve para desarrollo y para un
+  despliegue de un solo servidor; con varios contenedores sin volumen
+  compartido, cada uno vería fotos distintas. Migrar a S3/R2 con
+  `django-storages` es decisión de infraestructura, junto con cómo se
+  sirve `frontend/dist/` y `/media/` fuera de `DEBUG`.
+- **Nadie redimensiona ni comprime las imágenes.** El límite de 5 MB es
+  la única defensa: un logo de 5 MB se sirve tal cual en el perfil
+  público. Generar miniaturas (o un `og:image` de tamaño acotado) es
+  trabajo pendiente si el perfil se siente pesado en móvil.
+- **El drift con el frontend sigue abierto y creció**: además de
+  `puede_editar_negocio`, ahora faltan del lado de `schema.ts` los
+  endpoints de `mi-negocio` y los campos `logo`/`fotos`. El CI de
+  frontend seguirá en rojo contra esta rama hasta que se cierre — sigue
+  siendo la señal correcta. Plan del lado frontend: el mismo de la
+  entrada anterior, sin cambios.
+
+## Apariencia del negocio: tema, color y portada (2026-07-28)
+
+> Misma rama. Extiende lo de imágenes con lo que faltaba para que el
+> enlace público **se sienta del negocio** y no de Turnio, tomando como
+> referencia cómo lo resuelve Goldie.
+
+### Qué se agregó
+- **`Negocio.tema`** — `TextChoices` con `estandar` y `vitrina`. Catálogo
+  **cerrado**, al revés que los cargos: un tema no es configuración del
+  negocio sino una plantilla que este equipo diseña y mantiene.
+- **`Negocio.color_acento`** — `#rrggbb` o vacío (= el color de Turnio).
+  Validado **en el modelo** con `RegexValidator`, no solo en el
+  serializer: este valor termina inyectado en una variable CSS de una
+  página pública, así que una cadena arbitraria ahí no es un dato feo
+  sino una vía de entrada a la hoja de estilos.
+- **`Negocio.portada`** — imagen ancha del encabezado, con el mismo
+  tratamiento que el logo. `actualizar_negocio` pasó a barrer los
+  archivos viejos de **todos** los campos de imagen
+  (`CAMPOS_IMAGEN_NEGOCIO`) en vez de solo el logo.
+- Migración `0003`, los tres campos en `MiNegocioSerializer` (escritura,
+  gateada por `puede_editar_negocio`) y en `NegocioPublicoSerializer`.
+- **`og:image` prefiere la portada** sobre el logo: es la única imagen
+  pensada para ser ancha, que es la forma que pide una tarjeta de
+  WhatsApp. El logo y la primera foto quedan como respaldo, en ese orden.
+- **`theme-color`** con el color del negocio en la cáscara HTML.
+
+### El bug que encontró la verificación en vivo
+La primera versión **agregaba** la meta `theme-color`, y `index.html` ya
+trae una genérica (`#f8f9ff`). Ante dos, el navegador se queda con la
+primera del documento — que es la genérica, porque está antes del
+`<title>` donde se inyectan estas tags. **El color del negocio no se
+habría visto nunca, con los tests en verde.** Se detectó comparando la
+respuesta real del backend corriendo contra lo que el test daba por
+bueno. Ahora se **reemplaza**, y el test cuenta las apariciones en vez de
+solo comprobar presencia.
+
+Regla que sale de ahí: para una meta tag que debe ser única, un test de
+presencia no alcanza — hay que verificar unicidad.
+
+### Estado
+180 tests en verde (venían 171). `openapi.yaml` regenerado, `CONTRATO.md`
+5.12 ampliado con la sección de apariencia y entrada en el historial. Las
+decisiones de diseño de esta tanda están en `../DECISIONES.md` #12–#18.
+
+### Pendiente que deja
+- **Nadie redimensiona la portada.** Se sirve tal cual se subió, y en el
+  tema Vitrina ocupa la primera pantalla completa: es la imagen más
+  pesada del perfil público. Generar derivados (o al menos un `srcset`)
+  es el siguiente paso natural si el perfil se siente lento en móvil.
+- **`Servicio` sigue sin imagen.** Nada lo pide todavía.

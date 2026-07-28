@@ -32,6 +32,7 @@ para que refrescar la página en una ruta de React Router no rompa si
 Django termina siendo el único origen.
 """
 
+import re
 from pathlib import Path
 
 from django.conf import settings
@@ -42,6 +43,16 @@ from django.views import View
 from apps.negocios.models import SLUGS_RESERVADOS, Negocio
 
 _DIST_INDEX = Path(settings.BASE_DIR).parent / "frontend" / "dist" / "index.html"
+
+#: El `theme-color` genérico que trae `frontend/index.html`.
+#:
+#: Hay que **quitarlo**, no basta con agregar el del negocio después: ante
+#: dos `theme-color` aplicables, el navegador se queda con el primero del
+#: documento, y el genérico está antes del `<title>` donde se inyectan
+#: estas meta tags. Sin esto, el color del negocio no se ve nunca —
+#: se detectó justamente así, comparando la respuesta real contra lo que
+#: el test daba por bueno.
+_META_THEME_COLOR = re.compile(r"[ \t]*<meta name=\"theme-color\"[^>]*>\n?")
 
 
 def _shell_html() -> str:
@@ -89,21 +100,55 @@ class PerfilPublicoShellView(View):
         )
         url = request.build_absolute_uri(f"/{slug}/")
 
-        # No hay `og:image`: ningún negocio tiene todavía un campo de
-        # logo o foto en el modelo (mismo hueco que bloquea el carrusel
-        # de fotos del perfil, ver ROADMAP-FRONTEND.md). Un preview sin
-        # imagen es peor que uno con imagen del negocio, pero mejor que
-        # uno idéntico para los 200 negocios de la plataforma.
+        # La imagen del preview, en orden de preferencia: la portada, el
+        # logo, o la primera foto de la galería. La portada va primero
+        # porque es la única pensada para ser ancha —que es la forma que
+        # pide una tarjeta de WhatsApp—; un logo cuadrado ahí se ve
+        # recortado o con franjas. Un negocio sin ninguna de las tres se
+        # comparte sin imagen, como antes: un preview sin imagen es peor
+        # que uno con la foto del local, pero mejor que uno idéntico para
+        # los 200 negocios de la plataforma.
+        #
+        # La URL tiene que ser **absoluta**: `ImageField.url` es un path
+        # relativo (`/media/...`) y el crawler de WhatsApp lee el HTML sin
+        # contexto de dominio. Mismo `build_absolute_uri` que ya se usa
+        # arriba para `og:url`.
+        imagen = negocio.portada or negocio.logo or None
+        if not imagen:
+            primera_foto = negocio.fotos.first()
+            imagen = primera_foto.imagen if primera_foto else None
+        url_imagen = request.build_absolute_uri(imagen.url) if imagen else None
+
         og_tags = (
             f'<meta property="og:type" content="business.business">\n'
             f'    <meta property="og:title" content="{escape(titulo)}">\n'
             f'    <meta property="og:description" content="{escape(descripcion)}">\n'
             f'    <meta property="og:url" content="{escape(url)}">\n'
-            f'    <meta name="twitter:card" content="summary">\n'
-            f'    <meta name="description" content="{escape(descripcion)}">'
         )
+        if url_imagen:
+            # `summary_large_image` solo cuando hay imagen: con `summary`
+            # a secas, Twitter/X la muestra como miniatura cuadrada, y sin
+            # imagen la variante grande deja una tarjeta vacía.
+            og_tags += (
+                f'    <meta property="og:image" content="{escape(url_imagen)}">\n'
+                f'    <meta property="og:image:alt" content="{escape(negocio.nombre)}">\n'
+                f'    <meta name="twitter:card" content="summary_large_image">\n'
+            )
+        else:
+            og_tags += '    <meta name="twitter:card" content="summary">\n'
+        if negocio.color_acento:
+            # Tiñe la barra del navegador en Android y el fondo de la
+            # tarjeta al agregar a inicio. El valor ya viene validado como
+            # `#rrggbb` desde el modelo (`validar_color_hex`), así que no
+            # puede colarse otra cosa; el `escape` es cinturón y tirantes.
+            og_tags += (
+                f'    <meta name="theme-color" content="{escape(negocio.color_acento)}">\n'
+            )
+        og_tags += f'    <meta name="description" content="{escape(descripcion)}">'
 
         html = _shell_html()
+        if negocio.color_acento:
+            html = _META_THEME_COLOR.sub("", html, count=1)
         # El shell genérico siempre tiene exactamente un `<title>Turnio</title>`
         # (viene de `frontend/index.html`, que no cambia entre builds). Si
         # ese literal deja de existir el reemplazo no aplica y se sirve el

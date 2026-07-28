@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../ui/Avatar";
 import { cn } from "../ui/cn";
 import { Icon } from "../ui/Icon";
-import { MenuAcciones, MenuAccionesItem } from "../ui/MenuAcciones";
+import { MenuAcciones, MenuAccionesItem, MenuAccionesSeparator } from "../ui/MenuAcciones";
 import { Separator } from "../ui/Separator";
 import { usePermisos } from "../permisos/usePermisos";
 
@@ -15,6 +15,11 @@ export function Layout({ children }: { children: ReactNode }) {
   // (ver permisos/shell.ts). El Layout solo la dibuja.
   const { shell } = usePermisos();
   const navegacion = shell.navegacion;
+  // La barra inferior de móvil tiene un presupuesto de espacio que la
+  // barra lateral de desktop no tiene: los ajustes ocasionales van al
+  // menú de cuenta en vez de robarle sitio a la agenda.
+  const navegacionPrincipal = navegacion.filter((item) => !item.secundaria);
+  const navegacionSecundaria = navegacion.filter((item) => item.secundaria);
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -52,6 +57,12 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
           }
         >
+          {navegacionSecundaria.map(({ to, etiqueta, icono }) => (
+            <MenuAccionesItem key={to} icono={icono} onClick={() => navigate(to)}>
+              {etiqueta}
+            </MenuAccionesItem>
+          ))}
+          {navegacionSecundaria.length > 0 && <MenuAccionesSeparator />}
           <MenuAccionesItem icono="logout" destructivo onClick={handleLogout}>
             Cerrar sesión
           </MenuAccionesItem>
@@ -166,7 +177,7 @@ export function Layout({ children }: { children: ReactNode }) {
         aria-label="Navegación principal"
         className="fixed bottom-0 left-0 z-50 flex w-full items-center justify-around border-t border-outline-variant/40 bg-white/95 px-2 pb-4 pt-1.5 backdrop-blur-md safe-bottom lg:hidden"
       >
-        {navegacion.map(({ to, etiqueta, icono }) => (
+        {navegacionPrincipal.map(({ to, etiqueta, icono }) => (
           <NavLink
             key={to}
             to={to}

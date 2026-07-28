@@ -21,6 +21,11 @@ const NEGOCIO = {
   ciudad: "Medellín",
   direccion: "Cra 45 #10-20",
   telefono: "3001234567",
+  logo: null,
+  portada: null,
+  color_acento: "",
+  tema: "estandar",
+  fotos: [],
   servicios: [
     {
       id: 1,
@@ -87,6 +92,93 @@ describe("PerfilNegocioPage", () => {
     expect(
       await screen.findByText(/Este negocio no existe o ya no está activo/),
     ).toBeInTheDocument();
+  });
+
+  it("un negocio sin fotos no muestra un carrusel vacío", async () => {
+    mockearGet({ "/api/publico/negocios/{slug}/": { data: NEGOCIO, error: undefined } });
+
+    renderPerfil();
+
+    await screen.findByRole("heading", { name: "Barbería Castro" });
+    expect(screen.queryByRole("group", { name: /Desliza para ver más fotos/ })).toBeNull();
+  });
+
+  it("muestra el logo y las fotos del negocio cuando existen", async () => {
+    mockearGet({
+      "/api/publico/negocios/{slug}/": {
+        data: {
+          ...NEGOCIO,
+          logo: "http://api.test/media/logo.png",
+          fotos: [
+            { id: 3, imagen: "http://api.test/media/1.png", orden: 0 },
+            { id: 7, imagen: "http://api.test/media/2.png", orden: 1 },
+          ],
+        },
+        error: undefined,
+      },
+    });
+
+    renderPerfil();
+
+    await screen.findByRole("heading", { name: "Barbería Castro" });
+    const carrusel = screen.getByRole("group", { name: /Desliza para ver más fotos/ });
+    // El orden importa: es lo que el dueño decidió, y la primera foto es
+    // la que el backend usa como `og:image` si no hay logo.
+    expect(within(carrusel).getAllByRole("img").map((img) => img.getAttribute("src"))).toEqual([
+      "http://api.test/media/1.png",
+      "http://api.test/media/2.png",
+    ]);
+  });
+
+  it("el tema Vitrina muestra la portada y el llamado a reservar", async () => {
+    mockearGet({
+      "/api/publico/negocios/{slug}/": {
+        data: { ...NEGOCIO, tema: "vitrina", portada: "http://api.test/media/portada.png" },
+        error: undefined,
+      },
+    });
+
+    renderPerfil();
+
+    await screen.findByRole("heading", { name: "Barbería Castro" });
+    expect(await screen.findByRole("button", { name: "Reservar ahora" })).toBeInTheDocument();
+    const portada = document.querySelector('img[src="http://api.test/media/portada.png"]');
+    expect(portada).not.toBeNull();
+  });
+
+  it("un tema que esta versión de la app no conoce cae en el estándar", async () => {
+    // El backend puede ir por delante de la app instalada en un
+    // teléfono: recibir un tema nuevo no puede dejar la página en blanco.
+    mockearGet({
+      "/api/publico/negocios/{slug}/": {
+        data: { ...NEGOCIO, tema: "tema-del-futuro" },
+        error: undefined,
+      },
+    });
+
+    renderPerfil();
+
+    expect(await screen.findByRole("heading", { name: "Barbería Castro" })).toBeInTheDocument();
+    expect(screen.getByText("Corte clásico")).toBeInTheDocument();
+  });
+
+  it("el color del negocio se aplica al perfil, no a la app entera", async () => {
+    mockearGet({
+      "/api/publico/negocios/{slug}/": {
+        data: { ...NEGOCIO, color_acento: "#be123c" },
+        error: undefined,
+      },
+    });
+
+    const { container } = renderPerfil();
+
+    await screen.findByRole("heading", { name: "Barbería Castro" });
+    const contenedor = container.firstElementChild as HTMLElement;
+    expect(contenedor.style.getPropertyValue("--color-acento")).toBe("#be123c");
+    // La raíz del documento queda intacta: el mismo bundle sirve el panel
+    // del staff, y teñir `:root` dejaría la app con el color de la última
+    // barbería visitada.
+    expect(document.documentElement.style.getPropertyValue("--color-acento")).toBe("");
   });
 
   it("catálogo vacío ofrece el estado vacío, no una lista en blanco", async () => {

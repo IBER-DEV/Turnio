@@ -65,12 +65,18 @@ export const DEFINICIONES: Record<
     corto: "Equipo",
     consecuencia: "Da de alta compañeros y define los cargos del negocio.",
   },
+  puede_editar_negocio: {
+    etiqueta: "Cambiar cómo se ve el negocio",
+    corto: "Perfil",
+    consecuencia:
+      "El nombre, la dirección, el logo y las fotos que ven los clientes en el enlace del negocio.",
+  },
 };
 
 /** Los permisos agrupados por área del negocio.
  *
- * Con siete interruptores, la lista plana dejó de escanearse: quien
- * busca "¿puede tocar la plata?" no debería leer los siete.
+ * Con ocho interruptores, la lista plana dejó de escanearse: quien
+ * busca "¿puede tocar la plata?" no debería leerlos todos.
  */
 export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
   {
@@ -88,6 +94,14 @@ export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
   {
     area: "Equipo",
     capacidades: ["puede_gestionar_empleados"],
+  },
+  {
+    // Área propia y no dentro de "Equipo": lo que el cliente ve del
+    // negocio (nombre, logo, fotos) no es organización interna, y quien
+    // administra al equipo no es necesariamente quien decide la cara
+    // pública del local.
+    area: "Perfil del negocio",
+    capacidades: ["puede_editar_negocio"],
   },
 ];
 

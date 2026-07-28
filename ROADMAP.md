@@ -141,7 +141,7 @@
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
 | Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
-| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. Falta: campo de imagen en el modelo (bloquea `og:image` y el futuro carrusel del perfil) y decidir cómo se sirve `frontend/dist/` fuera de desarrollo — ver decisión #8. |
+| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes y personalización entregadas el 2026-07-28** (backend y frontend): logo, portada y galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio`, `og:image` y `theme-color` reales al compartir el enlace (ver `CONTRATO.md` 5.12), pantalla `/configuracion/negocio`, y **tematización por negocio** — dos temas de perfil y color de acento propio con validación de contraste. Falta: decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
@@ -162,27 +162,37 @@ NO hacer todavía.
    lint, tests, build (`tsc -b`) y verifica que `src/api/schema.ts` esté
    regenerado contra `backend/openapi.yaml` — el espejo del chequeo de
    contrato que ya hacía el CI de backend.
-4. **Validación con negocios reales pendiente** (ver
+4. **La menta de Turnio no pasa contraste AA** (hallazgo del
+   2026-07-28, concierne a app y landing). `#10b981` da **2.54** contra
+   blanco: el botón primario del panel (`bg-menta text-white`) está por
+   debajo del mínimo de WCAG AA para texto (4.5) y ni siquiera llega al
+   de elementos de interfaz (3). Salió al construir la validación de
+   contraste del color por negocio, que sí avisa cuando un color no se
+   lee. No se cambió porque es el color de marca y afecta a los dos
+   proyectos con interfaz — es decisión de producto. Ver `DECISIONES.md`
+   #14.
+
+5. **Validación con negocios reales pendiente** (ver
    `ESTRATEGIA-COMPETITIVA.md`): visitar ~10 barberías/salones locales
    para confirmar cómo agendan hoy, cómo pagan comisión a fin de
    semana, y qué pasa cuando se cae el internet, antes de comprometer
    el detalle de Fase 3 (Caja/Comisiones).
-5. ~~Petición de frontend a backend: escritura en lote.~~ Resuelta el
+6. ~~Petición de frontend a backend: escritura en lote.~~ Resuelta el
    2026-07-25 (la misma persona hizo ambos lados): se agregaron `PUT
    /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`, ambos
    transaccionales, y el frontend ya los consume. Ver `CONTRATO.md`
    sección 5.5 e historial.
-6. ~~**Dos capacidades declaradas que no hacen nada todavía**:
+7. ~~**Dos capacidades declaradas que no hacen nada todavía**:
    `puede_cobrar` y `puede_ver_reportes`.~~ Resuelta el 2026-07-26 en la
    dirección honesta: la UI las marca con un chip "Pronto" y siguen
    siendo configurables, pero ya no se presentan como si hicieran algo.
    Se quita el chip cuando Caja (Fase 3) y Reportes (Fase 4) las exijan
    de verdad.
-7. **Bloqueante de entrada a Fase 3**: `porcentaje_comision` vive en
+8. **Bloqueante de entrada a Fase 3**: `porcentaje_comision` vive en
    `Servicio` y lo controla `puede_editar_precios`. Hoy es inerte, pero
    cuando Caja conecte el cálculo real, quien pueda editar servicios
    podrá subirse su propia comisión. Separar antes de conectar.
-8. **Cambio de alcance de Fase 2 (2026-07-28, decisión del humano)**:
+9. **Cambio de alcance de Fase 2 (2026-07-28, decisión del humano)**:
    el reemplazo de "llamar o escribir por WhatsApp" es el **enlace
    único y público del negocio** (`turnio.app/{slug}`, compartido por
    el dueño en su bio de Instagram o WhatsApp Business), no un
@@ -195,11 +205,35 @@ NO hacer todavía.
 
    De ahí salieron dos hallazgos que quedan como bloqueos reales, no
    del contrato sino de producto/infraestructura:
-   - **No hay ningún campo de imagen** en `Negocio` ni en `Servicio`
+   - ~~**No hay ningún campo de imagen** en `Negocio` ni en `Servicio`
      (ni logo, ni foto de portada, ni fotos de servicios). Bloquea
      tanto un carrusel de fotos en el perfil como la vista previa con
      imagen al compartir el enlace (`og:image`). Es de backend
-     (modelo + storage) cuando se priorice.
+     (modelo + storage) cuando se priorice.~~ **Resuelto del lado
+     backend el 2026-07-28** (rama `feature/backend-fase2-imagenes-negocio`):
+     `Negocio.logo` + modelo `FotoNegocio`, la capacidad
+     `puede_editar_negocio`, endpoints de `mi-negocio` (ficha, subida,
+     borrado y reordenamiento de fotos), `logo`/`fotos` en el perfil
+     público y `og:image` en la cáscara HTML. Límites decididos por el
+     humano: **10 fotos por negocio, 5 MB por imagen**. Ver `CONTRATO.md`
+     5.12 y `backend/ROADMAP-BACKEND.md`. **Frontend entregado el mismo
+     día** (mismo commit del cierre de drift): pantalla
+     `/configuracion/negocio` con logo y galería, y el perfil público
+     con logo real y carrusel. **`Servicio` sigue sin imagen** — no se
+     agregó porque nada lo pide todavía.
+     ~~🚧 **En curso** (2026-07-28, rama `feature/backend-fase2-imagenes-negocio`,
+     sobre `feature/frontend-sistema-diseno`): sesión cortada a
+     propósito en el primer paso — se agregó la capacidad
+     `puede_editar_negocio` (modelo + migración, 147 tests sin romperse)
+     que va a proteger el endpoint de edición del negocio y de fotos.
+     **`openapi.yaml` regenerado; `frontend/src/api/schema.ts`
+     deliberadamente no** (romper el frontend antes de traducir la
+     capacidad no tenía sentido).~~ **Cerrado el 2026-07-28**: el plan de
+     11 pasos de backend y 4 de frontend quedó ejecutado completo, y con
+     él el **drift de `schema.ts`**, que se regeneró junto con la
+     traducción de la capacidad en `catalogo.ts` en el mismo commit —
+     el CI de frontend vuelve a verde. Detalle en ambos sub-roadmaps y
+     las decisiones técnicas en `DECISIONES.md`.
    - **El SPA no tenía forma de generar un preview real al compartir el
      enlace**: los crawlers de WhatsApp/Instagram no ejecutan
      JavaScript, así que `index.html` genérico mostraba "Turnio" igual

@@ -160,7 +160,7 @@ No hay roles fijos tipo "Dueño"/"Empleado" definidos en el código. Las
 capacidades son booleanos independientes y viven en un **`Cargo` que cada
 negocio define** (ver 5.10); `MiembroNegocio` apunta a un cargo y no tiene
 permisos propios. La lista vigente **vive en el schema** (`Cargo` en
-`openapi.yaml`); a la fecha de este documento son siete:
+`openapi.yaml`); a la fecha de este documento son ocho:
 
 - `puede_cobrar` *(declarada, sin efecto hasta Fase 3)*
 - `puede_ver_reportes` *(declarada, sin efecto hasta Fase 4)*
@@ -169,6 +169,7 @@ permisos propios. La lista vigente **vive en el schema** (`Cargo` en
 - `puede_gestionar_agenda`
 - `puede_configurar_horarios`
 - `puede_ver_agenda_completa`
+- `puede_editar_negocio` *(ver 5.12)*
 
 Esta lista **crecerá**. El frontend no debe hardcodear un switch/enum
 cerrado de capacidades sin volver a chequear el schema: debe tratarlas
@@ -495,6 +496,93 @@ impide que un negocio se quede con `login`, `agenda`, `api`, etc.
 **Si el frontend agrega una ruta nueva en la raíz, hay que reservarla
 ahí** o un negocio podrá tomarla.
 
+### 5.12 La ficha del negocio y sus imágenes (Fase 2)
+
+Editar cómo se ve el negocio hacia afuera es su propia capacidad,
+**`puede_editar_negocio`**, y no un uso más de
+`puede_gestionar_empleados`: quien administra el equipo no es
+necesariamente quien decide el nombre y el logo del local.
+
+| Método | Ruta | Capacidad |
+|---|---|---|
+| GET | `/api/negocios/mi-negocio/` | pertenecer al negocio |
+| PATCH | `/api/negocios/mi-negocio/` | `puede_editar_negocio` |
+| GET | `/api/negocios/mi-negocio/fotos/` | pertenecer al negocio |
+| POST | `/api/negocios/mi-negocio/fotos/` | `puede_editar_negocio` |
+| DELETE | `/api/negocios/mi-negocio/fotos/{id}/` | `puede_editar_negocio` |
+| PUT | `/api/negocios/mi-negocio/fotos/orden/` | `puede_editar_negocio` |
+
+Reglas que el schema no captura:
+
+- **Solo PATCH, no PUT**, en la ficha del negocio: el formulario es
+  parcial por naturaleza (subir un logo no debería obligar a reenviar la
+  dirección).
+- **`slug` es de solo lectura.** Es el enlace que el dueño ya repartió
+  por WhatsApp y pegó en su bio de Instagram; cambiarlo rompería en
+  silencio todo lo compartido y liberaría el slug viejo para otro
+  negocio. Si alguna vez hace falta, será un endpoint aparte con
+  redirección, no un campo más de este formulario.
+- **Subir imágenes es `multipart/form-data`** (`logo` en el PATCH,
+  `imagen` en el POST de fotos). El resto de campos acepta JSON normal.
+- **Quitar el logo**: mandar `logo` vacío (`null` en JSON, campo vacío en
+  multipart). La respuesta vuelve con `logo: null`.
+- **Límites** (decisión del humano, 2026-07-28): **10 fotos por negocio**
+  y **5 MB por imagen**, logo incluido. Pasarse responde `400`. Viven en
+  `apps.negocios.models` (`MAX_FOTOS_POR_NEGOCIO`,
+  `PESO_MAXIMO_IMAGEN_BYTES`); si cambian, se anota acá.
+- **Reordenar la galería es en lote y con la lista completa**: el body es
+  `{"ids": [...]}` con **todas** las fotos del negocio en el orden
+  deseado. Una lista parcial, con repetidos, o que incluya una foto de
+  otro negocio responde `400` — el orden es una propiedad del conjunto,
+  no de cada foto por separado. Mismo criterio que
+  `PUT /api/agenda/horarios/semana/` (5.6).
+- **Subir una foto la agrega al final.** Ser la primera del carrusel es
+  un gesto explícito de reordenamiento, no una consecuencia de subirla.
+
+### Apariencia: tema, color y portada
+
+Los tres campos que deciden cómo se ve el perfil público viajan en el
+mismo `PATCH /api/negocios/mi-negocio/`:
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `tema` | enum | Catálogo **cerrado** que define el backend. Hoy: `estandar`, `vitrina`. |
+| `color_acento` | string | `#rrggbb` o **cadena vacía**. Vacío = usa el color de Turnio. |
+| `portada` | imagen | Igual que `logo`: multipart para subir, vacío para quitar. |
+
+- **`tema` es un enum del backend, no texto libre.** Un valor fuera del
+  catálogo responde `400`. El frontend debe **degradar** ante un tema que
+  no conozca (backend desplegado por delante de la app instalada en un
+  teléfono) cayendo en `estandar`, no romperse.
+- **`color_acento` vacío no es "sin color"**: significa "el de Turnio".
+  Guardar un color propio y después vaciarlo es cómo se vuelve al
+  default. Un valor que no sea `#rrggbb` responde `400` — se valida en el
+  **modelo**, no solo en el serializer, porque termina inyectado en una
+  variable CSS de una página pública.
+- **El backend no calcula contraste ni tonos derivados.** Manda el color
+  elegido y nada más; decidir si el texto encima va blanco o negro es del
+  frontend (`frontend/src/tema/colores.ts`).
+
+**En la superficie pública** (5.11), `GET /api/publico/negocios/{slug}/`
+gana cinco campos: `logo`, `portada` (string o `null`), `fotos` (array,
+ya ordenado por `orden`), `color_acento` y `tema`. Las imágenes traen
+**URLs absolutas**, no `/media/...`: el mismo JSON lo consume la app
+móvil, que no comparte origen con la API.
+
+`GET /{slug}/` (la cáscara HTML con meta tags):
+- `og:image` con la **portada**, o el logo, o la primera foto de la
+  galería, en ese orden. La portada va primera porque es la única pensada
+  para ser ancha, que es la forma que pide una tarjeta de WhatsApp.
+- `theme-color` con el color del negocio, **reemplazando** el genérico
+  que trae `index.html`. Reemplazar y no agregar: ante dos `theme-color`
+  el navegador se queda con el primero del documento, y el genérico está
+  antes del punto de inyección.
+
+**Almacenamiento**: los archivos van a `MEDIA_ROOT` en disco local y se
+sirven bajo `/media/` **solo con `DEBUG=1`**. Fuera de desarrollo eso lo
+sirve nginx o un bucket — la misma decisión de infraestructura pendiente
+que `frontend/dist/` (ver `backend/ROADMAP-BACKEND.md`).
+
 ## 6. Historial de cambios al contrato
 
 > Quien cambie la forma de la API agrega una entrada acá (fecha,
@@ -716,3 +804,97 @@ ahí** o un negocio podrá tomarla.
   escribir. Regla práctica que queda: **un `SerializerMethodField` sin
   `@extend_schema_field` es un campo mal documentado**, aunque el código
   funcione.
+- **2026-07-28** — **Octava capacidad: `puede_editar_negocio`** (ver 5.10).
+  `Cargo` gana un campo booleano más, agregado a `CAPACIDADES` en
+  `apps.usuarios.models`. Controla editar la identidad pública del
+  negocio (nombre, dirección, teléfono, logo, fotos) — separada a
+  propósito de `puede_gestionar_empleados`, porque quien administra el
+  equipo no necesariamente decide cómo se ve el negocio hacia afuera.
+
+  **`openapi.yaml` regenerado y refleja la capacidad real** (aparece en
+  `Cargo` y `PatchedCargo`). **`frontend/src/api/schema.ts` NO se
+  regeneró todavía, a propósito**: `catalogo.ts` deriva `Capacidad` del
+  schema y tiene un `Record<Capacidad, …>` que deja de compilar si
+  aparece una capacidad sin traducir — es el comportamiento buscado,
+  pero implica que regenerar el schema del frontend sin traducirla
+  rompe el build a propósito. Sesión cortada antes de llegar a esa
+  traducción; detalle completo del plan pendiente en
+  `backend/ROADMAP-BACKEND.md` y `frontend/ROADMAP-FRONTEND.md`.
+
+  **Consecuencia para quien retome esto**: el CI de frontend verifica
+  que `schema.ts` esté regenerado contra `openapi.yaml` — con el
+  schema.ts actual (sin la capacidad), esa verificación **fallará** en
+  cuanto se ejecute contra este branch, porque ahora mismo hay drift
+  real entre los dos. No es un bug: es la señal de que la migración ya
+  se aplicó pero la traducción del lado frontend sigue sin hacerse. La
+  rama no se mergea hasta cerrar ese ciclo completo (regenerar
+  `schema.ts` + `DEFINICIONES`/`GRUPOS` en `catalogo.ts` a la vez, en
+  el mismo commit).
+- **2026-07-28** — **Ficha del negocio, logo y galería de fotos**
+  (ver 5.12). Cierra lo que la entrada anterior dejó a medias: ahora
+  existe la forma que `puede_editar_negocio` protege.
+
+  **Endpoints nuevos** (todos bajo `/api/negocios/mi-negocio/`):
+  `GET`/`PATCH` de la ficha, `GET`/`POST` de fotos, `DELETE` de una foto
+  y `PUT .../fotos/orden/` para reordenar en lote.
+
+  **Campos nuevos en respuestas que ya existían** — aditivos, ninguno
+  rompe:
+  - `Negocio` (anidado en el registro y en `mi-membresia`) gana `logo`
+    (`string | null`, URL absoluta).
+  - `NegocioPublico` (`GET /api/publico/negocios/{slug}/`) gana `logo` y
+    `fotos` (array de `FotoPublica`, ya ordenado).
+  - `GET /{slug}/` emite `og:image` cuando hay logo o al menos una foto,
+    y sube el `twitter:card` a `summary_large_image` solo en ese caso.
+
+  Por qué existe: el enlace público —el reemplazo de "escríbeme por
+  WhatsApp", que es el corazón de Fase 2— se compartía sin imagen, igual
+  para los 200 negocios de la plataforma, porque el modelo no tenía
+  ningún campo de imagen. Ese era el objetivo final; la ficha editable
+  salió en el camino, porque tampoco existía **ningún** endpoint para
+  editar el negocio (ni el nombre, ni la dirección).
+
+  Decisiones que el schema no dice: `slug` de solo lectura, límites de
+  10 fotos / 5 MB, reordenamiento con la lista completa, y `MEDIA_ROOT`
+  local servido solo en `DEBUG`. Todas explicadas en 5.12.
+
+  **El drift con `frontend/src/api/schema.ts` sigue abierto y creció**:
+  además de la capacidad, ahora faltan los endpoints y campos de arriba.
+  Se cierra igual que antes — regenerar `schema.ts` y traducir
+  `puede_editar_negocio` en `catalogo.ts` **en el mismo commit**.
+- **2026-07-28** — **Drift de `schema.ts` cerrado.** Sin cambios de API:
+  el frontend regeneró `src/api/schema.ts` contra el `openapi.yaml`
+  vigente y tradujo `puede_editar_negocio` en `catalogo.ts` en el mismo
+  commit, más la pantalla que consume los endpoints de 5.12. El CI de
+  frontend vuelve a verde y las dos mitades del contrato están otra vez
+  sincronizadas.
+
+  Se confirmó en el camino que el mecanismo de deriva funciona como se
+  diseñó: al regenerar el schema, lo único que dejó de compilar fue el
+  `Record<Capacidad, …>` de `DEFINICIONES` — el compilador señaló
+  exactamente la línea que había que atender.
+- **2026-07-28** — **Apariencia del negocio: tema, color de acento y
+  portada** (ver 5.12). Tres campos nuevos en `Negocio`, editables en
+  `PATCH /api/negocios/mi-negocio/` con `puede_editar_negocio` y
+  expuestos en `GET /api/publico/negocios/{slug}/`:
+
+  - `tema` — enum cerrado (`estandar`, `vitrina`). El frontend elige la
+    composición del perfil con esto y **degrada a `estandar`** ante un
+    valor que no conozca.
+  - `color_acento` — `#rrggbb` o cadena vacía (= el color de Turnio).
+    Validado en el modelo, no solo en el serializer: termina en una
+    variable CSS de una página pública, así que una cadena arbitraria ahí
+    no es un dato feo sino una vía de entrada a la hoja de estilos.
+  - `portada` — imagen ancha del encabezado, con el mismo tratamiento que
+    `logo` (multipart para subir, vacío para quitar, borrado del archivo
+    anterior al reemplazar).
+
+  **Cambio de comportamiento en `GET /{slug}/`**: `og:image` ahora
+  prefiere la portada sobre el logo, y se emite `theme-color` con el
+  color del negocio **reemplazando** el genérico de `index.html`. Lo
+  segundo se detectó verificando la respuesta real contra el backend
+  corriendo: la versión que solo agregaba la tag dejaba dos, y el
+  navegador usa la primera del documento — el color del negocio no se
+  habría visto nunca aunque el test pasara.
+
+  Aditivo en todo lo demás: ninguna respuesta existente cambió de forma.

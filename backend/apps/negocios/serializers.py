@@ -1,7 +1,12 @@
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from apps.negocios.models import Negocio
+from apps.negocios.models import (
+    MAX_FOTOS_POR_NEGOCIO,
+    PESO_MAXIMO_IMAGEN_BYTES,
+    FotoNegocio,
+    Negocio,
+)
 from apps.negocios.services import (
     CAMPOS_CAPACIDADES,
     CambioDeCapacidadNoPermitido,
@@ -9,6 +14,22 @@ from apps.negocios.services import (
     validar_cambio_de_capacidades,
 )
 from apps.usuarios.models import Cargo, MiembroNegocio, Usuario
+
+
+def validar_peso_imagen(imagen):
+    """Corta las imágenes demasiado pesadas antes de que toquen el disco.
+
+    `ImageField` ya garantiza (vía Pillow) que el archivo sea una imagen
+    de verdad y no un ejecutable renombrado; lo que no mira es el tamaño.
+    Sin este límite, una foto de 40 MB directa de una cámara se serviría
+    tal cual en el perfil público, que se abre por datos móviles.
+    """
+    if imagen.size > PESO_MAXIMO_IMAGEN_BYTES:
+        megas = PESO_MAXIMO_IMAGEN_BYTES / (1024 * 1024)
+        raise serializers.ValidationError(
+            f"La imagen pesa demasiado. El máximo son {megas:.0f} MB."
+        )
+    return imagen
 
 
 def _solicitante(contexto):
@@ -156,8 +177,108 @@ class RegistroNegocioSerializer(serializers.Serializer):
 class NegocioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Negocio
-        fields = ["id", "nombre", "slug", "ciudad", "direccion", "telefono", "activo"]
+        fields = [
+            "id",
+            "nombre",
+            "slug",
+            "ciudad",
+            "direccion",
+            "telefono",
+            "logo",
+            "activo",
+        ]
         read_only_fields = fields
+        # Un negocio sin logo devuelve `null`, no una cadena vacía. Sin
+        # esto el schema lo declara `string` a secas y el frontend se
+        # tipa contra una promesa que la API no cumple.
+        extra_kwargs = {"logo": {"allow_null": True}}
+
+
+class MiNegocioSerializer(serializers.ModelSerializer):
+    """La ficha del negocio propio, para verla y editarla.
+
+    Separado de `NegocioSerializer` (que es de solo lectura y viaja
+    anidado en el registro y en `mi-membresia`) porque acá hay campos
+    escribibles y validación de archivo.
+
+    `slug` es **de solo lectura a propósito**: es la URL pública que el
+    dueño ya repartió por WhatsApp y pegó en su bio de Instagram.
+    Cambiarlo rompería todos esos enlaces en silencio y liberaría el slug
+    viejo para que lo tome otro negocio. Si alguna vez hace falta
+    cambiarlo, será un endpoint aparte con redirección del anterior, no un
+    campo más de este formulario.
+    """
+
+    logo = serializers.ImageField(
+        required=False, allow_null=True, validators=[validar_peso_imagen]
+    )
+    portada = serializers.ImageField(
+        required=False, allow_null=True, validators=[validar_peso_imagen]
+    )
+
+    class Meta:
+        model = Negocio
+        fields = [
+            "id",
+            "nombre",
+            "slug",
+            "ciudad",
+            "direccion",
+            "telefono",
+            "logo",
+            "portada",
+            "color_acento",
+            "tema",
+            "activo",
+        ]
+        read_only_fields = ["id", "slug", "activo"]
+        extra_kwargs = {
+            # Vacío es un valor válido y significa "el color de Turnio"
+            # (ver `Negocio.color_acento`), así que el campo acepta la
+            # cadena vacía además de un `#rrggbb`.
+            "color_acento": {"allow_blank": True},
+        }
+
+    # Quitar una imagen se pide mandando el campo vacío (`null` en JSON, o
+    # el campo vacío en multipart, que DRF traduce a `None`). El modelo
+    # representa "sin imagen" con la cadena vacía, no con NULL —ver
+    # `Negocio.logo`—, así que la traducción va acá y no en los servicios.
+    def validate_logo(self, imagen):
+        return "" if imagen is None else imagen
+
+    def validate_portada(self, imagen):
+        return "" if imagen is None else imagen
+
+
+class FotoNegocioSerializer(serializers.ModelSerializer):
+    """Una foto de la galería. `orden` no se escribe acá: lo fija
+    `PUT .../fotos/orden/` sobre la lista completa."""
+
+    imagen = serializers.ImageField(validators=[validar_peso_imagen])
+
+    class Meta:
+        model = FotoNegocio
+        fields = ["id", "imagen", "orden"]
+        read_only_fields = ["id", "orden"]
+
+
+class OrdenFotosSerializer(serializers.Serializer):
+    """El cuerpo de `PUT .../fotos/orden/`: la galería entera, en orden."""
+
+    ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=True,
+        max_length=MAX_FOTOS_POR_NEGOCIO,
+        help_text=(
+            "Ids de TODAS las fotos del negocio, en el orden en que deben "
+            "mostrarse. Una lista parcial se rechaza."
+        ),
+    )
+
+    def validate_ids(self, ids):
+        if len(ids) != len(set(ids)):
+            raise serializers.ValidationError("Hay ids repetidos en la lista.")
+        return ids
 
 
 class RegistroNegocioRespuestaSerializer(serializers.Serializer):

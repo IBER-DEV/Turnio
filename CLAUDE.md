@@ -58,6 +58,12 @@ partes, respetando su formato):
   mismas líneas del mismo archivo.
 - `CONTRATO.md` — el contrato entre backend y frontend (ver siguiente
   sección).
+- `DECISIONES.md` — bitácora de **decisiones técnicas de arquitectura**
+  con su contexto y lo que se descartó. Se agrega una entrada cuando una
+  decisión responda a "¿por qué está hecho así?" y no a "¿qué falta?"
+  (eso es roadmap) ni a "¿cómo le hablo al otro lado?" (eso es contrato).
+  El propio archivo explica el criterio de reparto. Nunca se borran
+  entradas: una decisión revertida se anota con otra entrada nueva.
 
 ## El contrato entre backend y frontend (léelo antes de asumir nada)
 Como las dos partes se desarrollan en paralelo y potencialmente sin
@@ -102,7 +108,12 @@ de autenticación del lado del servidor. Detalle de implementación en
    `frontend/ROADMAP-FRONTEND.md`) antes de escribir código.
 2. Al FINAL de cada sesión o tarea significativa, actualiza **tu**
    sub-roadmap con: qué se completó, qué quedó pendiente, decisiones
-   técnicas y su justificación, y bloqueos/dudas abiertas.
+   técnicas y su justificación, y bloqueos/dudas abiertas. Si en el
+   camino tomaste una decisión de arquitectura (elegir un patrón,
+   descartar una dependencia, aceptar una limitación a sabiendas),
+   además va como entrada en `DECISIONES.md` — en el sub-roadmap queda
+   el estado, en `DECISIONES.md` queda el porqué, que es lo que nadie
+   puede reconstruir después leyendo el código.
 3. Actualiza `ROADMAP.md` (raíz) solo cuando una fase completa cambia
    de estado, o cuando el bloqueo/decisión concierne a ambas partes.
 4. Nunca borres historial en ningún roadmap, solo agrega.

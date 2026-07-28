@@ -87,6 +87,7 @@ class PerfilNegocioView(generics.RetrieveAPIView):
         return Negocio.objects.filter(activo=True).prefetch_related(
             "servicios",
             "horarios",
+            "fotos",
             Prefetch("miembros", queryset=MiembroNegocio.objects.select_related("usuario")),
         )
 

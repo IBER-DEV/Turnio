@@ -6,7 +6,11 @@ from apps.negocios.views import (
     EmpleadoDetailView,
     EmpleadoListCreateView,
     EquipoListView,
+    FotoNegocioDetailView,
+    FotoNegocioListCreateView,
     MiMembresiaView,
+    MiNegocioView,
+    OrdenFotosView,
     RegistroNegocioView,
 )
 
@@ -16,6 +20,24 @@ router.register("cargos", CargoViewSet, basename="cargo")
 urlpatterns = [
     path("registro/", RegistroNegocioView.as_view(), name="negocio-registro"),
     path("mi-membresia/", MiMembresiaView.as_view(), name="negocio-mi-membresia"),
+    path("mi-negocio/", MiNegocioView.as_view(), name="negocio-mi-negocio"),
+    # `orden/` antes que `<int:pk>/` por claridad; el conversor `int` ya
+    # impediría que se pisen, pero el orden hace evidente cuál manda.
+    path(
+        "mi-negocio/fotos/orden/",
+        OrdenFotosView.as_view(),
+        name="negocio-fotos-orden",
+    ),
+    path(
+        "mi-negocio/fotos/",
+        FotoNegocioListCreateView.as_view(),
+        name="negocio-fotos",
+    ),
+    path(
+        "mi-negocio/fotos/<int:pk>/",
+        FotoNegocioDetailView.as_view(),
+        name="negocio-foto-detalle",
+    ),
     path("equipo/", EquipoListView.as_view(), name="negocio-equipo"),
     path("empleados/", EmpleadoListCreateView.as_view(), name="negocio-empleados"),
     path(

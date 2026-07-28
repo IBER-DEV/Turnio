@@ -8,6 +8,7 @@ import { Hoja } from "../../ui/Hoja";
 import { Icon } from "../../ui/Icon";
 import { Input } from "../../ui/Input";
 import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
+import { variablesDeTema } from "../../tema/colores";
 
 /** El mensaje que ya devuelve el backend para `SinDisponibilidad`
  * (`apps/publico/views.py`, `ReservarView.post`) — deliberadamente
@@ -57,6 +58,11 @@ export function ReservaHoja({
   const [telefonoCliente, setTelefonoCliente] = useState("");
   const [notas, setNotas] = useState("");
   const [envio, setEnvio] = useState<EstadoEnvio>({ tipo: "inactivo" });
+
+  // La hoja vive en un portal colgado del `body`, fuera del árbol del
+  // perfil: el color del negocio hay que volver a declararlo acá o esta
+  // sería la única pantalla del flujo con el color de Turnio.
+  const tema = variablesDeTema(negocio.color_acento);
 
   const cargarHuecos = useCallback(async () => {
     setHuecos({ tipo: "cargando" });
@@ -109,7 +115,13 @@ export function ReservaHoja({
   if (envio.tipo === "confirmada") {
     const { datos } = envio;
     return (
-      <Hoja abierta titulo="¡Listo!" descripcion="Tu cita quedó confirmada." onCerrar={onCerrar}>
+      <Hoja
+        abierta
+        titulo="¡Listo!"
+        descripcion="Tu cita quedó confirmada."
+        onCerrar={onCerrar}
+        style={tema}
+      >
         <div className="flex flex-col items-center gap-4 py-4 text-center">
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-completada/10">
             <Icon name="event_available" className="text-[32px] text-completada" />
@@ -150,6 +162,7 @@ export function ReservaHoja({
       titulo="Reservar"
       descripcion={`${servicio.nombre} · ${negocio.nombre}`}
       onCerrar={onCerrar}
+      style={tema}
     >
       <div className="flex flex-col gap-6">
         <Input
@@ -235,7 +248,16 @@ export function ReservaHoja({
           </p>
         )}
 
-        <Button anchoCompleto disabled={!puedeConfirmar} cargando={enviando} onClick={reservar}>
+        {/* Con el color del negocio, no el de Turnio: la hoja se abre
+            dentro del contenedor tematizado del perfil (ver
+            `PerfilNegocioPage`) y este es el botón que remata la reserva. */}
+        <Button
+          variante="negocio"
+          anchoCompleto
+          disabled={!puedeConfirmar}
+          cargando={enviando}
+          onClick={reservar}
+        >
           Confirmar reserva
         </Button>
       </div>

@@ -57,6 +57,7 @@ CAPACIDADES = (
     "puede_gestionar_agenda",
     "puede_configurar_horarios",
     "puede_ver_agenda_completa",
+    "puede_editar_negocio",
 )
 
 
@@ -115,6 +116,11 @@ class Cargo(TenantScopedModel):
     # solo ve las suyas: las citas traen nombre y teléfono del cliente, o
     # sea la libreta de clientes del negocio.
     puede_ver_agenda_completa = models.BooleanField(default=False)
+    # Editar la identidad pública del negocio: nombre, dirección,
+    # teléfono, logo y fotos del perfil (`turnio.app/{slug}`). Deliberadamente
+    # separada de `puede_gestionar_empleados`: quien administra el equipo
+    # no necesariamente decide cómo se ve el negocio hacia afuera.
+    puede_editar_negocio = models.BooleanField(default=False)
 
     creado_en = models.DateTimeField(auto_now_add=True)
 

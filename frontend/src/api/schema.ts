@@ -656,6 +656,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/negocios/mi-negocio/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description La ficha del negocio propio: verla y editarla.
+         *
+         *     Leer solo exige pertenecer al negocio (cualquiera necesita saber en
+         *     qué local trabaja, y `mi-membresia` ya lo devuelve anidado). Editar
+         *     exige `puede_editar_negocio`: quien decide cómo se llama y qué logo
+         *     lleva el local no es necesariamente quien administra el equipo ni
+         *     quien pone los precios, por eso es una capacidad propia y no un uso
+         *     más de `puede_gestionar_empleados`.
+         *
+         *     Solo PATCH, no PUT: el formulario es parcial por naturaleza (subir un
+         *     logo no debería obligar a reenviar la dirección) y con `multipart` un
+         *     PUT haría fácil borrar campos sin querer.
+         */
+        get: operations["negocios_mi_negocio_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description La ficha del negocio propio: verla y editarla.
+         *
+         *     Leer solo exige pertenecer al negocio (cualquiera necesita saber en
+         *     qué local trabaja, y `mi-membresia` ya lo devuelve anidado). Editar
+         *     exige `puede_editar_negocio`: quien decide cómo se llama y qué logo
+         *     lleva el local no es necesariamente quien administra el equipo ni
+         *     quien pone los precios, por eso es una capacidad propia y no un uso
+         *     más de `puede_gestionar_empleados`.
+         *
+         *     Solo PATCH, no PUT: el formulario es parcial por naturaleza (subir un
+         *     logo no debería obligar a reenviar la dirección) y con `multipart` un
+         *     PUT haría fácil borrar campos sin querer.
+         */
+        patch: operations["negocios_mi_negocio_partial_update"];
+        trace?: never;
+    };
+    "/api/negocios/mi-negocio/fotos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description La galería del perfil público: listarla y subirle fotos.
+         *
+         *     Listar solo exige pertenecer al negocio —son fotos que de todos modos
+         *     están publicadas—, subir exige `puede_editar_negocio`.
+         */
+        get: operations["negocios_mi_negocio_fotos_list"];
+        put?: never;
+        /**
+         * @description La galería del perfil público: listarla y subirle fotos.
+         *
+         *     Listar solo exige pertenecer al negocio —son fotos que de todos modos
+         *     están publicadas—, subir exige `puede_editar_negocio`.
+         */
+        post: operations["negocios_mi_negocio_fotos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/negocios/mi-negocio/fotos/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Borra una foto de la galería, y su archivo del disco.
+         *
+         *     El queryset viene acotado al negocio de quien pide: una foto de otro
+         *     negocio responde 404, igual que una inexistente (`CONTRATO.md` 5.2).
+         */
+        delete: operations["negocios_mi_negocio_fotos_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/negocios/mi-negocio/fotos/orden/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description `PUT /api/negocios/mi-negocio/fotos/orden/` — reordena el carrusel.
+         *
+         *     En lote y con la lista completa, siguiendo el mismo criterio que
+         *     `PUT /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`:
+         *     arrastrar cinco fotos es un gesto, no cinco, y partirlo en cinco
+         *     requests deja órdenes intermedios visibles en el perfil público.
+         */
+        put: operations["negocios_mi_negocio_fotos_orden_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/negocios/registro/": {
         parameters: {
             query?: never;
@@ -882,6 +1000,7 @@ export interface components {
             puede_gestionar_agenda?: boolean;
             puede_configurar_horarios?: boolean;
             puede_ver_agenda_completa?: boolean;
+            puede_editar_negocio?: boolean;
         };
         Cita: {
             readonly id: number;
@@ -958,6 +1077,29 @@ export interface components {
          * @enum {string}
          */
         EstadoEnum: "agendada" | "confirmada" | "completada" | "cancelada";
+        /**
+         * @description Una foto de la galería. `orden` no se escribe acá: lo fija
+         *     `PUT .../fotos/orden/` sobre la lista completa.
+         */
+        FotoNegocio: {
+            readonly id: number;
+            /** Format: uri */
+            imagen: string;
+            readonly orden: number;
+        };
+        /**
+         * @description Una foto de la galería, como la consume el carrusel del perfil.
+         *
+         *     `orden` viaja aunque la lista ya venga ordenada: el frontend lo usa
+         *     como `key` estable y para no depender de que el backend nunca cambie
+         *     su criterio de ordenamiento.
+         */
+        FotoPublica: {
+            readonly id: number;
+            /** Format: uri */
+            readonly imagen: string;
+            readonly orden: number;
+        };
         /**
          * @description Una franja suelta dentro de la semana. Sin `miembro`: lo define el
          *     contenedor, para no repetirlo en cada elemento de la lista.
@@ -1058,6 +1200,35 @@ export interface components {
             readonly activo: boolean;
         };
         /**
+         * @description La ficha del negocio propio, para verla y editarla.
+         *
+         *     Separado de `NegocioSerializer` (que es de solo lectura y viaja
+         *     anidado en el registro y en `mi-membresia`) porque acá hay campos
+         *     escribibles y validación de archivo.
+         *
+         *     `slug` es **de solo lectura a propósito**: es la URL pública que el
+         *     dueño ya repartió por WhatsApp y pegó en su bio de Instagram.
+         *     Cambiarlo rompería todos esos enlaces en silencio y liberaría el slug
+         *     viejo para que lo tome otro negocio. Si alguna vez hace falta
+         *     cambiarlo, será un endpoint aparte con redirección del anterior, no un
+         *     campo más de este formulario.
+         */
+        MiNegocio: {
+            readonly id: number;
+            nombre: string;
+            readonly slug: string;
+            ciudad?: string;
+            direccion?: string;
+            telefono?: string;
+            /** Format: uri */
+            logo?: string | null;
+            /** Format: uri */
+            portada?: string | null;
+            color_acento?: string;
+            tema?: components["schemas"]["TemaEnum"];
+            readonly activo: boolean;
+        };
+        /**
          * @description Vista mínima de un compañero de trabajo, para quien NO gestiona
          *     el equipo.
          *
@@ -1101,6 +1272,8 @@ export interface components {
             readonly ciudad: string;
             readonly direccion: string;
             readonly telefono: string;
+            /** Format: uri */
+            readonly logo: string | null;
             readonly activo: boolean;
         };
         /** @description El perfil público completo de un negocio. */
@@ -1110,6 +1283,13 @@ export interface components {
             readonly ciudad: string;
             readonly direccion: string;
             readonly telefono: string;
+            /** Format: uri */
+            readonly logo: string | null;
+            /** Format: uri */
+            readonly portada: string | null;
+            readonly color_acento: string;
+            readonly tema: components["schemas"]["TemaEnum"];
+            readonly fotos: components["schemas"]["FotoPublica"][];
             readonly servicios: components["schemas"]["ServicioPublico"][];
             readonly profesionales: components["schemas"]["ProfesionalPublico"][];
             readonly horario: components["schemas"]["HorarioNegocioPublico"][];
@@ -1119,6 +1299,11 @@ export interface components {
             readonly slug: string;
             readonly nombre: string;
             readonly ciudad: string;
+        };
+        /** @description El cuerpo de `PUT .../fotos/orden/`: la galería entera, en orden. */
+        OrdenFotos: {
+            /** @description Ids de TODAS las fotos del negocio, en el orden en que deben mostrarse. Una lista parcial se rechaza. */
+            ids: number[];
         };
         /**
          * @description Un cargo del negocio: nombre, tipo y qué concede.
@@ -1139,6 +1324,7 @@ export interface components {
             puede_gestionar_agenda?: boolean;
             puede_configurar_horarios?: boolean;
             puede_ver_agenda_completa?: boolean;
+            puede_editar_negocio?: boolean;
         };
         PatchedCita: {
             readonly id?: number;
@@ -1163,6 +1349,35 @@ export interface components {
             hora_inicio?: string;
             /** Format: time */
             hora_fin?: string;
+        };
+        /**
+         * @description La ficha del negocio propio, para verla y editarla.
+         *
+         *     Separado de `NegocioSerializer` (que es de solo lectura y viaja
+         *     anidado en el registro y en `mi-membresia`) porque acá hay campos
+         *     escribibles y validación de archivo.
+         *
+         *     `slug` es **de solo lectura a propósito**: es la URL pública que el
+         *     dueño ya repartió por WhatsApp y pegó en su bio de Instagram.
+         *     Cambiarlo rompería todos esos enlaces en silencio y liberaría el slug
+         *     viejo para que lo tome otro negocio. Si alguna vez hace falta
+         *     cambiarlo, será un endpoint aparte con redirección del anterior, no un
+         *     campo más de este formulario.
+         */
+        PatchedMiNegocio: {
+            readonly id?: number;
+            nombre?: string;
+            readonly slug?: string;
+            ciudad?: string;
+            direccion?: string;
+            telefono?: string;
+            /** Format: uri */
+            logo?: string | null;
+            /** Format: uri */
+            portada?: string | null;
+            color_acento?: string;
+            tema?: components["schemas"]["TemaEnum"];
+            readonly activo?: boolean;
         };
         /**
          * @description Un miembro visto desde la gestión del equipo.
@@ -1295,6 +1510,12 @@ export interface components {
             readonly precio: string;
             readonly duracion_minutos: number;
         };
+        /**
+         * @description * `estandar` - Estándar
+         *     * `vitrina` - Vitrina
+         * @enum {string}
+         */
+        TemaEnum: "estandar" | "vitrina";
         /**
          * @description * `administracion` - Administración
          *     * `recepcion` - Recepción
@@ -2088,6 +2309,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MiMembresia"];
+                };
+            };
+        };
+    };
+    negocios_mi_negocio_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiNegocio"];
+                };
+            };
+        };
+    };
+    negocios_mi_negocio_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["PatchedMiNegocio"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMiNegocio"];
+                "application/json": components["schemas"]["PatchedMiNegocio"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiNegocio"];
+                };
+            };
+        };
+    };
+    negocios_mi_negocio_fotos_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FotoNegocio"][];
+                };
+            };
+        };
+    };
+    negocios_mi_negocio_fotos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["FotoNegocio"];
+                "application/x-www-form-urlencoded": components["schemas"]["FotoNegocio"];
+                "application/json": components["schemas"]["FotoNegocio"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FotoNegocio"];
+                };
+            };
+        };
+    };
+    negocios_mi_negocio_fotos_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    negocios_mi_negocio_fotos_orden_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrdenFotos"];
+                "application/x-www-form-urlencoded": components["schemas"]["OrdenFotos"];
+                "multipart/form-data": components["schemas"]["OrdenFotos"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FotoNegocio"][];
                 };
             };
         };

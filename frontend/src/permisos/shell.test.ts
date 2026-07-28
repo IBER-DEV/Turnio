@@ -69,6 +69,25 @@ describe("shellDe", () => {
     expect(rutas).toContain("/configuracion/cargos");
   });
 
+  it("el perfil del negocio solo aparece con su capacidad", () => {
+    expect(shellDe("administracion", NADA).navegacion.map((item) => item.to)).not.toContain(
+      "/configuracion/negocio",
+    );
+    expect(shellDe("administracion", TODO).navegacion.map((item) => item.to)).toContain(
+      "/configuracion/negocio",
+    );
+  });
+
+  it("la barra inferior de móvil no pasa de cinco entradas", () => {
+    // Es un presupuesto de espacio real, no una preferencia: por encima
+    // de cinco, los rótulos se pisan en un teléfono angosto. Lo que sobra
+    // se marca `secundaria` y vive en el menú de cuenta (ver Layout).
+    for (const tipo of Object.keys(SHELLS) as TipoDeUsuario[]) {
+      const principales = shellDe(tipo, TODO).navegacion.filter((item) => !item.secundaria);
+      expect(principales.length).toBeLessThanOrEqual(5);
+    }
+  });
+
   it("sin tipo cae en el shell más acotado", () => {
     // Si algo falla al resolver la membresía, mostrar de menos es la
     // falla segura: de más sería enseñar secciones que dan 403.

@@ -28,6 +28,7 @@
     "clsx": "^2.1.1",
     "openapi-fetch": "^0.17.0",
     "react": "^19.2.7",
+    "react-colorful": "^5.8.0",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
     "tailwind-merge": "^3.6.0",

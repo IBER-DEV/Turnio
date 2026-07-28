@@ -1,5 +1,5 @@
 import { Drawer } from "vaul";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { cn } from "./cn";
 
@@ -24,6 +24,7 @@ export function Hoja({
   descripcion,
   children,
   className,
+  style,
 }: {
   abierta: boolean;
   onCerrar: () => void;
@@ -31,12 +32,21 @@ export function Hoja({
   descripcion?: string;
   children: ReactNode;
   className?: string;
+  /** Variables CSS para el contenido de la hoja.
+   *
+   * Hace falta porque Vaul monta la hoja en un **portal**, colgada del
+   * `body`: queda fuera del árbol del perfil público y por lo tanto
+   * fuera del alcance del color que ese contenedor declara. Sin esto, la
+   * hoja de reserva sería la única parte del perfil con el color de
+   * Turnio en vez del color del negocio. */
+  style?: CSSProperties;
 }) {
   return (
     <Drawer.Root open={abierta} onOpenChange={(open) => !open && onCerrar()}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-60 bg-pizarra/50 backdrop-blur-xs" />
         <Drawer.Content
+          style={style}
           className={cn(
             "fixed inset-x-0 bottom-0 z-60 flex max-h-[92dvh] flex-col",
             "rounded-t-3xl bg-white shadow-elevada outline-hidden safe-bottom",

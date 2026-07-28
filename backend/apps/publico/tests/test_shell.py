@@ -20,6 +20,7 @@ _INDEX_DE_PRUEBA = """<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <meta name="theme-color" content="#f8f9ff" />
     <title>Turnio</title>
     <script type="module" src="/assets/index-abc123.js"></script>
   </head>
@@ -123,6 +124,102 @@ def test_sin_index_html_compilado_responde_404_en_vez_de_reventar(cliente, tmp_p
     respuesta = cliente.get(f"/{negocio.slug}/")
 
     assert respuesta.status_code == 404
+
+
+def test_sin_logo_ni_fotos_no_hay_og_image(cliente, dist_index):
+    """Un negocio recién registrado no tiene imágenes: el preview sale sin
+    foto, no con una etiqueta vacía que deje la tarjeta rota."""
+    negocio = _crear_negocio()
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert 'property="og:image"' not in html
+    assert 'name="twitter:card" content="summary"' in html
+
+
+def test_el_logo_se_convierte_en_og_image_absoluto(
+    cliente, dist_index, imagen_de_prueba, media_temporal
+):
+    """El objetivo de toda esta tanda: que compartir el enlace por WhatsApp
+    muestre la imagen del negocio. La URL debe ser absoluta — el crawler
+    lee el HTML sin contexto de dominio."""
+    negocio = _crear_negocio()
+    negocio.logo = imagen_de_prueba("logo.png")
+    negocio.save(update_fields=["logo"])
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert f'property="og:image" content="http://testserver{negocio.logo.url}"' in html
+    assert 'name="twitter:card" content="summary_large_image"' in html
+    assert f'property="og:image:alt" content="{negocio.nombre}"' in html
+
+
+def test_la_portada_le_gana_al_logo_como_og_image(
+    cliente, dist_index, imagen_de_prueba, media_temporal
+):
+    """La tarjeta de WhatsApp es ancha: la portada está pensada para ese
+    formato y un logo cuadrado ahí sale recortado."""
+    negocio = _crear_negocio()
+    negocio.logo = imagen_de_prueba("logo.png")
+    negocio.portada = imagen_de_prueba("portada.png", "blue")
+    negocio.save(update_fields=["logo", "portada"])
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert f'property="og:image" content="http://testserver{negocio.portada.url}"' in html
+    assert negocio.logo.url not in html
+
+
+def test_el_color_del_negocio_reemplaza_el_theme_color_generico(cliente, dist_index):
+    """Y **reemplaza**, no se suma.
+
+    Ante dos `theme-color`, el navegador se queda con el primero del
+    documento — que es el genérico de `index.html`, porque está antes del
+    `<title>` donde se inyectan estas tags. Agregar el del negocio sin
+    quitar el otro deja un color que no se ve nunca.
+    """
+    negocio = _crear_negocio()
+    negocio.color_acento = "#ff5733"
+    negocio.save(update_fields=["color_acento"])
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert html.count('name="theme-color"') == 1
+    assert '<meta name="theme-color" content="#ff5733">' in html
+
+
+def test_sin_color_propio_se_conserva_el_theme_color_de_turnio(cliente, dist_index):
+    negocio = _crear_negocio()
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert html.count('name="theme-color"') == 1
+    assert 'content="#f8f9ff"' in html
+
+
+def test_sin_logo_usa_la_primera_foto_de_la_galeria(
+    cliente, dist_index, imagen_de_prueba, media_temporal
+):
+    """Quien subió fotos del local pero no un logo igual merece un preview
+    con imagen; la primera de la galería es la que el dueño puso primero."""
+    negocio = _crear_negocio()
+    segunda = negocios_services.agregar_foto(
+        negocio=negocio, imagen=imagen_de_prueba("2.png")
+    )
+    primera = negocios_services.agregar_foto(
+        negocio=negocio, imagen=imagen_de_prueba("1.png")
+    )
+    negocios_services.reordenar_fotos(negocio=negocio, ids=[primera.pk, segunda.pk])
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert f'property="og:image" content="http://testserver{primera.imagen.url}"' in html
 
 
 def test_el_nombre_del_negocio_no_puede_inyectar_html(cliente, dist_index):

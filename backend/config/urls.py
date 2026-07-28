@@ -46,6 +46,13 @@ if settings.DEBUG:
             static_serve,
             {"document_root": _frontend_dist, "path": "favicon.svg"},
         ),
+        # Logos y fotos de los negocios. Mismo criterio que arriba: en
+        # producción esto lo sirve nginx o un bucket, no Django.
+        re_path(
+            r"^media/(?P<path>.*)$",
+            static_serve,
+            {"document_root": settings.MEDIA_ROOT},
+        ),
     ]
 
 urlpatterns += [

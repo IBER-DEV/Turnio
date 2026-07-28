@@ -21,6 +21,9 @@ const EmpleadosPage = lazy(() => import("./pages/EmpleadosPage").then((m) => ({ 
 const ConfiguracionCargosPage = lazy(() =>
   import("./pages/ConfiguracionCargosPage").then((m) => ({ default: m.ConfiguracionCargosPage })),
 );
+const ConfiguracionNegocioPage = lazy(() =>
+  import("./pages/ConfiguracionNegocioPage").then((m) => ({ default: m.ConfiguracionNegocioPage })),
+);
 const LoginPage = lazy(() => import("./pages/LoginPage").then((m) => ({ default: m.LoginPage })));
 const RegistroNegocioPage = lazy(() =>
   import("./pages/RegistroNegocioPage").then((m) => ({ default: m.RegistroNegocioPage })),
@@ -97,6 +100,16 @@ function App() {
                   <RutaProtegida capacidad="puede_gestionar_empleados">
                     <Layout>
                       <ConfiguracionCargosPage />
+                    </Layout>
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/configuracion/negocio"
+                element={
+                  <RutaProtegida capacidad="puede_editar_negocio">
+                    <Layout>
+                      <ConfiguracionNegocioPage />
                     </Layout>
                   </RutaProtegida>
                 }
