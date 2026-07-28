@@ -194,6 +194,41 @@ def test_el_perfil_no_muestra_servicios_ni_empleados_inactivos(anonimo, barberia
     assert [p["nombre"] for p in respuesta.data["profesionales"]] == ["Dueño Público"]
 
 
+def test_el_perfil_de_un_negocio_sin_imagenes_las_devuelve_vacias(anonimo, barberia):
+    """El frontend tiene que poder distinguir "sin logo" sin adivinar: un
+    negocio recién registrado no tiene ninguna imagen, y ese es el caso
+    normal, no un error."""
+    negocio, _servicio, _membresia = barberia
+
+    respuesta = anonimo.get(f"/api/publico/negocios/{negocio.slug}/")
+
+    assert respuesta.data["logo"] is None
+    assert respuesta.data["fotos"] == []
+
+
+def test_el_perfil_devuelve_el_logo_y_la_galeria_con_urls_absolutas(
+    anonimo, barberia, imagen_de_prueba, media_temporal
+):
+    """Absolutas y no `/media/...`: este JSON lo consume también la app
+    móvil, que no comparte origen con la API."""
+    negocio, _servicio, _membresia = barberia
+    negocio.logo = imagen_de_prueba("logo.png")
+    negocio.save(update_fields=["logo"])
+    segunda = negocios_services.agregar_foto(
+        negocio=negocio, imagen=imagen_de_prueba("2.png")
+    )
+    primera = negocios_services.agregar_foto(
+        negocio=negocio, imagen=imagen_de_prueba("1.png")
+    )
+    negocios_services.reordenar_fotos(negocio=negocio, ids=[primera.pk, segunda.pk])
+
+    respuesta = anonimo.get(f"/api/publico/negocios/{negocio.slug}/")
+
+    assert respuesta.data["logo"].startswith("http://testserver/media/")
+    assert [foto["id"] for foto in respuesta.data["fotos"]] == [primera.pk, segunda.pk]
+    assert respuesta.data["fotos"][0]["imagen"].startswith("http://testserver/media/")
+
+
 # --- Disponibilidad ---
 
 

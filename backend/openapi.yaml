@@ -1109,6 +1109,177 @@ paths:
               schema:
                 $ref: '#/components/schemas/MiMembresia'
           description: ''
+  /api/negocios/mi-negocio/:
+    get:
+      operationId: negocios_mi_negocio_retrieve
+      description: |-
+        La ficha del negocio propio: verla y editarla.
+
+        Leer solo exige pertenecer al negocio (cualquiera necesita saber en
+        qué local trabaja, y `mi-membresia` ya lo devuelve anidado). Editar
+        exige `puede_editar_negocio`: quien decide cómo se llama y qué logo
+        lleva el local no es necesariamente quien administra el equipo ni
+        quien pone los precios, por eso es una capacidad propia y no un uso
+        más de `puede_gestionar_empleados`.
+
+        Solo PATCH, no PUT: el formulario es parcial por naturaleza (subir un
+        logo no debería obligar a reenviar la dirección) y con `multipart` un
+        PUT haría fácil borrar campos sin querer.
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiNegocio'
+          description: ''
+    patch:
+      operationId: negocios_mi_negocio_partial_update
+      description: |-
+        La ficha del negocio propio: verla y editarla.
+
+        Leer solo exige pertenecer al negocio (cualquiera necesita saber en
+        qué local trabaja, y `mi-membresia` ya lo devuelve anidado). Editar
+        exige `puede_editar_negocio`: quien decide cómo se llama y qué logo
+        lleva el local no es necesariamente quien administra el equipo ni
+        quien pone los precios, por eso es una capacidad propia y no un uso
+        más de `puede_gestionar_empleados`.
+
+        Solo PATCH, no PUT: el formulario es parcial por naturaleza (subir un
+        logo no debería obligar a reenviar la dirección) y con `multipart` un
+        PUT haría fácil borrar campos sin querer.
+      tags:
+      - negocios
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMiNegocio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMiNegocio'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMiNegocio'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiNegocio'
+          description: ''
+  /api/negocios/mi-negocio/fotos/:
+    get:
+      operationId: negocios_mi_negocio_fotos_list
+      description: |-
+        La galería del perfil público: listarla y subirle fotos.
+
+        Listar solo exige pertenecer al negocio —son fotos que de todos modos
+        están publicadas—, subir exige `puede_editar_negocio`.
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FotoNegocio'
+          description: ''
+    post:
+      operationId: negocios_mi_negocio_fotos_create
+      description: |-
+        La galería del perfil público: listarla y subirle fotos.
+
+        Listar solo exige pertenecer al negocio —son fotos que de todos modos
+        están publicadas—, subir exige `puede_editar_negocio`.
+      tags:
+      - negocios
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FotoNegocio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FotoNegocio'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FotoNegocio'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FotoNegocio'
+          description: ''
+  /api/negocios/mi-negocio/fotos/{id}/:
+    delete:
+      operationId: negocios_mi_negocio_fotos_destroy
+      description: |-
+        Borra una foto de la galería, y su archivo del disco.
+
+        El queryset viene acotado al negocio de quien pide: una foto de otro
+        negocio responde 404, igual que una inexistente (`CONTRATO.md` 5.2).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/negocios/mi-negocio/fotos/orden/:
+    put:
+      operationId: negocios_mi_negocio_fotos_orden_update
+      description: |-
+        `PUT /api/negocios/mi-negocio/fotos/orden/` — reordena el carrusel.
+
+        En lote y con la lista completa, siguiendo el mismo criterio que
+        `PUT /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`:
+        arrastrar cinco fotos es un gesto, no cinco, y partirlo en cinco
+        requests deja órdenes intermedios visibles en el perfil público.
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrdenFotos'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrdenFotos'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrdenFotos'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FotoNegocio'
+          description: ''
   /api/negocios/registro/:
     post:
       operationId: negocios_registro_create
@@ -1681,6 +1852,48 @@ components:
         * `confirmada` - Confirmada
         * `completada` - Completada
         * `cancelada` - Cancelada
+    FotoNegocio:
+      type: object
+      description: |-
+        Una foto de la galería. `orden` no se escribe acá: lo fija
+        `PUT .../fotos/orden/` sobre la lista completa.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        imagen:
+          type: string
+          format: uri
+        orden:
+          type: integer
+          readOnly: true
+      required:
+      - id
+      - imagen
+      - orden
+    FotoPublica:
+      type: object
+      description: |-
+        Una foto de la galería, como la consume el carrusel del perfil.
+
+        `orden` viaja aunque la lista ya venga ordenada: el frontend lo usa
+        como `key` estable y para no depender de que el backend nunca cambie
+        su criterio de ordenamiento.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        imagen:
+          type: string
+          format: uri
+          readOnly: true
+        orden:
+          type: integer
+          readOnly: true
+      required:
+      - id
+      - imagen
+      - orden
     FranjaHorario:
       type: object
       description: |-
@@ -1874,6 +2087,53 @@ components:
       - negocio
       - nombre
       - tipo
+    MiNegocio:
+      type: object
+      description: |-
+        La ficha del negocio propio, para verla y editarla.
+
+        Separado de `NegocioSerializer` (que es de solo lectura y viaja
+        anidado en el registro y en `mi-membresia`) porque acá hay campos
+        escribibles y validación de archivo.
+
+        `slug` es **de solo lectura a propósito**: es la URL pública que el
+        dueño ya repartió por WhatsApp y pegó en su bio de Instagram.
+        Cambiarlo rompería todos esos enlaces en silencio y liberaría el slug
+        viejo para que lo tome otro negocio. Si alguna vez hace falta
+        cambiarlo, será un endpoint aparte con redirección del anterior, no un
+        campo más de este formulario.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 150
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        ciudad:
+          type: string
+          maxLength: 100
+        direccion:
+          type: string
+          maxLength: 255
+        telefono:
+          type: string
+          maxLength: 30
+        logo:
+          type: string
+          format: uri
+          nullable: true
+        activo:
+          type: boolean
+          readOnly: true
+      required:
+      - activo
+      - id
+      - nombre
+      - slug
     MiembroEquipo:
       type: object
       description: |-
@@ -1965,6 +2225,11 @@ components:
         telefono:
           type: string
           readOnly: true
+        logo:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
         activo:
           type: boolean
           readOnly: true
@@ -1973,6 +2238,7 @@ components:
       - ciudad
       - direccion
       - id
+      - logo
       - nombre
       - slug
       - telefono
@@ -1996,6 +2262,16 @@ components:
         telefono:
           type: string
           readOnly: true
+        logo:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        fotos:
+          type: array
+          items:
+            $ref: '#/components/schemas/FotoPublica'
+          readOnly: true
         servicios:
           type: array
           items:
@@ -2014,7 +2290,9 @@ components:
       required:
       - ciudad
       - direccion
+      - fotos
       - horario
+      - logo
       - nombre
       - profesionales
       - servicios
@@ -2038,6 +2316,19 @@ components:
       - ciudad
       - nombre
       - slug
+    OrdenFotos:
+      type: object
+      description: 'El cuerpo de `PUT .../fotos/orden/`: la galería entera, en orden.'
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+          description: Ids de TODAS las fotos del negocio, en el orden en que deben
+            mostrarse. Una lista parcial se rechaza.
+          maxItems: 10
+      required:
+      - ids
     PatchedCargo:
       type: object
       description: |-
@@ -2128,6 +2419,48 @@ components:
         hora_fin:
           type: string
           format: time
+    PatchedMiNegocio:
+      type: object
+      description: |-
+        La ficha del negocio propio, para verla y editarla.
+
+        Separado de `NegocioSerializer` (que es de solo lectura y viaja
+        anidado en el registro y en `mi-membresia`) porque acá hay campos
+        escribibles y validación de archivo.
+
+        `slug` es **de solo lectura a propósito**: es la URL pública que el
+        dueño ya repartió por WhatsApp y pegó en su bio de Instagram.
+        Cambiarlo rompería todos esos enlaces en silencio y liberaría el slug
+        viejo para que lo tome otro negocio. Si alguna vez hace falta
+        cambiarlo, será un endpoint aparte con redirección del anterior, no un
+        campo más de este formulario.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 150
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        ciudad:
+          type: string
+          maxLength: 100
+        direccion:
+          type: string
+          maxLength: 255
+        telefono:
+          type: string
+          maxLength: 30
+        logo:
+          type: string
+          format: uri
+          nullable: true
+        activo:
+          type: boolean
+          readOnly: true
     PatchedMiembroNegocio:
       type: object
       description: |-

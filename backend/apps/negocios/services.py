@@ -1,6 +1,6 @@
-from django.db import transaction
+from django.db import models, transaction
 
-from apps.negocios.models import Negocio
+from apps.negocios.models import MAX_FOTOS_POR_NEGOCIO, FotoNegocio, Negocio
 from apps.tenants.models import Tenant
 from apps.usuarios.models import CAPACIDADES, Cargo, MiembroNegocio, Usuario
 
@@ -178,3 +178,93 @@ def agregar_empleado(*, negocio, email, password, nombre, especialidad="", cargo
         cargo=cargo,
     )
     return usuario, membresia
+
+
+def actualizar_negocio(*, negocio, datos):
+    """Aplica una edición parcial de la ficha del negocio.
+
+    Existe como servicio y no como un `serializer.save()` pelado por una
+    sola razón: reemplazar el logo tiene un efecto de lado en disco.
+    Django **no** borra el archivo anterior cuando se sube uno nuevo, así
+    que sin esto cada cambio de logo dejaría basura acumulándose en
+    `MEDIA_ROOT` para siempre.
+
+    El borrado va después del `save()` a propósito: si la escritura falla,
+    el negocio se queda con el logo que ya tenía y no con un campo
+    apuntando a un archivo que se borró.
+    """
+    nombre_anterior = negocio.logo.name
+    storage = negocio.logo.storage
+
+    for campo, valor in datos.items():
+        setattr(negocio, campo, valor)
+    negocio.save()
+
+    reemplazo_el_logo = "logo" in datos and negocio.logo.name != nombre_anterior
+    if reemplazo_el_logo and nombre_anterior:
+        storage.delete(nombre_anterior)
+    return negocio
+
+
+class LimiteDeFotosAlcanzado(Exception):
+    """El negocio ya tiene todas las fotos que admite la galería."""
+
+
+def agregar_foto(*, negocio, imagen):
+    """Suma una foto al final de la galería.
+
+    Al final y no al principio: quien sube una foto nueva no está diciendo
+    que sea la más importante, solo que existe. Reordenar es un gesto
+    aparte y explícito (`reordenar_fotos`).
+    """
+    if negocio.fotos.count() >= MAX_FOTOS_POR_NEGOCIO:
+        raise LimiteDeFotosAlcanzado(
+            f"Tu galería ya tiene el máximo de {MAX_FOTOS_POR_NEGOCIO} fotos. "
+            "Borra alguna para subir otra."
+        )
+    maximo = negocio.fotos.aggregate(models.Max("orden"))["orden__max"]
+    return FotoNegocio.objects.create(
+        tenant=negocio.tenant,
+        negocio=negocio,
+        imagen=imagen,
+        orden=0 if maximo is None else maximo + 1,
+    )
+
+
+def eliminar_foto(*, foto):
+    """Borra la foto y su archivo. Misma razón que en `actualizar_negocio`:
+    `Model.delete()` no toca el disco desde Django 1.3."""
+    nombre = foto.imagen.name
+    storage = foto.imagen.storage
+    foto.delete()
+    if nombre:
+        storage.delete(nombre)
+
+
+class OrdenDeFotosInvalido(Exception):
+    """La lista de ids recibida no describe la galería de este negocio."""
+
+
+@transaction.atomic
+def reordenar_fotos(*, negocio, ids):
+    """Fija el orden del carrusel a partir de la lista completa de ids.
+
+    Se exige la lista **completa** —no un subconjunto ni un par
+    (id, posición)— porque el orden es una propiedad del conjunto: con
+    una lista parcial habría que inventar dónde caen las que faltan, y
+    dos clientes reordenando a medias dejarían un orden que ninguno de
+    los dos pidió. Mandar todo hace la operación idempotente y hace que
+    el último request gane, entero.
+    """
+    actuales = list(negocio.fotos.values_list("id", flat=True))
+    if sorted(ids) != sorted(actuales):
+        raise OrdenDeFotosInvalido(
+            "La lista de fotos no coincide con la galería actual. Vuelve a "
+            "cargar la página e inténtalo de nuevo."
+        )
+
+    fotos = {foto.id: foto for foto in negocio.fotos.all()}
+    for posicion, foto_id in enumerate(ids):
+        fotos[foto_id].orden = posicion
+    FotoNegocio.objects.bulk_update(fotos.values(), ["orden"])
+    return negocio.fotos.all()

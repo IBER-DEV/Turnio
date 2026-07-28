@@ -5,6 +5,10 @@ psycopg2-binary==2.9.9
 python-dotenv==1.0.1
 django-cors-headers==4.4.0
 drf-spectacular==0.27.2
+# Requisito de `ImageField`: sin Pillow, Django no puede verificar que lo
+# subido sea realmente una imagen y `makemigrations` falla al validar el
+# modelo. Entra con el logo del negocio y su galería de fotos (Fase 2).
+Pillow==10.4.0
 
 pytest==8.2.2
 pytest-django==4.8.0

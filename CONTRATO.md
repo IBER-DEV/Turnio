@@ -160,7 +160,7 @@ No hay roles fijos tipo "Dueño"/"Empleado" definidos en el código. Las
 capacidades son booleanos independientes y viven en un **`Cargo` que cada
 negocio define** (ver 5.10); `MiembroNegocio` apunta a un cargo y no tiene
 permisos propios. La lista vigente **vive en el schema** (`Cargo` en
-`openapi.yaml`); a la fecha de este documento son siete:
+`openapi.yaml`); a la fecha de este documento son ocho:
 
 - `puede_cobrar` *(declarada, sin efecto hasta Fase 3)*
 - `puede_ver_reportes` *(declarada, sin efecto hasta Fase 4)*
@@ -169,6 +169,7 @@ permisos propios. La lista vigente **vive en el schema** (`Cargo` en
 - `puede_gestionar_agenda`
 - `puede_configurar_horarios`
 - `puede_ver_agenda_completa`
+- `puede_editar_negocio` *(ver 5.12)*
 
 Esta lista **crecerá**. El frontend no debe hardcodear un switch/enum
 cerrado de capacidades sin volver a chequear el schema: debe tratarlas
@@ -495,6 +496,63 @@ impide que un negocio se quede con `login`, `agenda`, `api`, etc.
 **Si el frontend agrega una ruta nueva en la raíz, hay que reservarla
 ahí** o un negocio podrá tomarla.
 
+### 5.12 La ficha del negocio y sus imágenes (Fase 2)
+
+Editar cómo se ve el negocio hacia afuera es su propia capacidad,
+**`puede_editar_negocio`**, y no un uso más de
+`puede_gestionar_empleados`: quien administra el equipo no es
+necesariamente quien decide el nombre y el logo del local.
+
+| Método | Ruta | Capacidad |
+|---|---|---|
+| GET | `/api/negocios/mi-negocio/` | pertenecer al negocio |
+| PATCH | `/api/negocios/mi-negocio/` | `puede_editar_negocio` |
+| GET | `/api/negocios/mi-negocio/fotos/` | pertenecer al negocio |
+| POST | `/api/negocios/mi-negocio/fotos/` | `puede_editar_negocio` |
+| DELETE | `/api/negocios/mi-negocio/fotos/{id}/` | `puede_editar_negocio` |
+| PUT | `/api/negocios/mi-negocio/fotos/orden/` | `puede_editar_negocio` |
+
+Reglas que el schema no captura:
+
+- **Solo PATCH, no PUT**, en la ficha del negocio: el formulario es
+  parcial por naturaleza (subir un logo no debería obligar a reenviar la
+  dirección).
+- **`slug` es de solo lectura.** Es el enlace que el dueño ya repartió
+  por WhatsApp y pegó en su bio de Instagram; cambiarlo rompería en
+  silencio todo lo compartido y liberaría el slug viejo para otro
+  negocio. Si alguna vez hace falta, será un endpoint aparte con
+  redirección, no un campo más de este formulario.
+- **Subir imágenes es `multipart/form-data`** (`logo` en el PATCH,
+  `imagen` en el POST de fotos). El resto de campos acepta JSON normal.
+- **Quitar el logo**: mandar `logo` vacío (`null` en JSON, campo vacío en
+  multipart). La respuesta vuelve con `logo: null`.
+- **Límites** (decisión del humano, 2026-07-28): **10 fotos por negocio**
+  y **5 MB por imagen**, logo incluido. Pasarse responde `400`. Viven en
+  `apps.negocios.models` (`MAX_FOTOS_POR_NEGOCIO`,
+  `PESO_MAXIMO_IMAGEN_BYTES`); si cambian, se anota acá.
+- **Reordenar la galería es en lote y con la lista completa**: el body es
+  `{"ids": [...]}` con **todas** las fotos del negocio en el orden
+  deseado. Una lista parcial, con repetidos, o que incluya una foto de
+  otro negocio responde `400` — el orden es una propiedad del conjunto,
+  no de cada foto por separado. Mismo criterio que
+  `PUT /api/agenda/horarios/semana/` (5.6).
+- **Subir una foto la agrega al final.** Ser la primera del carrusel es
+  un gesto explícito de reordenamiento, no una consecuencia de subirla.
+
+**En la superficie pública** (5.11), `GET /api/publico/negocios/{slug}/`
+gana dos campos: `logo` (string o `null`) y `fotos` (array, ya ordenado
+por `orden`). Ambos traen **URLs absolutas**, no `/media/...`: el mismo
+JSON lo consume la app móvil, que no comparte origen con la API.
+
+`GET /{slug}/` (la cáscara HTML con meta tags) ahora emite `og:image` con
+el logo, o con la primera foto de la galería si no hay logo. Un negocio
+sin ninguna de las dos se comparte sin imagen, como antes.
+
+**Almacenamiento**: los archivos van a `MEDIA_ROOT` en disco local y se
+sirven bajo `/media/` **solo con `DEBUG=1`**. Fuera de desarrollo eso lo
+sirve nginx o un bucket — la misma decisión de infraestructura pendiente
+que `frontend/dist/` (ver `backend/ROADMAP-BACKEND.md`).
+
 ## 6. Historial de cambios al contrato
 
 > Quien cambie la forma de la API agrega una entrada acá (fecha,
@@ -742,7 +800,35 @@ ahí** o un negocio podrá tomarla.
   rama no se mergea hasta cerrar ese ciclo completo (regenerar
   `schema.ts` + `DEFINICIONES`/`GRUPOS` en `catalogo.ts` a la vez, en
   el mismo commit).
-- Aún no hay entrada porque el endpoint de edición del negocio, el
-  campo de logo/fotos y su exposición pública **no se construyeron
-  todavía** — solo la capacidad que los va a proteger. Se agregará una
-  entrada aparte cuando exista esa forma.
+- **2026-07-28** — **Ficha del negocio, logo y galería de fotos**
+  (ver 5.12). Cierra lo que la entrada anterior dejó a medias: ahora
+  existe la forma que `puede_editar_negocio` protege.
+
+  **Endpoints nuevos** (todos bajo `/api/negocios/mi-negocio/`):
+  `GET`/`PATCH` de la ficha, `GET`/`POST` de fotos, `DELETE` de una foto
+  y `PUT .../fotos/orden/` para reordenar en lote.
+
+  **Campos nuevos en respuestas que ya existían** — aditivos, ninguno
+  rompe:
+  - `Negocio` (anidado en el registro y en `mi-membresia`) gana `logo`
+    (`string | null`, URL absoluta).
+  - `NegocioPublico` (`GET /api/publico/negocios/{slug}/`) gana `logo` y
+    `fotos` (array de `FotoPublica`, ya ordenado).
+  - `GET /{slug}/` emite `og:image` cuando hay logo o al menos una foto,
+    y sube el `twitter:card` a `summary_large_image` solo en ese caso.
+
+  Por qué existe: el enlace público —el reemplazo de "escríbeme por
+  WhatsApp", que es el corazón de Fase 2— se compartía sin imagen, igual
+  para los 200 negocios de la plataforma, porque el modelo no tenía
+  ningún campo de imagen. Ese era el objetivo final; la ficha editable
+  salió en el camino, porque tampoco existía **ningún** endpoint para
+  editar el negocio (ni el nombre, ni la dirección).
+
+  Decisiones que el schema no dice: `slug` de solo lectura, límites de
+  10 fotos / 5 MB, reordenamiento con la lista completa, y `MEDIA_ROOT`
+  local servido solo en `DEBUG`. Todas explicadas en 5.12.
+
+  **El drift con `frontend/src/api/schema.ts` sigue abierto y creció**:
+  además de la capacidad, ahora faltan los endpoints y campos de arriba.
+  Se cierra igual que antes — regenerar `schema.ts` y traducir
+  `puede_editar_negocio` en `catalogo.ts` **en el mismo commit**.

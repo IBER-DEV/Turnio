@@ -1193,3 +1193,99 @@ significa que:
 ¿Límite de fotos por negocio y peso máximo por imagen? No se decidió
 todavía — afecta el modelo `FotoNegocio` y la validación del endpoint de
 subida, así que hay que resolverlo antes del paso 4 del plan de backend.
+
+## Imágenes del negocio: plan ejecutado (2026-07-28, misma rama)
+
+> Retoma exactamente donde quedó la entrada anterior. Los 11 pasos de
+> backend que quedaron escritos allá están **todos hechos**; lo que sigue
+> documenta cómo, y en qué se desvió del plan.
+
+### La duda abierta, resuelta
+**10 fotos por negocio, 5 MB por imagen** (decisión del humano,
+2026-07-28). Diez alcanza para mostrar el local y algunos trabajos sin
+convertir el perfil en un álbum que hay que bajar por 4G antes de poder
+reservar; 5 MB cubre una foto de celular sin comprimir. Viven como
+constantes en `apps.negocios.models` (`MAX_FOTOS_POR_NEGOCIO`,
+`PESO_MAXIMO_IMAGEN_BYTES`) y están documentadas en `CONTRATO.md` 5.12.
+
+### Qué se construyó
+- **Pillow 10.4.0** en `requirements.txt` (única dependencia nueva: sin
+  ella `ImageField` ni siquiera pasa la validación de modelos).
+- **`MEDIA_ROOT`/`MEDIA_URL`** en `settings.py`, servidos bajo `/media/`
+  **solo con `DEBUG=1`** en `config/urls.py`, con el mismo comentario que
+  ya tenía `frontend/dist/`: no es despliegue, es desarrollo.
+- **`Negocio.logo`** (`ImageField`, `blank=True`) y **`FotoNegocio`**
+  (`negocio` FK con `related_name="fotos"`, `imagen`, `orden`,
+  `creado_en`), migración `negocios/0002_negocio_logo_fotonegocio.py`.
+- **`GET`/`PATCH /api/negocios/mi-negocio/`** — no existía **ningún**
+  endpoint para editar el negocio, ni el nombre. Leer solo pide
+  pertenecer al negocio; editar exige `puede_editar_negocio`.
+- **Fotos**: `GET`/`POST /api/negocios/mi-negocio/fotos/`,
+  `DELETE .../fotos/{id}/` y `PUT .../fotos/orden/`.
+- **Superficie pública**: `NegocioPublicoSerializer` gana `logo` y
+  `fotos` con URLs absolutas; `PerfilNegocioView` prefetchea `fotos`.
+- **`og:image`** en `views_shell.py` — el objetivo final de toda la
+  tanda: compartir el enlace por WhatsApp ahora muestra la imagen del
+  negocio.
+- **24 tests nuevos** (`apps/negocios/tests/test_imagenes.py` + tres en
+  `apps/publico/tests/`). Suite completa: **171 passed**, de 147.
+- **`openapi.yaml` regenerado** y **`CONTRATO.md` 5.12 + historial**.
+
+### Decisiones técnicas y desvíos del plan escrito
+1. **`logo` sin `null=True`**, contra lo que decía el paso 3 del plan. La
+   documentación de Django desaconseja `null` en campos basados en
+   cadenas: `""` ya significa "sin logo" y admitir además `NULL` daría
+   dos formas de decir lo mismo. Hacia afuera la API sí devuelve `null`
+   (`allow_null` declarado en los serializers), que es lo que el frontend
+   necesita para tiparlo.
+2. **Nombres de archivo aleatorios** (`uuid4().hex`) bajo
+   `negocios/<id>/logo/` y `negocios/<id>/fotos/`. Dos razones: el nombre
+   original viene de internet y `FileField` lo usaría tal cual para
+   escribir en disco, y un path estable haría que el navegador —o el
+   crawler de WhatsApp— siguiera sirviendo el logo viejo tras
+   reemplazarlo.
+3. **El borrado de archivos vive en `services.py`**, no en señales ni en
+   `Model.delete()`. Django no borra archivos huérfanos desde 1.3, así
+   que sin esto cada cambio de logo dejaría basura permanente en
+   `MEDIA_ROOT`. `actualizar_negocio` borra el logo reemplazado **después**
+   del `save()` (si la escritura falla, el negocio conserva el archivo
+   que ya tenía), y `eliminar_foto` borra archivo y fila juntos.
+4. **Reordenar exige la lista completa de ids**, no un `PATCH orden=n`
+   por foto. El orden es propiedad del conjunto: con una lista parcial
+   habría que inventar dónde caen las que faltan, y dos clientes
+   reordenando a medias dejarían un orden que ninguno pidió. Idempotente
+   y "el último request gana, entero". Mismo criterio que
+   `PUT /api/agenda/horarios/semana/`.
+5. **`slug` de solo lectura en el PATCH.** Salió al escribir el
+   serializer: es la URL que el dueño ya repartió, y dejarla editable
+   rompería en silencio todo lo que él mismo compartió, además de
+   liberar el slug viejo para otro negocio.
+6. **`og:image` cae en la primera foto de la galería si no hay logo**, y
+   `twitter:card` sube a `summary_large_image` solo cuando hay imagen —
+   con la variante grande y sin imagen, la tarjeta queda vacía.
+7. **`extra_kwargs = {"logo": {"allow_null": True}}`** en los serializers
+   de solo lectura. Sin eso el schema declaraba `logo: string` mientras
+   la API devolvía `null`: exactamente el mismo tipo de mentira
+   sintácticamente válida que el bug de los `SerializerMethodField` de la
+   sesión anterior, y que `--validate` tampoco atrapa.
+8. **Fixtures compartidas en `conftest.py`** (`media_temporal`,
+   `imagen_de_prueba`): cualquier test que suba una imagen escribe
+   archivos de verdad, y sin `MEDIA_ROOT` temporal la suite iría dejando
+   basura en `backend/media/` a cada corrida.
+
+### Lo que sigue sin resolverse (heredado, no nuevo)
+- **Almacenamiento local en disco.** Sirve para desarrollo y para un
+  despliegue de un solo servidor; con varios contenedores sin volumen
+  compartido, cada uno vería fotos distintas. Migrar a S3/R2 con
+  `django-storages` es decisión de infraestructura, junto con cómo se
+  sirve `frontend/dist/` y `/media/` fuera de `DEBUG`.
+- **Nadie redimensiona ni comprime las imágenes.** El límite de 5 MB es
+  la única defensa: un logo de 5 MB se sirve tal cual en el perfil
+  público. Generar miniaturas (o un `og:image` de tamaño acotado) es
+  trabajo pendiente si el perfil se siente pesado en móvil.
+- **El drift con el frontend sigue abierto y creció**: además de
+  `puede_editar_negocio`, ahora faltan del lado de `schema.ts` los
+  endpoints de `mi-negocio` y los campos `logo`/`fotos`. El CI de
+  frontend seguirá en rojo contra esta rama hasta que se cierre — sigue
+  siendo la señal correcta. Plan del lado frontend: el mismo de la
+  entrada anterior, sin cambios.

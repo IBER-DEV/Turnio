@@ -125,6 +125,56 @@ def test_sin_index_html_compilado_responde_404_en_vez_de_reventar(cliente, tmp_p
     assert respuesta.status_code == 404
 
 
+def test_sin_logo_ni_fotos_no_hay_og_image(cliente, dist_index):
+    """Un negocio recién registrado no tiene imágenes: el preview sale sin
+    foto, no con una etiqueta vacía que deje la tarjeta rota."""
+    negocio = _crear_negocio()
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert 'property="og:image"' not in html
+    assert 'name="twitter:card" content="summary"' in html
+
+
+def test_el_logo_se_convierte_en_og_image_absoluto(
+    cliente, dist_index, imagen_de_prueba, media_temporal
+):
+    """El objetivo de toda esta tanda: que compartir el enlace por WhatsApp
+    muestre la imagen del negocio. La URL debe ser absoluta — el crawler
+    lee el HTML sin contexto de dominio."""
+    negocio = _crear_negocio()
+    negocio.logo = imagen_de_prueba("logo.png")
+    negocio.save(update_fields=["logo"])
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert f'property="og:image" content="http://testserver{negocio.logo.url}"' in html
+    assert 'name="twitter:card" content="summary_large_image"' in html
+    assert f'property="og:image:alt" content="{negocio.nombre}"' in html
+
+
+def test_sin_logo_usa_la_primera_foto_de_la_galeria(
+    cliente, dist_index, imagen_de_prueba, media_temporal
+):
+    """Quien subió fotos del local pero no un logo igual merece un preview
+    con imagen; la primera de la galería es la que el dueño puso primero."""
+    negocio = _crear_negocio()
+    segunda = negocios_services.agregar_foto(
+        negocio=negocio, imagen=imagen_de_prueba("2.png")
+    )
+    primera = negocios_services.agregar_foto(
+        negocio=negocio, imagen=imagen_de_prueba("1.png")
+    )
+    negocios_services.reordenar_fotos(negocio=negocio, ids=[primera.pk, segunda.pk])
+
+    respuesta = cliente.get(f"/{negocio.slug}/")
+
+    html = respuesta.content.decode("utf-8")
+    assert f'property="og:image" content="http://testserver{primera.imagen.url}"' in html
+
+
 def test_el_nombre_del_negocio_no_puede_inyectar_html(cliente, dist_index):
     """El dueño elige el nombre de su negocio: es texto de un tercero.
 

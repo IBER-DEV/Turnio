@@ -141,7 +141,7 @@
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
 | Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
-| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. Falta: campo de imagen en el modelo (bloquea `og:image` y el futuro carrusel del perfil) y decidir cómo se sirve `frontend/dist/` fuera de desarrollo — ver decisión #8. |
+| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes agregadas el 2026-07-28** (backend): logo + galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio` y `og:image` real al compartir el enlace — ver `CONTRATO.md` 5.12. Falta: el lado frontend de esas imágenes (pantalla de edición y carrusel, hoy bloqueado por el drift de `schema.ts`) y decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
@@ -195,11 +195,20 @@ NO hacer todavía.
 
    De ahí salieron dos hallazgos que quedan como bloqueos reales, no
    del contrato sino de producto/infraestructura:
-   - **No hay ningún campo de imagen** en `Negocio` ni en `Servicio`
+   - ~~**No hay ningún campo de imagen** en `Negocio` ni en `Servicio`
      (ni logo, ni foto de portada, ni fotos de servicios). Bloquea
      tanto un carrusel de fotos en el perfil como la vista previa con
      imagen al compartir el enlace (`og:image`). Es de backend
-     (modelo + storage) cuando se priorice.
+     (modelo + storage) cuando se priorice.~~ **Resuelto del lado
+     backend el 2026-07-28** (rama `feature/backend-fase2-imagenes-negocio`):
+     `Negocio.logo` + modelo `FotoNegocio`, la capacidad
+     `puede_editar_negocio`, endpoints de `mi-negocio` (ficha, subida,
+     borrado y reordenamiento de fotos), `logo`/`fotos` en el perfil
+     público y `og:image` en la cáscara HTML. Límites decididos por el
+     humano: **10 fotos por negocio, 5 MB por imagen**. Ver `CONTRATO.md`
+     5.12 y `backend/ROADMAP-BACKEND.md`. Sigue faltando el lado
+     frontend (pantalla de edición y carrusel) y **`Servicio` sigue sin
+     imagen** — no se agregó porque nada lo pide todavía.
      🚧 **En curso** (2026-07-28, rama `feature/backend-fase2-imagenes-negocio`,
      sobre `feature/frontend-sistema-diseno`): sesión cortada a
      propósito en el primer paso — se agregó la capacidad

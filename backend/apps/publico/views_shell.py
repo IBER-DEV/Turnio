@@ -89,19 +89,40 @@ class PerfilPublicoShellView(View):
         )
         url = request.build_absolute_uri(f"/{slug}/")
 
-        # No hay `og:image`: ningún negocio tiene todavía un campo de
-        # logo o foto en el modelo (mismo hueco que bloquea el carrusel
-        # de fotos del perfil, ver ROADMAP-FRONTEND.md). Un preview sin
-        # imagen es peor que uno con imagen del negocio, pero mejor que
-        # uno idéntico para los 200 negocios de la plataforma.
+        # La imagen del preview: el logo si el negocio subió uno, si no la
+        # primera foto de su galería. Un negocio sin ninguna de las dos se
+        # comparte sin imagen, como antes — un preview sin imagen es peor
+        # que uno con la foto del local, pero mejor que uno idéntico para
+        # los 200 negocios de la plataforma.
+        #
+        # La URL tiene que ser **absoluta**: `ImageField.url` es un path
+        # relativo (`/media/...`) y el crawler de WhatsApp lee el HTML sin
+        # contexto de dominio. Mismo `build_absolute_uri` que ya se usa
+        # arriba para `og:url`.
+        imagen = negocio.logo if negocio.logo else None
+        if imagen is None:
+            primera_foto = negocio.fotos.first()
+            imagen = primera_foto.imagen if primera_foto else None
+        url_imagen = request.build_absolute_uri(imagen.url) if imagen else None
+
         og_tags = (
             f'<meta property="og:type" content="business.business">\n'
             f'    <meta property="og:title" content="{escape(titulo)}">\n'
             f'    <meta property="og:description" content="{escape(descripcion)}">\n'
             f'    <meta property="og:url" content="{escape(url)}">\n'
-            f'    <meta name="twitter:card" content="summary">\n'
-            f'    <meta name="description" content="{escape(descripcion)}">'
         )
+        if url_imagen:
+            # `summary_large_image` solo cuando hay imagen: con `summary`
+            # a secas, Twitter/X la muestra como miniatura cuadrada, y sin
+            # imagen la variante grande deja una tarjeta vacía.
+            og_tags += (
+                f'    <meta property="og:image" content="{escape(url_imagen)}">\n'
+                f'    <meta property="og:image:alt" content="{escape(negocio.nombre)}">\n'
+                f'    <meta name="twitter:card" content="summary_large_image">\n'
+            )
+        else:
+            og_tags += '    <meta name="twitter:card" content="summary">\n'
+        og_tags += f'    <meta name="description" content="{escape(descripcion)}">'
 
         html = _shell_html()
         # El shell genérico siempre tiene exactamente un `<title>Turnio</title>`

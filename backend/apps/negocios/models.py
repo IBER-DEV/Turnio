@@ -1,7 +1,43 @@
+from pathlib import Path
+from uuid import uuid4
+
 from django.db import models
 from django.utils.text import slugify
 
 from apps.common.models import TenantScopedModel
+
+#: Cuántas fotos puede tener la galería de un negocio (decisión del
+#: humano, 2026-07-28). Diez alcanza para mostrar el local y algunos
+#: trabajos; más que eso convierte el perfil en un álbum que nadie mira y
+#: que hay que descargar por 4G antes de poder reservar, que es lo único
+#: que el cliente vino a hacer.
+MAX_FOTOS_POR_NEGOCIO = 10
+
+#: Peso máximo por imagen (logo o foto). Cinco megas cubren una foto de
+#: celular sin comprimir; por encima de eso es casi seguro que el archivo
+#: no pasó por ninguna app y el perfil público se volvería lentísimo.
+PESO_MAXIMO_IMAGEN_BYTES = 5 * 1024 * 1024
+
+
+def _ruta_imagen(carpeta, nombre_archivo):
+    """`negocios/<id>/<carpeta>/<aleatorio><.ext>`.
+
+    El nombre original se descarta a propósito: viene de internet (aunque
+    sea de un usuario autenticado) y `FileField` lo usaría tal cual para
+    escribir en disco. Además, un nombre aleatorio evita que reemplazar el
+    logo deje al navegador —o a la CDN, o al crawler de WhatsApp—
+    sirviendo el archivo viejo por el mismo path.
+    """
+    extension = Path(nombre_archivo).suffix.lower()
+    return f"{carpeta}/{uuid4().hex}{extension}"
+
+
+def ruta_logo(instancia, nombre_archivo):
+    return _ruta_imagen(f"negocios/{instancia.pk}/logo", nombre_archivo)
+
+
+def ruta_foto(instancia, nombre_archivo):
+    return _ruta_imagen(f"negocios/{instancia.negocio_id}/fotos", nombre_archivo)
 
 #: Slugs que ningún negocio puede tomar.
 #:
@@ -57,6 +93,11 @@ class Negocio(TenantScopedModel):
     ciudad = models.CharField(max_length=100, blank=True)
     direccion = models.CharField(max_length=255, blank=True)
     telefono = models.CharField(max_length=30, blank=True)
+    # Sin `null=True`: en un campo de archivo Django representa "no hay
+    # imagen" con la cadena vacía, y admitir además NULL daría dos formas
+    # de decir lo mismo (recomendación explícita de la documentación de
+    # Django para campos basados en cadenas).
+    logo = models.ImageField(upload_to=ruta_logo, blank=True)
     activo = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -87,3 +128,33 @@ class Negocio(TenantScopedModel):
         if slug in SLUGS_RESERVADOS:
             return True
         return Negocio.objects.filter(slug=slug).exclude(pk=self.pk).exists()
+
+
+class FotoNegocio(TenantScopedModel):
+    """Una foto de la galería del perfil público.
+
+    Modelo aparte y no un segundo `ImageField` en `Negocio` porque la
+    galería es una lista ordenada de largo variable: el dueño sube el
+    local, dos cortes y la vitrina, y después los reordena para que el
+    mejor quede primero. `orden` es lo que decide qué se ve primero en el
+    carrusel, no la fecha de subida.
+
+    El logo **no** vive acá: es uno solo, tiene un rol distinto (identidad
+    del negocio, `og:image` al compartir el enlace) y se pide en sitios
+    donde una galería no sirve.
+    """
+
+    negocio = models.ForeignKey(Negocio, related_name="fotos", on_delete=models.CASCADE)
+    imagen = models.ImageField(upload_to=ruta_foto)
+    orden = models.PositiveIntegerField(default=0)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # `id` como desempate deja el orden estable cuando varias fotos
+        # comparten `orden` (recién subidas, todas en 0): sin él, Postgres
+        # puede devolverlas en cualquier orden y el carrusel del perfil
+        # público bailaría entre requests.
+        ordering = ["orden", "id"]
+
+    def __str__(self):
+        return f"Foto de {self.negocio.nombre} (#{self.orden})"

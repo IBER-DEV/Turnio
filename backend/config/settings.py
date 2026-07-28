@@ -89,6 +89,16 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Imágenes subidas por los negocios (logo y galería del perfil público).
+# `MEDIA_ROOT` queda dentro de `backend/` y está en `.gitignore` desde
+# antes. Es almacenamiento **local en disco**: sirve para desarrollo y
+# para un despliegue de un solo servidor, pero no para varios contenedores
+# sin volumen compartido — migrar a S3/R2 con `django-storages` es una
+# decisión de infraestructura pendiente, igual que cómo se sirve
+# `frontend/dist/` (ver ROADMAP-BACKEND.md).
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {

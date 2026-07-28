@@ -14,7 +14,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.agenda.models import HorarioNegocio
-from apps.negocios.models import Negocio
+from apps.negocios.models import FotoNegocio, Negocio
 from apps.servicios.models import Servicio
 from apps.usuarios.models import MiembroNegocio
 
@@ -64,12 +64,32 @@ class HorarioNegocioPublicoSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class FotoPublicaSerializer(serializers.ModelSerializer):
+    """Una foto de la galería, como la consume el carrusel del perfil.
+
+    `orden` viaja aunque la lista ya venga ordenada: el frontend lo usa
+    como `key` estable y para no depender de que el backend nunca cambie
+    su criterio de ordenamiento.
+    """
+
+    class Meta:
+        model = FotoNegocio
+        fields = ["id", "imagen", "orden"]
+        read_only_fields = fields
+
+
 class NegocioPublicoSerializer(serializers.ModelSerializer):
     """El perfil público completo de un negocio."""
 
     servicios = serializers.SerializerMethodField()
     profesionales = serializers.SerializerMethodField()
     horario = serializers.SerializerMethodField()
+    # Declarados como campos y no como `SerializerMethodField`: así heredan
+    # el contexto del serializer y, con él, el `request` que `ImageField`
+    # necesita para devolver la URL **absoluta**. Un `/media/...` relativo
+    # sirve dentro del SPA, pero no le sirve al crawler de WhatsApp ni a
+    # una app móvil, que no comparten origen con la API.
+    fotos = FotoPublicaSerializer(many=True, read_only=True)
 
     class Meta:
         model = Negocio
@@ -79,11 +99,16 @@ class NegocioPublicoSerializer(serializers.ModelSerializer):
             "ciudad",
             "direccion",
             "telefono",
+            "logo",
+            "fotos",
             "servicios",
             "profesionales",
             "horario",
         ]
         read_only_fields = fields
+        # Igual que en `NegocioSerializer`: sin logo la respuesta trae
+        # `null`, y el contrato tiene que decirlo.
+        extra_kwargs = {"logo": {"allow_null": True}}
 
     # Los tres `@extend_schema_field` no son decoración: sin ellos
     # drf-spectacular no puede inferir qué devuelve un
