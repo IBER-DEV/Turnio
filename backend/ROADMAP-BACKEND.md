@@ -1070,9 +1070,9 @@ búsqueda en esta sesión — es pregunta para quien lleve frontend.
 ## Imágenes del negocio: sesión cortada en la capacidad (2026-07-28)
 
 > Rama nueva `feature/backend-fase2-imagenes-negocio`, creada sobre
-> `feature/frontend-sistema-diseno` (que ya tiene PR propio abierto a
-> `main` — ver ese roadmap). Se abre rama aparte para no seguir
-> agregando commits a un PR que ya está en revisión.
+> `feature/frontend-sistema-diseno` — cuyo PR #4 ya se mergeó a `main`
+> mientras se trabajaba en esta rama (ver ese roadmap). Se abrió aparte
+> para no seguir agregando commits a un PR que ya estaba en revisión.
 
 ### Por qué existe esta sesión
 Cerrando Fase 2 quedaron dos huecos anotados en `../ROADMAP.md` decisión
