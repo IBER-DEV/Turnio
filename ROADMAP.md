@@ -141,7 +141,7 @@
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
 | Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
-| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes agregadas el 2026-07-28** (backend): logo + galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio` y `og:image` real al compartir el enlace — ver `CONTRATO.md` 5.12. Falta: el lado frontend de esas imágenes (pantalla de edición y carrusel, hoy bloqueado por el drift de `schema.ts`) y decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
+| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes entregadas el 2026-07-28** (backend y frontend): logo + galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio`, `og:image` real al compartir el enlace (ver `CONTRATO.md` 5.12), pantalla `/configuracion/negocio` y carrusel en el perfil público. Falta: decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
@@ -206,20 +206,24 @@ NO hacer todavía.
      borrado y reordenamiento de fotos), `logo`/`fotos` en el perfil
      público y `og:image` en la cáscara HTML. Límites decididos por el
      humano: **10 fotos por negocio, 5 MB por imagen**. Ver `CONTRATO.md`
-     5.12 y `backend/ROADMAP-BACKEND.md`. Sigue faltando el lado
-     frontend (pantalla de edición y carrusel) y **`Servicio` sigue sin
-     imagen** — no se agregó porque nada lo pide todavía.
-     🚧 **En curso** (2026-07-28, rama `feature/backend-fase2-imagenes-negocio`,
+     5.12 y `backend/ROADMAP-BACKEND.md`. **Frontend entregado el mismo
+     día** (mismo commit del cierre de drift): pantalla
+     `/configuracion/negocio` con logo y galería, y el perfil público
+     con logo real y carrusel. **`Servicio` sigue sin imagen** — no se
+     agregó porque nada lo pide todavía.
+     ~~🚧 **En curso** (2026-07-28, rama `feature/backend-fase2-imagenes-negocio`,
      sobre `feature/frontend-sistema-diseno`): sesión cortada a
      propósito en el primer paso — se agregó la capacidad
      `puede_editar_negocio` (modelo + migración, 147 tests sin romperse)
      que va a proteger el endpoint de edición del negocio y de fotos.
      **`openapi.yaml` regenerado; `frontend/src/api/schema.ts`
      deliberadamente no** (romper el frontend antes de traducir la
-     capacidad no tenía sentido). Plan completo, paso a paso, en
-     `backend/ROADMAP-BACKEND.md` sección "Imágenes del negocio: sesión
-     cortada en la capacidad" — nadie debe reconstruir este plan desde
-     cero, ya está escrito ahí.
+     capacidad no tenía sentido).~~ **Cerrado el 2026-07-28**: el plan de
+     11 pasos de backend y 4 de frontend quedó ejecutado completo, y con
+     él el **drift de `schema.ts`**, que se regeneró junto con la
+     traducción de la capacidad en `catalogo.ts` en el mismo commit —
+     el CI de frontend vuelve a verde. Detalle en ambos sub-roadmaps y
+     las decisiones técnicas en `DECISIONES.md`.
    - **El SPA no tenía forma de generar un preview real al compartir el
      enlace**: los crawlers de WhatsApp/Instagram no ejecutan
      JavaScript, así que `index.html` genérico mostraba "Turnio" igual

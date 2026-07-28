@@ -94,7 +94,14 @@ export function PerfilNegocioPage() {
   return (
     <div className="mx-auto max-w-2xl px-margin-mobile pb-16 pt-8 md:px-margin-desktop">
       <header className="mb-10 flex items-start gap-4">
-        <Avatar nombre={negocio.nombre} tamano="lg" forma="cuadrado" />
+        {/* `Avatar` cae solo en las iniciales si no hay logo (o si la
+            imagen no carga), así que no hace falta un condicional acá. */}
+        <Avatar
+          nombre={negocio.nombre}
+          imagen={negocio.logo ?? undefined}
+          tamano="lg"
+          forma="cuadrado"
+        />
         <div className="min-w-0 flex-1">
           <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary md:font-headline-lg md:text-headline-lg">
             {negocio.nombre}
@@ -122,6 +129,36 @@ export function PerfilNegocioPage() {
           aria-label="Compartir enlace del negocio"
         />
       </header>
+
+      {negocio.fotos.length > 0 && (
+        <section aria-label={`Fotos de ${negocio.nombre}`} className="mb-10">
+          {/* Carrusel con `scroll-snap` nativo, sin librería: son diez
+              fotos como máximo y el gesto de deslizar ya lo hace el
+              navegador (y el WebView de Capacitor) mejor de lo que lo
+              haría JavaScript, con inercia y sin bloquear el hilo. Lo que
+              sí hay que agregar a mano es lo que el scroll nativo no
+              trae: `tabIndex` y `role="group"` para que quien navega por
+              teclado pueda enfocar la tira y moverla con las flechas. */}
+          <div
+            tabIndex={0}
+            role="group"
+            aria-label="Desliza para ver más fotos"
+            className="-mx-margin-mobile flex snap-x snap-mandatory gap-3 overflow-x-auto px-margin-mobile pb-2 md:-mx-margin-desktop md:px-margin-desktop"
+          >
+            {negocio.fotos.map((foto, indice) => (
+              <img
+                key={foto.id}
+                src={foto.imagen}
+                alt={`${negocio.nombre}, foto ${indice + 1} de ${negocio.fotos.length}`}
+                // `lazy` desde la segunda: la primera es lo que se ve al
+                // abrir el enlace y diferirla solo agrega un parpadeo.
+                loading={indice === 0 ? "eager" : "lazy"}
+                className="h-48 w-64 shrink-0 snap-start rounded-2xl border border-outline-variant object-cover md:h-56 md:w-80"
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="servicios-heading" className="mb-10">
         <h2 id="servicios-heading" className="mb-4 font-headline-md text-headline-md text-primary">

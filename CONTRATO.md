@@ -832,3 +832,14 @@ que `frontend/dist/` (ver `backend/ROADMAP-BACKEND.md`).
   además de la capacidad, ahora faltan los endpoints y campos de arriba.
   Se cierra igual que antes — regenerar `schema.ts` y traducir
   `puede_editar_negocio` en `catalogo.ts` **en el mismo commit**.
+- **2026-07-28** — **Drift de `schema.ts` cerrado.** Sin cambios de API:
+  el frontend regeneró `src/api/schema.ts` contra el `openapi.yaml`
+  vigente y tradujo `puede_editar_negocio` en `catalogo.ts` en el mismo
+  commit, más la pantalla que consume los endpoints de 5.12. El CI de
+  frontend vuelve a verde y las dos mitades del contrato están otra vez
+  sincronizadas.
+
+  Se confirmó en el camino que el mecanismo de deriva funciona como se
+  diseñó: al regenerar el schema, lo único que dejó de compilar fue el
+  `Record<Capacidad, …>` de `DEFINICIONES` — el compilador señaló
+  exactamente la línea que había que atender.

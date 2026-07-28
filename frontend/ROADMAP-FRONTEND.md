@@ -946,3 +946,79 @@ Se evaluaron y quedaron fuera a propósito, documentadas también en la
 entrada anterior de este roadmap: NumberFlow (dashboard), Lenis (solo
 landing), y la pasada de estados vacíos/error con ilustración propia
 (hoy siguen siendo genéricos, solo con copy distinto por pantalla).
+
+## Perfil del negocio: logo, galería y drift de contrato cerrado (2026-07-28)
+
+> Rama `feature/backend-fase2-imagenes-negocio` (la misma del backend: la
+> hizo la misma persona, y el drift de `schema.ts` obligaba a cerrar los
+> dos lados en el mismo commit). Retoma los 4 pasos de frontend que
+> quedaron escritos en `../backend/ROADMAP-BACKEND.md`.
+
+### El drift de contrato quedó cerrado
+`src/api/schema.ts` regenerado contra el `openapi.yaml` nuevo **y**
+`puede_editar_negocio` traducida en `catalogo.ts`, en el mismo commit.
+Confirmado en el camino que el mecanismo funciona como se diseñó: al
+regenerar, lo único que dejó de compilar fue el `Record<Capacidad, …>` de
+`DEFINICIONES` — el compilador señaló exactamente la línea que había que
+atender, ni una más. El CI de frontend vuelve a verde.
+
+La capacidad se presenta como **"Cambiar cómo se ve el negocio"** (corto:
+"Perfil"), en un área propia del catálogo —"Perfil del negocio"— y no
+dentro de "Equipo": lo que el cliente ve del local no es organización
+interna.
+
+### Qué se construyó
+- **`src/api/multipart.ts`** — `cuerpoMultipart<T>()`. OpenAPI no expresa
+  "acá va un archivo" (un `ImageField` viaja como `type: string, format:
+  uri`, que es la forma de salida), así que toda subida choca con el tipo
+  generado. El cast queda en un solo lugar. Ver `../DECISIONES.md` #8.
+- **`ConfiguracionNegocioPage`** (`/configuracion/negocio`, gateada por
+  `puede_editar_negocio` en la ruta y en la navegación): enlace público
+  con copiar/ver arriba de todo, logo (subir, cambiar, quitar), datos del
+  negocio y galería con subir, borrar y reordenar.
+- **Navegación con entradas secundarias** — `ItemNav.secundaria`. La
+  barra inferior de móvil ya estaba en cinco entradas y esta habría sido
+  la sexta; lo secundario vive ahora en el menú de cuenta. Hay un test
+  que fija el techo. Ver `../DECISIONES.md` #10.
+- **Perfil público**: el `Avatar` del encabezado usa el logo real (cae
+  solo en las iniciales si no hay), y arriba de Servicios hay un carrusel
+  de fotos.
+- **Tests**: 36 en verde (venían 32). Nuevos: el carrusel no aparece sin
+  fotos, aparece con el orden que mandó el backend, el gating de la
+  entrada nueva y el techo de la barra inferior.
+
+### Decisiones tomadas acá (detalle completo en `../DECISIONES.md`)
+- **Carrusel con `scroll-snap` nativo, sin librería** — se descartó
+  Blossom, que venía evaluada de la sesión anterior. Diez fotos como
+  máximo y el gesto lo hace mejor el navegador. Lo que sí hubo que
+  agregar a mano es lo que la librería habría dado gratis: `tabIndex` y
+  `role="group"` con etiqueta para el acceso por teclado.
+- **Los límites (10 fotos / 5 MB) se duplican en el cliente** como
+  cortesía —no hacerle subir 8 MB por datos móviles a alguien para
+  después decirle que no—, con el backend como única autoridad.
+- **Reordenar es optimista**: mueve la lista local, manda la galería
+  completa (el endpoint no acepta parciales) y revierte si falla.
+- Tras guardar los datos se llama `refrescarMembresia()`: el nombre del
+  negocio se ve en la cabecera y en la barra lateral, y sin eso quien lo
+  cambia seguía viendo el viejo hasta recargar.
+
+### Verificado contra el backend real
+No solo contra mocks: se registró un negocio, se subió logo y dos fotos
+por `multipart`, se invirtió el orden y se comprobó que el perfil público
+devuelve URLs absolutas y que `GET /{slug}/` emite el `og:image` correcto
+con `twitter:card: summary_large_image`.
+
+### Pendientes que deja
+- **Sin recorte ni compresión de imagen en el cliente.** Se sube el
+  archivo tal cual: un logo rectangular se ve recortado por
+  `object-cover`, y una foto de 4 MB viaja completa. Un recorte previo
+  (canvas) mejoraría las dos cosas; hoy el límite de 5 MB es lo único
+  que hay.
+- **Reordenar es con flechas, no arrastrando.** Funciona con teclado y
+  es accesible sin trabajo extra, pero en móvil arrastrar sería lo
+  natural. Si se hace, que sea sin perder el camino por teclado.
+- **`formatearPrecio`/`MONEDA` sigue duplicado** en tres pantallas (ver
+  entrada anterior); esta sesión no lo tocó tampoco.
+- **"Cargos" sigue en la barra inferior** aunque es tan secundario como
+  el perfil del negocio. Moverlo es cambiarle la navegación a quien ya
+  la conoce: merece decidirse aparte.

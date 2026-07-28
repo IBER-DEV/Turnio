@@ -8,6 +8,17 @@ export interface ItemNav {
   icono: NombreIcono;
   /** Si se declara, la entrada solo aparece con esa capacidad. */
   capacidad?: Capacidad;
+  /** Ajustes que se visitan de vez en cuando, no el trabajo del día.
+   *
+   * En desktop caben todas en la barra lateral, pero la barra inferior
+   * de móvil es un presupuesto cerrado: cinco entradas ya la llenan, y
+   * cada ajuste nuevo le roba espacio a la pantalla que la persona usa
+   * cada hora. Lo secundario vive en el menú de cuenta en móvil.
+   *
+   * `Cargos` es el otro candidato natural a moverse acá; no se tocó en
+   * esta tanda para no cambiarle la navegación a quien ya la conoce.
+   */
+  secundaria?: boolean;
 }
 
 /** La forma de la app para un tipo de usuario.
@@ -44,6 +55,13 @@ const CARGOS: ItemNav = {
   icono: "settings",
   capacidad: "puede_gestionar_empleados",
 };
+const NEGOCIO: ItemNav = {
+  to: "/configuracion/negocio",
+  etiqueta: "Perfil del negocio",
+  icono: "storefront",
+  capacidad: "puede_editar_negocio",
+  secundaria: true,
+};
 
 export const SHELLS: Record<TipoDeUsuario, Shell> = {
   /** Ve el negocio completo: arranca en el panel con las cifras del día. */
@@ -55,6 +73,7 @@ export const SHELLS: Record<TipoDeUsuario, Shell> = {
       SERVICIOS,
       EQUIPO,
       CARGOS,
+      NEGOCIO,
     ],
   },
   /** Vive en la agenda del local: entra directo ahí, no a un panel. */
@@ -66,6 +85,7 @@ export const SHELLS: Record<TipoDeUsuario, Shell> = {
       SERVICIOS,
       EQUIPO,
       CARGOS,
+      NEGOCIO,
     ],
   },
   /** Su día y nada más. Sin catálogo ni administración: para un barbero
