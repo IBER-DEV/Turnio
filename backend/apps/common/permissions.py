@@ -24,13 +24,17 @@ def requiere_capacidad(nombre_capacidad):
     """Factory de permisos DRF para exigir una capacidad puntual.
 
     Uso: `permission_classes = [requiere_capacidad("puede_gestionar_empleados")]`
+
+    Resuelve contra el **cargo** de la membresía (`MiembroNegocio.tiene`),
+    no contra flags de la membresía: desde 2026-07-26 las capacidades
+    viven en `Cargo` y la membresía solo apunta a uno.
     """
 
     class _RequiereCapacidad(TieneMembresiaActiva):
         def has_permission(self, request, view):
             if not super().has_permission(request, view):
                 return False
-            return getattr(request.membresia, nombre_capacidad, False)
+            return request.membresia.tiene(nombre_capacidad)
 
     _RequiereCapacidad.__name__ = f"Requiere_{nombre_capacidad}"
     return _RequiereCapacidad
@@ -57,7 +61,7 @@ def requiere_capacidad_o_ser_titular(nombre_capacidad, campo_titular):
 
     class _RequiereCapacidadOSerTitular(TieneMembresiaActiva):
         def has_object_permission(self, request, view, obj):
-            if getattr(request.membresia, nombre_capacidad, False):
+            if request.membresia.tiene(nombre_capacidad):
                 return True
             return getattr(obj, f"{campo_titular}_id", None) == request.membresia.id
 

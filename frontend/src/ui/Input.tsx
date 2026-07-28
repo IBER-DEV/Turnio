@@ -6,7 +6,7 @@ import { Icon } from "./Icon";
 import type { NombreIcono } from "./Icon";
 
 const BASE_CAMPO =
-  "w-full rounded-xl border border-outline-variant bg-white py-3 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-outline focus:border-menta focus:ring-2 focus:ring-menta/20";
+  "w-full rounded-xl border border-outline-variant bg-white py-3 font-body-md text-body-md text-on-surface outline-hidden transition-all placeholder:text-outline focus:border-menta focus:ring-2 focus:ring-menta/20";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -37,7 +37,7 @@ export function Input({
   const tipoReal = esPassword && visible ? "text" : type;
 
   return (
-    <div className="flex flex-col gap-xs">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <label className="font-label-md text-label-md text-on-surface" htmlFor={idCampo}>
           {label}
@@ -79,7 +79,7 @@ export function Input({
       </div>
 
       {error ? (
-        <p id={idError} className="flex items-center gap-xs font-caption text-caption text-error">
+        <p id={idError} className="flex items-center gap-2 font-caption text-caption text-error">
           <Icon name="error" className="text-[18px]" />
           {error}
         </p>
@@ -108,7 +108,7 @@ export function Select({ label, ayuda, error, className, id, children, ...props 
   const idError = `${idCampo}-error`;
 
   return (
-    <div className="flex flex-col gap-xs">
+    <div className="flex flex-col gap-2">
       <label className="font-label-md text-label-md text-on-surface" htmlFor={idCampo}>
         {label}
       </label>
@@ -122,7 +122,7 @@ export function Select({ label, ayuda, error, className, id, children, ...props 
         {children}
       </select>
       {error ? (
-        <p id={idError} className="flex items-center gap-xs font-caption text-caption text-error">
+        <p id={idError} className="flex items-center gap-2 font-caption text-caption text-error">
           <Icon name="error" className="text-[18px]" />
           {error}
         </p>

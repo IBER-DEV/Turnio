@@ -32,19 +32,31 @@
   combinación una y otra vez. Si el dolor es lo tedioso del alta, la
   salida barata son presets de UI sobre las capacidades existentes, sin
   tocar el modelo. Con las dos capacidades agregadas ese día vamos en 7.
-- **Tipos de empleado como plantilla de UI, no como rol persistido**
-  (confirmado por el humano, 2026-07-26). Cierra la discusión anterior:
-  el humano quiere que el dueño **escoja un tipo de empleado** y que
-  después pueda mover permiso por permiso — *"su negocio, sus reglas"*.
-  Los cuatro tipos (Barbero o estilista, Recepción, Encargado,
-  Administrador) viven **solo en el frontend** y no se guardan: precargan
-  capacidades y dejan de aplicar. El tipo que se muestra después se
-  **deduce** comparando capacidades ("Recepción · 2 cambios"). No
-  contradice la decisión de arriba: lo prohibido es un enum cerrado que
-  gobierne los permisos, y acá la fuente de verdad sigue siendo la
-  membresía. Si el rol se guardara, habría que resolver qué pasa con los
-  empleados ya asignados al cambiar la plantilla. Detalle en
-  `frontend/ROADMAP-FRONTEND.md`.
+- ~~**Tipos de empleado como plantilla de UI, no como rol persistido**
+  (2026-07-26).~~ **Revertido el mismo día**: el humano lo consideró
+  precipitado. Los tipos vivían solo en el frontend y se deducían
+  comparando capacidades. Reemplazado por el punto siguiente.
+- **Cargos por negocio en el backend + discriminador de dominio**
+  (confirmado por el humano, 2026-07-26). Es la forma definitiva del
+  modelo de permisos:
+  - **`Cargo`** (tabla por negocio, editable por el dueño) **posee** las
+    capacidades. `MiembroNegocio` apunta a uno y no tiene permisos
+    propios: sin excepciones por persona, que es lo que mantiene la
+    "cero complejidad" pedida. Si alguien necesita algo distinto, se le
+    crea un cargo. El negocio nace con tres cargos sembrados y editables.
+  - **`Cargo.tipo`** (`administracion` / `recepcion` / `operativo`) es un
+    **discriminador de dominio**: el frontend lo usa para decidir qué
+    shell montar y dónde aterriza cada quien, sin encadenar condicionales
+    por capacidad. **No es una barrera de seguridad** — el backend sigue
+    exigiendo la capacidad concreta en cada endpoint.
+  - Dos niveles de gating: **`tipo` decide la forma de la app**, **las
+    capacidades deciden las acciones**. Eso es lo que da la arquitectura
+    PBAC y la UI state-driven que pidió el humano.
+
+  Tampoco contradice "capacidades, no roles fijos": lo prohibido es un
+  enum cerrado de roles en el código, y acá los cargos los define cada
+  negocio. Se actualizaron ambos `CLAUDE.md`. Reglas completas en
+  `CONTRATO.md` 5.10.
 - Agenda por empleado desde el inicio (Fase 1), no operador único como
   caso central. **Matizado el 2026-07-26** (ver siguiente punto): sigue
   siendo por empleado, pero el horario se hereda del negocio en vez de
@@ -81,6 +93,22 @@
 - **Estructura de repo: monorepo** (`backend/` + `frontend/` en este
   mismo repo Git), con dos personas trabajando en paralelo cada una
   con su propio Claude Code (confirmado por el humano, 2026-07-24).
+  Existe además **`landing/`** (sitio de marketing en Astro, con su
+  propio `ROADMAP-LANDING.md`), que no estaba documentado acá hasta el
+  2026-07-28.
+- **Un solo dominio, una ruta por negocio** (confirmado por el humano,
+  2026-07-28): el perfil público de cada negocio vive en
+  `turnio.app/{slug}`, no en subdominios. Sin costo de dominio por
+  negocio y con las páginas públicas cacheables en CDN, que es lo que
+  mantiene barata la infraestructura mientras el tráfico público crece.
+  **Consecuencia técnica**: el slug comparte espacio de nombres con las
+  rutas de la app, así que hay una lista de slugs reservados en el
+  backend (ver `CONTRATO.md` 5.11) que debe crecer con cada ruta nueva
+  en la raíz del frontend.
+- **El cliente reserva sin cuenta** (confirmado por el humano,
+  2026-07-28): nombre y teléfono, nada más. Registrarse es fricción
+  justo en el momento en que el producto compite contra un WhatsApp.
+  El módulo `Cliente` sigue siendo de Fase 4.
 - **Contrato API backend↔frontend: OpenAPI autogenerado**
   (`drf-spectacular` → `backend/openapi.yaml`) + `CONTRATO.md` para
   convenciones que el schema no captura (auth, errores, capacidades).
@@ -112,8 +140,8 @@
 | Fase | Estado | Detalle |
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
-| Fase 1 — Núcleo operativo multi-empleado | 🟡 Backend completo; frontend primera pasada completa en rama `feature/frontend-fase1` (2026-07-24), sin mergear ni revisada por el compañero todavía | Backend: Servicios, Empleados (capacidades + especialidad), Agenda por empleado con máquina de estados de `Cita`. Frontend: login, registro de negocio, dashboard, Servicios, Agenda (horarios+citas), Empleados — ver `frontend/ROADMAP-FRONTEND.md` para pendientes (tests, edición completa de Servicios, storage nativo). La fase no se marca ✅ hasta que se mergee y el compañero la retome/valide. |
-| Fase 2 — Descubrimiento y reserva de clientes | Sin empezar | |
+| Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
+| Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. Falta: campo de imagen en el modelo (bloquea `og:image` y el futuro carrusel del perfil) y decidir cómo se sirve `frontend/dist/` fuera de desarrollo — ver decisión #8. |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
@@ -154,6 +182,34 @@ NO hacer todavía.
    `Servicio` y lo controla `puede_editar_precios`. Hoy es inerte, pero
    cuando Caja conecte el cálculo real, quien pueda editar servicios
    podrá subirse su propia comisión. Separar antes de conectar.
+8. **Cambio de alcance de Fase 2 (2026-07-28, decisión del humano)**:
+   el reemplazo de "llamar o escribir por WhatsApp" es el **enlace
+   único y público del negocio** (`turnio.app/{slug}`, compartido por
+   el dueño en su bio de Instagram o WhatsApp Business), no un
+   marketplace donde el cliente descubre negocios que no conoce. La
+   búsqueda (`BuscarNegociosView`, `GET /api/publico/negocios/`) sigue
+   construida y con contrato — no se revierte — pero pasa a ser
+   infraestructura para el buscador de Fase 6+, no el flujo principal
+   de Fase 2. `CLAUDE.md` (principio de diseño y fases) actualizado en
+   consecuencia.
+
+   De ahí salieron dos hallazgos que quedan como bloqueos reales, no
+   del contrato sino de producto/infraestructura:
+   - **No hay ningún campo de imagen** en `Negocio` ni en `Servicio`
+     (ni logo, ni foto de portada, ni fotos de servicios). Bloquea
+     tanto un carrusel de fotos en el perfil como la vista previa con
+     imagen al compartir el enlace (`og:image`). Es de backend
+     (modelo + storage) cuando se priorice.
+   - **El SPA no tenía forma de generar un preview real al compartir el
+     enlace**: los crawlers de WhatsApp/Instagram no ejecutan
+     JavaScript, así que `index.html` genérico mostraba "Turnio" igual
+     para cualquier negocio. Resuelto con `PerfilPublicoShellView` en
+     Django (`backend/apps/publico/views_shell.py`): intercepta
+     `/{slug}/` en el servidor e inyecta meta tags Open Graph reales
+     antes de que React monte. **No hay pipeline de despliegue en el
+     repo todavía** (`docker-compose.yml` solo tiene `db` + `backend`),
+     así que cómo se sirve `frontend/dist/` fuera de desarrollo local
+     sigue abierto — ver `backend/ROADMAP-BACKEND.md`.
 
 ## Historial de fases
 

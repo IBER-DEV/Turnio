@@ -33,7 +33,7 @@ export function SelectCustom({
   className,
 }: SelectCustomProps) {
   return (
-    <div className={cn("flex flex-col gap-xs", className)}>
+    <div className={cn("flex flex-col gap-2", className)}>
       <label
         className={cn(
           "font-label-md text-label-md text-on-surface",
@@ -45,7 +45,7 @@ export function SelectCustom({
       <SelectPrimitive.Root value={valor} onValueChange={onChange} disabled={disabled}>
         <SelectPrimitive.Trigger
           className={cn(
-            "inline-flex w-full items-center justify-between rounded-xl border bg-white py-3 pl-4 pr-3 font-body-md text-body-md text-on-surface outline-none transition-all",
+            "inline-flex w-full items-center justify-between rounded-xl border bg-white py-3 pl-4 pr-3 font-body-md text-body-md text-on-surface outline-hidden transition-all",
             "placeholder:text-outline",
             "focus:border-menta focus:ring-2 focus:ring-menta/20",
             "disabled:cursor-not-allowed disabled:opacity-60",
@@ -65,7 +65,7 @@ export function SelectCustom({
             position="popper"
             sideOffset={4}
             className={cn(
-              "z-[70] max-h-[300px] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-outline-variant bg-white shadow-card",
+              "z-70 max-h-[300px] w-(--radix-select-trigger-width) overflow-hidden rounded-xl border border-outline-variant bg-white shadow-card",
               "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
             )}
           >
@@ -77,7 +77,7 @@ export function SelectCustom({
       </SelectPrimitive.Root>
 
       {error ? (
-        <p className="flex items-center gap-xs font-caption text-caption text-error">
+        <p className="flex items-center gap-2 font-caption text-caption text-error">
           <Icon name="error" className="text-[18px]" />
           {error}
         </p>
@@ -106,9 +106,9 @@ export function SelectItem({
       value={value}
       disabled={disabled}
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 pr-8 font-body-md text-body-md text-on-surface outline-none transition-colors",
-        "data-[highlighted]:bg-menta/10 data-[highlighted]:text-primary",
-        "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+        "relative flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 pr-8 font-body-md text-body-md text-on-surface outline-hidden transition-colors",
+        "data-highlighted:bg-menta/10 data-highlighted:text-primary",
+        "data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className,
       )}
     >

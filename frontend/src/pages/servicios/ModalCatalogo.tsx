@@ -100,12 +100,12 @@ export function ModalCatalogo({
       titulo="Agregar desde el catálogo"
       descripcion="Elige los que ofreces. Puedes ajustar precio y duración después."
     >
-      <div className="space-y-md">
+      <div className="space-y-6">
         {/* Filtro por categoría */}
         <ToggleGroup
           valor={categoria}
           onChange={setCategoria}
-          className="-mx-md px-md"
+          className="-mx-6 px-6"
         >
           {CATEGORIAS_CATALOGO.map((item) => (
             <ToggleGroupItem key={item} value={item}>
@@ -159,7 +159,7 @@ export function ModalCatalogo({
           })}
         </ul>
 
-        <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variante="ghost" onClick={onCerrar} disabled={guardando}>
             Cancelar
           </Button>

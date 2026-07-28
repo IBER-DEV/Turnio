@@ -19,6 +19,15 @@ services:
     env_file: .env
     volumes:
       - ./backend:/app
+      # PerfilPublicoShellView (apps/publico/views_shell.py) lee
+      # frontend/dist/index.html para inyectar las meta tags Open Graph
+      # del perfil público. Sin este montaje, WORKDIR /app hace que
+      # `BASE_DIR.parent / "frontend"` no exista dentro del contenedor y
+      # esa vista daría 404 siempre, aunque `npm run build` sí se haya
+      # corrido en el host. Solo `dist/` (no todo `frontend/`, que
+      # arrastraría `node_modules`), y de solo lectura: el backend nunca
+      # escribe acá.
+      - ./frontend/dist:/frontend/dist:ro
     ports:
       - "8001:8000"
     depends_on:

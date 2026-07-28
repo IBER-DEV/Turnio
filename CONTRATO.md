@@ -65,14 +65,26 @@ guardados (ej. al reabrir la app). Responde:
   "nombre": "Ana",
   "especialidad": "Barbera",
   "negocio": {"id": 4, "nombre": "Barbería El Corte", "slug": "barberia-el-corte", "ciudad": "Bogotá", "direccion": "", "telefono": "", "activo": true},
-  "puede_cobrar": false,
-  "puede_ver_reportes": false,
-  "puede_editar_precios": false,
-  "puede_gestionar_empleados": false,
-  "puede_gestionar_agenda": true,
+  "tipo": "recepcion",
+  "cargo": {
+    "id": 12,
+    "nombre": "Recepción",
+    "tipo": "recepcion",
+    "miembros": 2,
+    "puede_cobrar": true,
+    "puede_ver_reportes": false,
+    "puede_editar_precios": false,
+    "puede_gestionar_empleados": false,
+    "puede_gestionar_agenda": true,
+    "puede_configurar_horarios": false,
+    "puede_ver_agenda_completa": true
+  },
   "activo": true
 }
 ```
+
+`tipo` decide **qué shell montar**; `cargo` decide **qué acciones
+pintar**. Ver 5.10 — son dos niveles distintos a propósito.
 
 **No** se resuelve buscando por email en `GET /api/negocios/empleados/`
 (esa lista es para gestionar empleados, no para autoidentificarse) —
@@ -144,22 +156,24 @@ no en Fase 1.
 
 ## 5. Modelo de permisos (capacidades, no roles)
 
-No hay roles fijos tipo "Dueño"/"Empleado". Cada usuario tiene una
-membresía (`MiembroNegocio`) en un negocio con capacidades booleanas
-independientes. La lista vigente de capacidades **vive en el schema**
-(`MiembroNegocio` en `openapi.yaml`); a la fecha de este documento son:
+No hay roles fijos tipo "Dueño"/"Empleado" definidos en el código. Las
+capacidades son booleanos independientes y viven en un **`Cargo` que cada
+negocio define** (ver 5.10); `MiembroNegocio` apunta a un cargo y no tiene
+permisos propios. La lista vigente **vive en el schema** (`Cargo` en
+`openapi.yaml`); a la fecha de este documento son siete:
 
-- `puede_cobrar`
-- `puede_ver_reportes`
+- `puede_cobrar` *(declarada, sin efecto hasta Fase 3)*
+- `puede_ver_reportes` *(declarada, sin efecto hasta Fase 4)*
 - `puede_editar_precios`
 - `puede_gestionar_empleados`
 - `puede_gestionar_agenda`
+- `puede_configurar_horarios`
+- `puede_ver_agenda_completa`
 
-Esta lista **crecerá** en fases futuras (ej. Fase 1 probablemente
-agregue algo como `puede_gestionar_agenda_propia` vs. la de otros
-empleados). El frontend no debe hardcodear un switch/enum cerrado de
-capacidades sin volver a chequear el schema: debe tratarlas como un
-conjunto de flags que se itera, no una lista fija de opciones de UI.
+Esta lista **crecerá**. El frontend no debe hardcodear un switch/enum
+cerrado de capacidades sin volver a chequear el schema: debe tratarlas
+como un conjunto de flags que se itera, no una lista fija de opciones de
+UI.
 
 ### 5.1 Caso "operador único"
 
@@ -355,6 +369,132 @@ usuario deben ir deshabilitados, y también los de las capacidades que
 quien mira no posee — si no, el formulario ofrece acciones que el backend
 va a rechazar.
 
+### 5.10 Cargos: dónde viven los permisos y qué es el `tipo`
+
+Las capacidades **no viven en la membresía**, viven en un `Cargo` que
+cada negocio define. `MiembroNegocio` apunta a uno y de ahí saca todo lo
+que puede hacer. No hay excepciones por persona: si alguien necesita algo
+distinto, se le crea un cargo.
+
+Cada negocio nace con tres cargos editables —**Administración**,
+**Recepción**, **Barbero o estilista**— y el dueño entra en el primero.
+Son un punto de partida, no un catálogo: se renombran, se editan, se
+crean otros y se borran los que no se usen.
+
+**Consecuencia que la UI debe comunicar**: editar un cargo cambia a
+**todos** los que lo ocupan. Por eso `Cargo` expone `miembros` (cuántas
+personas lo tienen).
+
+#### El discriminador de dominio
+
+`GET /api/negocios/mi-membresia/` devuelve dos cosas para dos usos
+distintos:
+
+| Campo | Para qué | Granularidad |
+|---|---|---|
+| `tipo` | Qué **shell** montar: navegación, pantalla inicial | Gruesa: `administracion` \| `recepcion` \| `operativo` |
+| `cargo` | Qué **acciones** pintar dentro de ese shell | Fina: las 7 capacidades |
+
+`tipo` sale del cargo y el dueño lo elige al crearlo. Existe para que el
+frontend no tenga que deducir la forma de la app encadenando
+condicionales por capacidad, y para que la decisión sea estable: mover un
+permiso no le reordena la app a nadie por sorpresa.
+
+**`tipo` no es una barrera de seguridad y el backend nunca filtra datos
+por él.** Cada endpoint sigue exigiendo la capacidad concreta. Si el tipo
+fuera la barrera, bastaría pedir otra ruta para saltársela — el frontend
+puede confiar en `tipo` para *dibujar*, nunca para *proteger*.
+
+#### Endpoints
+
+- `GET /api/negocios/cargos/` — los cargos del negocio. **Cualquier
+  miembro** puede leerlos: la UI necesita mostrar en qué cargo está cada
+  quien.
+- `POST/PATCH/DELETE /api/negocios/cargos/{id}/` — requiere
+  `puede_gestionar_empleados`; definir lo que puede hacer un cargo **es**
+  dar permisos. Borrar un cargo que alguien ocupa responde `400`.
+- `PATCH /api/negocios/empleados/{id}/` con `cargo` — así se cambia lo
+  que alguien puede hacer. Los flags `puede_*` ya **no** se aceptan acá.
+- `POST /api/negocios/empleados/` acepta `cargo`; si se omite, la persona
+  entra al cargo operativo del negocio.
+- `POST /api/negocios/registro/` **no** acepta `cargo` en sus empleados:
+  en ese request los cargos aún no existen, así que un id solo podría
+  apuntar a otro negocio. Entran al operativo y se les cambia después.
+
+Las reglas anti-escalada de 5.9 siguen valiendo, adaptadas a que ahora
+hay dos puertas: no se puede **ampliar el cargo que uno ocupa**, ni
+**mudarse a otro cargo** (ni poner a alguien en uno con capacidades que
+uno no tiene). Recortar y renombrar sí se permite, también sobre el
+propio.
+
+### 5.11 La superficie pública (Fase 2)
+
+Todo lo que cuelga de `/api/publico/` es **sin autenticación**: es la web
+que ve un cliente que quiere reservar. Cuatro endpoints:
+
+| Método | Ruta | Cacheable |
+|---|---|---|
+| GET | `/api/publico/negocios/?q=&ciudad=` | sí |
+| GET | `/api/publico/negocios/{slug}/` | sí |
+| GET | `/api/publico/negocios/{slug}/disponibilidad/?servicio=&fecha=` | **no** |
+| POST | `/api/publico/negocios/{slug}/reservar/` | — |
+
+La columna de caché no es decorativa: el perfil cambia cuando el negocio
+edita su catálogo, pero la disponibilidad cambia con **cada reserva**.
+Cachear el segundo mostraría huecos que ya no existen.
+
+### Reservar no requiere cuenta
+
+Basta `nombre_cliente` y `telefono_cliente`. Es el reemplazo directo de
+"llamar o escribir por WhatsApp", y meter un registro en el medio es
+fricción justo donde el producto compite. Encaja con el modelo: `Cita` ya
+guarda esos dos campos inline y `Cliente` es de Fase 4.
+
+**Consecuencia**: el cliente no puede consultar ni cancelar su cita
+después. Cuando haga falta, será con un token de acceso en el enlace de
+confirmación, no con una cuenta — pero hoy no existe.
+
+`empleado` es opcional al reservar: si se omite, se asigna quien esté
+libre. La respuesta dice con quién quedó.
+
+### Qué NO devuelven estos endpoints
+
+Los serializers públicos están escritos a mano, campo por campo, y **no
+reutilizan los internos** aunque el modelo sea el mismo. Concretamente:
+
+- Los servicios van sin `porcentaje_comision` (acuerdo interno).
+- Los profesionales van con `id`, `nombre` y `especialidad`, nada más —
+  sin email, sin cargo, sin capacidades.
+- **Nunca se devuelven citas.** La disponibilidad las usa para descartar
+  huecos ocupados y jamás las expone: quien consulta un local no puede
+  deducir quién tiene cita ni a qué hora.
+- Un negocio con `activo=False` responde `404` en todo, no solo
+  desaparece del listado.
+- Reservar un hueco ya tomado responde `400` con un mensaje **genérico**.
+  No distingue "se acaba de ocupar" de "nunca estuvo disponible": la
+  diferencia convertiría el endpoint en un oráculo de la agenda.
+
+### Límites de uso
+
+Es la única superficie sin sesión, así que el límite es por IP
+(`ScopedRateThrottle`):
+
+- **`publico_lectura`: 120/min** — navegar es barato y un cliente
+  indeciso mira varios días seguidos.
+- **`publico_reserva`: 10/hora** — escribir es caro y humanamente lento.
+  Corta el llenado automático de una agenda sin estorbarle a nadie real.
+
+Pasado el límite se responde `429`. El staff autenticado no pasa por
+estos límites: se aplican por vista, no globalmente.
+
+### El slug vive en la raíz del dominio
+
+El perfil público será `turnio.app/{slug}`, así que el slug comparte
+espacio de nombres con las rutas de la app. `apps.negocios.models.SLUGS_RESERVADOS`
+impide que un negocio se quede con `login`, `agenda`, `api`, etc.
+**Si el frontend agrega una ruta nueva en la raíz, hay que reservarla
+ahí** o un negocio podrá tomarla.
+
 ## 6. Historial de cambios al contrato
 
 > Quien cambie la forma de la API agrega una entrada acá (fecha,
@@ -506,3 +646,73 @@ va a rechazar.
   `puede_gestionar_agenda`. Para el resto quedan en `false`, que es
   justamente el cambio buscado — un empleado raso deja de ver la agenda
   del negocio entero.
+- **2026-07-26** — **Cambio con ruptura grande**: las capacidades se
+  mudan de `MiembroNegocio` a un modelo `Cargo` que cada negocio define,
+  y `mi-membresia` gana un discriminador de dominio. Ver 5.10. Decisión
+  del humano: quiere que el dueño escoja un cargo en vez de siete
+  interruptores, que pueda editar esos cargos él mismo, y que el
+  frontend sepa **qué pantalla cargar** sin encadenar condicionales por
+  capacidad (arquitectura PBAC + UI state-driven).
+  1. **`MiembroNegocio` pierde los siete flags `puede_*`.** Ahora tiene
+     `cargo`. Quien leía `membresia.puede_x` debe leer el cargo.
+  2. **`GET /api/negocios/mi-membresia/` cambia de forma**: en lugar de
+     los flags sueltos devuelve `tipo` (el discriminador) y `cargo`
+     anidado con las capacidades.
+  3. **`MiembroNegocio` en la API** expone `cargo` (id, editable) y
+     `cargo_detalle` (anidado, solo lectura) en vez de los flags.
+     `PATCH /api/negocios/empleados/{id}/` ya no acepta `puede_*`.
+  4. **`EmpleadoAlta` cambia**: acepta `cargo` en vez de los siete flags.
+     El alta dentro de `POST /api/negocios/registro/` usa un serializer
+     aparte (`EmpleadoAltaRegistro`) **sin** `cargo`, porque en ese
+     request los cargos del negocio todavía no existen y aceptar un id
+     permitiría colar el de otro negocio.
+  5. **Nuevo CRUD `GET/POST/PATCH/DELETE /api/negocios/cargos/`.**
+  6. **Registrar un negocio ahora crea tres cargos** y mete al dueño en
+     Administración.
+
+  Migración de datos: cada negocio recibe un cargo por cada combinación
+  distinta de capacidades que tuviera su gente, y todos quedan asignados.
+  Las combinaciones reconocibles se bautizan (Administración, Recepción,
+  Barbero o estilista); las arbitrarias quedan como "Cargo 1", "Cargo 2"
+  para que el dueño las renombre. **Nadie gana ni pierde permisos.**
+- **2026-07-28** — **Fase 2, superficie pública** (ver 5.11). Cuatro
+  endpoints nuevos bajo `/api/publico/`, todos sin autenticación:
+  búsqueda de negocios, perfil público, disponibilidad y reserva. Es el
+  reemplazo de "llamar o escribir por WhatsApp", que es el problema que
+  el producto resuelve.
+  1. **Reservar no requiere cuenta**: nombre y teléfono. El cliente no
+     puede consultar ni cancelar su cita después; cuando haga falta será
+     con un token en el enlace, no con una cuenta.
+  2. **Serializers públicos propios**, escritos campo por campo. No
+     reutilizan los internos: los servicios van sin
+     `porcentaje_comision` y los profesionales sin email ni cargo.
+  3. **Throttling por IP**: 120/min de lectura, 10/hora de reserva.
+     Pasado el límite, `429`. Es el primer rate limiting del proyecto —
+     el hueco de login que documenta 3.2 sigue abierto.
+  4. **`SLUGS_RESERVADOS`** en `apps.negocios.models`: como el perfil
+     público vivirá en `turnio.app/{slug}`, un negocio ya no puede
+     quedarse con `login`, `agenda`, `api` ni las demás rutas de la app.
+     **Ampliación de contrato**: quien agregue una ruta nueva en la raíz
+     del frontend tiene que reservarla ahí.
+
+  Sin cambios en los endpoints autenticados que ya existían.
+- **2026-07-28** — **Corrección de forma en `NegocioPublico`** (ver 5.11).
+  `servicios`, `profesionales` y `horario` estaban declarados
+  `type: string` en el schema cuando siempre devolvieron listas de
+  objetos. Ahora son `array` con `$ref` a `ServicioPublico`,
+  `ProfesionalPublico` y `HorarioNegocioPublico`, que aparecen como
+  componentes propios.
+
+  **La respuesta de la API no cambió**: el bug era del schema, no del
+  endpoint. Causa: los tres son `SerializerMethodField` y sin
+  `@extend_schema_field` drf-spectacular no puede inferir qué devuelven,
+  así que cae a `string`. Es el mismo tipo de fallo que el
+  `@extend_schema` puesto sobre `create()` en vez de `post` (entrada del
+  2026-07-24): el schema queda sintácticamente válido y semánticamente
+  falso, así que no lo atrapa `--validate` ni el CI.
+
+  Lo encontró el frontend al intentar tipar el perfil público, que es la
+  pantalla central de Fase 2 — con `servicios: string` no se podía
+  escribir. Regla práctica que queda: **un `SerializerMethodField` sin
+  `@extend_schema_field` es un campo mal documentado**, aunque el código
+  funcione.

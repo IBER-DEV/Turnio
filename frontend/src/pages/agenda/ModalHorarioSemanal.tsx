@@ -158,7 +158,7 @@ function EditorSemana({
         <p className="mb-2 font-label-md text-label-md text-on-surface-variant">
           Aplicar un horario típico
         </p>
-        <div className="hide-scrollbar -mx-md flex gap-2 overflow-x-auto px-md">
+        <div className="hide-scrollbar -mx-6 flex gap-2 overflow-x-auto px-6">
           {PLANTILLAS.map((plantilla) => (
             <button
               key={plantilla.etiqueta}
@@ -264,7 +264,7 @@ function EditorSemana({
 
 function MensajeError({ texto }: { texto: string }) {
   return (
-    <p role="alert" className="flex items-start gap-xs font-caption text-caption text-error">
+    <p role="alert" className="flex items-start gap-2 font-caption text-caption text-error">
       <Icon name="error" className="shrink-0 text-[18px]" />
       {texto}
     </p>
@@ -416,7 +416,7 @@ export function ModalHorarioSemanal({
       titulo="Horarios"
       descripcion="El horario del negocio rige para todo el equipo. Solo carga un horario aparte para quien trabaje distinto."
     >
-      <Tabs valor={pestana} onChange={setPestana} className="space-y-md">
+      <Tabs valor={pestana} onChange={setPestana} className="space-y-6">
         <TabsLista className="w-full">
           <TabsTrigger value="negocio" className="flex-1 gap-1.5">
             <Icon name="storefront" className="text-[18px]" />
@@ -429,8 +429,8 @@ export function ModalHorarioSemanal({
         </TabsLista>
 
         <TabsContent value="negocio">
-          <form className="space-y-md" onSubmit={guardarNegocio}>
-            <p className="flex items-start gap-xs rounded-lg bg-surface-container-low p-3 font-caption text-caption text-on-surface-variant">
+          <form className="space-y-6" onSubmit={guardarNegocio}>
+            <p className="flex items-start gap-2 rounded-lg bg-surface-container-low p-3 font-caption text-caption text-on-surface-variant">
               <Icon name="info" className="shrink-0 text-[18px] text-menta" />
               Este es el horario en que atiende el local. Todo el equipo trabaja estas horas, y los
               empleados nuevos las toman automáticamente.
@@ -440,7 +440,7 @@ export function ModalHorarioSemanal({
 
             {error && pestana === "negocio" && <MensajeError texto={error} />}
 
-            <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variante="ghost" onClick={onCerrar} disabled={guardando}>
                 Cancelar
               </Button>
@@ -452,8 +452,8 @@ export function ModalHorarioSemanal({
         </TabsContent>
 
         <TabsContent value="empleado">
-          <form className="space-y-md" onSubmit={guardarEmpleados}>
-            <p className="flex items-start gap-xs rounded-lg bg-surface-container-low p-3 font-caption text-caption text-on-surface-variant">
+          <form className="space-y-6" onSubmit={guardarEmpleados}>
+            <p className="flex items-start gap-2 rounded-lg bg-surface-container-low p-3 font-caption text-caption text-on-surface-variant">
               <Icon name="info" className="shrink-0 text-[18px] text-menta" />
               Solo para quien no trabaja el horario del local: medio tiempo, solo sábados, turno de
               tarde. Puedes marcar varios si comparten turno.
@@ -503,7 +503,7 @@ export function ModalHorarioSemanal({
             </fieldset>
 
             {seleccionados.length > 0 && (
-              <div className="animate-fade-in space-y-md">
+              <div className="animate-fade-in space-y-6">
                 <EditorSemana semana={semanaEmpleado} onCambiar={setSemanaEmpleado} />
 
                 {seleccionConPropio.length > 0 && (
@@ -522,7 +522,7 @@ export function ModalHorarioSemanal({
 
             {error && pestana === "empleado" && <MensajeError texto={error} />}
 
-            <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variante="ghost" onClick={onCerrar} disabled={guardando}>
                 Cancelar
               </Button>

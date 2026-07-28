@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 from rest_framework.test import APIClient
 
 from apps.negocios import services
@@ -128,7 +128,6 @@ def test_empleado_sin_capacidad_no_puede_agregar_empleados():
         email="empleado@ejemplo.com",
         password="claveSegura123",
         nombre="Empleado Sin Permiso",
-        capacidades={"puede_cobrar": True},
     )
 
     client = APIClient()
@@ -143,7 +142,8 @@ def test_empleado_sin_capacidad_no_puede_agregar_empleados():
     assert respuesta.status_code == 403
 
 
-def test_dueno_puede_actualizar_capacidades_de_un_empleado():
+def test_dueno_puede_cambiarle_el_cargo_a_un_empleado():
+    """Ya no se editan capacidades por persona: se le cambia el cargo."""
     negocio, _dueno, _m = services.registrar_negocio(
         nombre_negocio="Negocio A",
         email_dueno="dueno@ejemplo.com",
@@ -156,19 +156,23 @@ def test_dueno_puede_actualizar_capacidades_de_un_empleado():
         password="claveSegura123",
         nombre="Empleado",
     )
+    recepcion = negocio.cargos.get(nombre="Recepción")
 
     client = APIClient()
     _login(client, "dueno@ejemplo.com", "claveSegura123")
 
     respuesta = client.patch(
         f"/api/negocios/empleados/{membresia.id}/",
-        {"puede_cobrar": True, "especialidad": "Barbero"},
+        {"cargo": recepcion.id, "especialidad": "Barbero"},
         format="json",
     )
 
-    assert respuesta.status_code == 200
-    assert respuesta.data["puede_cobrar"] is True
+    assert respuesta.status_code == 200, respuesta.data
+    assert respuesta.data["cargo"] == recepcion.id
+    assert respuesta.data["cargo_detalle"]["puede_cobrar"] is True
     assert respuesta.data["especialidad"] == "Barbero"
+    membresia.refresh_from_db()
+    assert membresia.tiene("puede_cobrar") is True
 
 
 def test_no_se_puede_ver_detalle_de_empleado_de_otro_tenant():
@@ -196,7 +200,7 @@ def test_no_se_puede_ver_detalle_de_empleado_de_otro_tenant():
     assert respuesta.status_code == 404
 
 
-def test_mi_membresia_devuelve_mis_capacidades_y_mi_negocio():
+def test_mi_membresia_devuelve_tipo_cargo_y_negocio():
     negocio, _dueno, _m = services.registrar_negocio(
         nombre_negocio="Barbería El Corte",
         email_dueno="dueno3@ejemplo.com",
@@ -204,13 +208,14 @@ def test_mi_membresia_devuelve_mis_capacidades_y_mi_negocio():
         nombre_dueno="Carlos Dueño",
         ciudad="Bogotá",
     )
+    recepcion = negocio.cargos.get(nombre="Recepción")
     services.agregar_empleado(
         negocio=negocio,
         email="ana3@ejemplo.com",
         password="claveSegura123",
         nombre="Ana",
         especialidad="Barbera",
-        capacidades={"puede_gestionar_agenda": True},
+        cargo=recepcion,
     )
 
     client = APIClient()
@@ -221,8 +226,12 @@ def test_mi_membresia_devuelve_mis_capacidades_y_mi_negocio():
     assert respuesta.status_code == 200
     assert respuesta.data["email"] == "ana3@ejemplo.com"
     assert respuesta.data["especialidad"] == "Barbera"
-    assert respuesta.data["puede_gestionar_agenda"] is True
-    assert respuesta.data["puede_editar_precios"] is False
+    # El discriminador de dominio con que el frontend monta el shell...
+    assert respuesta.data["tipo"] == "recepcion"
+    # ...y las capacidades con que gatea cada acción dentro de él.
+    assert respuesta.data["cargo"]["nombre"] == "Recepción"
+    assert respuesta.data["cargo"]["puede_gestionar_agenda"] is True
+    assert respuesta.data["cargo"]["puede_editar_precios"] is False
     assert respuesta.data["negocio"]["nombre"] == "Barbería El Corte"
     assert respuesta.data["negocio"]["ciudad"] == "Bogotá"
 
@@ -249,7 +258,7 @@ def _cliente_empleado_sin_gestion(negocio):
         password="claveSegura123",
         nombre="Barbero Sin Gestión",
         especialidad="Fade",
-        capacidades={"puede_gestionar_agenda": True},
+        cargo=negocio.cargos.get(nombre="Recepción"),
     )
     client = APIClient()
     login = client.post(

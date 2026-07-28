@@ -30,7 +30,7 @@ export function Tooltip({
           side={lado}
           sideOffset={6}
           className={cn(
-            "z-[80] rounded-lg bg-pizarra px-3 py-1.5 font-caption text-caption text-white shadow-elevada",
+            "z-80 rounded-lg bg-pizarra px-3 py-1.5 font-caption text-caption text-white shadow-elevada",
             "animate-fade-in data-[state=closed]:animate-fade-out",
             className,
           )}

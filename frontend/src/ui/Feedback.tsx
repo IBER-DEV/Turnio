@@ -69,7 +69,7 @@ export function EstadoVacio({
   accionSecundaria?: { etiqueta: string; onClick: () => void };
 }) {
   return (
-    <div className="flex flex-col items-center gap-md rounded-2xl border border-dashed border-outline-variant bg-surface-container-low/50 px-md py-xl text-center">
+    <div className="flex flex-col items-center gap-6 rounded-2xl border border-dashed border-outline-variant bg-surface-container-low/50 px-6 py-12 text-center">
       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-menta/10">
         <Icon name={icono} className="text-[32px] text-menta" />
       </span>
@@ -80,7 +80,7 @@ export function EstadoVacio({
         </p>
       </div>
       {(accion || accionSecundaria) && (
-        <div className="flex flex-col gap-xs sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row">
           {accion && (
             <Button icono="add" onClick={accion.onClick}>
               {accion.etiqueta}
@@ -107,7 +107,7 @@ export function EstadoError({
   return (
     <div
       role="alert"
-      className="flex flex-col items-center gap-md rounded-2xl border border-error/20 bg-error-container px-md py-lg text-center"
+      className="flex flex-col items-center gap-6 rounded-2xl border border-error/20 bg-error-container px-6 py-8 text-center"
     >
       <Icon name="error" className="text-[32px] text-error" />
       <p className="font-body-md text-body-md text-on-error-container">{mensaje}</p>

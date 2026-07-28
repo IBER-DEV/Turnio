@@ -25,12 +25,22 @@ el dueño), no un modo especial separado. Esto aplica tanto al modelo
 de datos (backend) como a la UI (frontend): ninguna pantalla debe
 asumir "un solo empleado" como caso por defecto.
 
-Además, la búsqueda y reserva de citas por parte del cliente NO es una
-feature de fase tardía: es el reemplazo directo de "llamar o escribir
-por WhatsApp para pedir cita", que es el problema principal que el
-producto busca resolver. Debe estar disponible desde el MVP (ver fases
-más abajo), aunque en su versión básica (sin calificaciones,
-promociones o filtros avanzados, que sí son de fase posterior).
+Además, la reserva de citas por parte del cliente NO es una feature de
+fase tardía: es el reemplazo directo de "llamar o escribir por WhatsApp
+para pedir cita", que es el problema principal que el producto busca
+resolver. Debe estar disponible desde el MVP (ver fases más abajo).
+
+**Precisión sobre el MVP (2026-07-28, decisión del humano):** el
+reemplazo de WhatsApp es el **enlace único y público del negocio**
+(`turnio.app/{slug}`) — el dueño lo pega en su bio de Instagram o lo
+manda por WhatsApp Business, y el cliente reserva ahí sin llamar. **No**
+es un marketplace donde el cliente descubre negocios que no conocía:
+eso necesita densidad de oferta que la plataforma no tiene todavía, y
+construirlo antes es resolver un problema que ningún usuario real tiene
+todavía. El endpoint de búsqueda (`GET /api/publico/negocios/`) ya
+existe y se queda —no se revierte—, pero como infraestructura para el
+buscador de Fase 6+, no como el flujo principal de Fase 2. Ver Fase 2
+más abajo y `frontend/ROADMAP-FRONTEND.md` para el detalle de por qué.
 
 ## Cómo está organizado este repo
 Monorepo con dos carpetas hermanas:
@@ -106,16 +116,21 @@ de autenticación del lado del servidor. Detalle de implementación en
   desde el inicio. *(Solo backend; frontend no tenía tareas aquí.)*
 - Fase 1: Servicios, Empleados con capacidades individuales, Agenda con
   calendario por empleado, app Capacitor mínima para el negocio.
-- Fase 2: Perfil público del negocio, búsqueda de negocios por parte
-  del cliente, reserva en línea, app Capacitor para el cliente.
+- Fase 2: Perfil público del negocio en su enlace único (`/{slug}`),
+  reserva en línea sin cuenta, app Capacitor para el cliente. La
+  búsqueda/descubrimiento de negocios (marketplace) se pospone a Fase
+  6+ — ver principio de diseño más arriba.
 - Fase 3: Caja, Comisiones automáticas, auditoría, soporte offline en
   esos flujos.
 - Fase 4: Clientes (lado negocio), Reportes, panel administrativo,
   consentimiento de datos (Ley 1581 de 2012).
 - Fase 5: Planes/suscripción, cobro recurrente, onboarding, push.
 - Fase 6+: multi-sucursal, WhatsApp, inventario avanzado, fidelización,
-  marketplace avanzado (calificaciones, promociones, filtros), IA —
-  solo después de validar las fases anteriores con negocios reales.
+  **marketplace** (búsqueda/descubrimiento de negocios, calificaciones,
+  promociones, filtros), IA — solo después de validar las fases
+  anteriores con negocios reales. El marketplace necesita densidad de
+  oferta que no existe todavía; antes de eso, cada negocio se comparte
+  por su propio enlace.
 
 No avances a una fase nueva sin que la anterior esté funcional y
 probada, salvo instrucción explícita del humano. Backend y frontend
@@ -134,11 +149,13 @@ entreguen lo que les toca.
   actualiza `CONTRATO.md` en el mismo commit.
 
 ## Qué NO hacer
-- No implementes multi-sucursal, IA, o funciones avanzadas de
-  marketplace (calificaciones, promociones, filtros complejos) antes
-  de que se indique explícitamente que se llegó a la Fase 6. La
-  búsqueda y reserva básica de negocios SÍ es parte del MVP (Fase 2),
-  no se excluye.
+- No implementes multi-sucursal, IA, o marketplace (búsqueda/
+  descubrimiento de negocios, calificaciones, promociones, filtros)
+  antes de que se indique explícitamente que se llegó a la Fase 6. El
+  perfil público en su enlace único y la reserva sin cuenta SÍ son
+  parte del MVP (Fase 2), no se excluyen — es la parte de "búsqueda"
+  del cliente (encontrar un negocio que no conoce) la que se pospone,
+  no la reserva.
 - No agregues dependencias nuevas sin justificarlas brevemente en el
   sub-roadmap de tu área.
 - No asumas que el negocio tiene un único empleado por defecto; diseña

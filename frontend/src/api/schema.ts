@@ -421,6 +421,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/negocios/cargos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Los cargos que define **este** negocio.
+         *
+         *     No hay catálogo global: cada negocio nace con tres cargos de arranque
+         *     (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+         *     otros o borra los que no usa.
+         *
+         *     Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+         *     qué cargo está cada quien— pero escribir exige
+         *     `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+         *     que puede hacer un cargo **es** dar permisos.
+         */
+        get: operations["negocios_cargos_list"];
+        put?: never;
+        /**
+         * @description Los cargos que define **este** negocio.
+         *
+         *     No hay catálogo global: cada negocio nace con tres cargos de arranque
+         *     (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+         *     otros o borra los que no usa.
+         *
+         *     Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+         *     qué cargo está cada quien— pero escribir exige
+         *     `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+         *     que puede hacer un cargo **es** dar permisos.
+         */
+        post: operations["negocios_cargos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/negocios/cargos/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Los cargos que define **este** negocio.
+         *
+         *     No hay catálogo global: cada negocio nace con tres cargos de arranque
+         *     (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+         *     otros o borra los que no usa.
+         *
+         *     Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+         *     qué cargo está cada quien— pero escribir exige
+         *     `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+         *     que puede hacer un cargo **es** dar permisos.
+         */
+        get: operations["negocios_cargos_retrieve"];
+        /**
+         * @description Los cargos que define **este** negocio.
+         *
+         *     No hay catálogo global: cada negocio nace con tres cargos de arranque
+         *     (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+         *     otros o borra los que no usa.
+         *
+         *     Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+         *     qué cargo está cada quien— pero escribir exige
+         *     `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+         *     que puede hacer un cargo **es** dar permisos.
+         */
+        put: operations["negocios_cargos_update"];
+        post?: never;
+        /**
+         * @description Los cargos que define **este** negocio.
+         *
+         *     No hay catálogo global: cada negocio nace con tres cargos de arranque
+         *     (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+         *     otros o borra los que no usa.
+         *
+         *     Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+         *     qué cargo está cada quien— pero escribir exige
+         *     `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+         *     que puede hacer un cargo **es** dar permisos.
+         */
+        delete: operations["negocios_cargos_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Los cargos que define **este** negocio.
+         *
+         *     No hay catálogo global: cada negocio nace con tres cargos de arranque
+         *     (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+         *     otros o borra los que no usa.
+         *
+         *     Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+         *     qué cargo está cada quien— pero escribir exige
+         *     `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+         *     que puede hacer un cargo **es** dar permisos.
+         */
+        patch: operations["negocios_cargos_partial_update"];
+        trace?: never;
+    };
     "/api/negocios/empleados/": {
         parameters: {
             query?: never;
@@ -562,10 +666,98 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Alta de un negocio nuevo, con su dueño (todas las capacidades) y,
-         *     opcionalmente, empleados adicionales desde el mismo registro.
+         * @description Alta de un negocio nuevo, sus cargos de arranque y su dueño.
+         *
+         *     El negocio nace con tres cargos editables (Administración, Recepción,
+         *     Barbero o estilista) y el dueño entra en el de Administración. Los
+         *     empleados que vengan en el mismo request entran al cargo operativo;
+         *     cambiarles el cargo es un paso posterior ya autenticado.
          */
         post: operations["negocios_registro_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/publico/negocios/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Busca negocios para reservar. Público, sin autenticación.
+         *
+         *     Devuelve solo negocios activos. Sin parámetros lista todos, que hoy es razonable por el volumen; cuando crezca habrá que paginar.
+         */
+        get: operations["publico_negocios_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/publico/negocios/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description El perfil público de un negocio: sus servicios, quién atiende y su horario. Público, sin autenticación.
+         *
+         *     Esta respuesta es **cacheable**: cambia solo cuando el negocio edita su catálogo, su equipo o su horario. La disponibilidad, que cambia con cada reserva, vive en un endpoint aparte a propósito.
+         */
+        get: operations["publico_negocios_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/publico/negocios/{slug}/disponibilidad/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Las horas libres para un servicio en un día. Público, sin autenticación.
+         *
+         *     **No cachear**: cambia con cada reserva. Devuelve solo horas futuras, y nunca revela quién está ocupado ni con quién — las citas existentes se usan para descartar huecos y nada más.
+         */
+        get: operations["publico_negocios_disponibilidad_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/publico/negocios/{slug}/reservar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Reserva una cita sin necesidad de cuenta: basta nombre y teléfono. Es el reemplazo directo de llamar o escribir por WhatsApp.
+         *
+         *     `empleado` es opcional: si se omite, se asigna quien esté disponible. Si el hueco se ocupó entre que se mostró y se confirmó —dos clientes reservando a la vez— responde `400`, no una cita encima de otra.
+         */
+        post: operations["publico_negocios_reservar_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -671,6 +863,26 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Un cargo del negocio: nombre, tipo y qué concede.
+         *
+         *     `miembros` sirve para que la UI avise antes de borrar y para explicar
+         *     a cuánta gente afecta editarlo — que es la contrapartida de que el
+         *     cargo sea la única fuente de verdad.
+         */
+        Cargo: {
+            readonly id: number;
+            nombre: string;
+            tipo?: components["schemas"]["TipoEnum"];
+            readonly miembros: number;
+            puede_cobrar?: boolean;
+            puede_ver_reportes?: boolean;
+            puede_editar_precios?: boolean;
+            puede_gestionar_empleados?: boolean;
+            puede_gestionar_agenda?: boolean;
+            puede_configurar_horarios?: boolean;
+            puede_ver_agenda_completa?: boolean;
+        };
         Cita: {
             readonly id: number;
             servicio: number;
@@ -712,7 +924,7 @@ export interface components {
          * @enum {integer}
          */
         DiaSemanaEnum: 0 | 1 | 2 | 3 | 4 | 5 | 6;
-        /** @description Empleado adicional dado de alta junto con el registro del negocio. */
+        /** @description Empleado adicional: sus datos de acceso y en qué cargo entra. */
         EmpleadoAlta: {
             /** Format: email */
             email: string;
@@ -720,20 +932,23 @@ export interface components {
             password: string;
             /** @default  */
             especialidad: string;
-            /** @default false */
-            puede_cobrar: boolean;
-            /** @default false */
-            puede_ver_reportes: boolean;
-            /** @default false */
-            puede_editar_precios: boolean;
-            /** @default false */
-            puede_gestionar_empleados: boolean;
-            /** @default false */
-            puede_gestionar_agenda: boolean;
-            /** @default false */
-            puede_configurar_horarios: boolean;
-            /** @default false */
-            puede_ver_agenda_completa: boolean;
+            cargo?: number | null;
+        };
+        /**
+         * @description Empleado dado de alta **dentro del registro del negocio**.
+         *
+         *     Sin `cargo` a propósito: en ese request los cargos del negocio todavía
+         *     no existen, así que un id solo podría apuntar a otro negocio. Estos
+         *     empleados entran al cargo operativo sembrado y el dueño les cambia el
+         *     cargo después, ya autenticado.
+         */
+        EmpleadoAltaRegistro: {
+            /** Format: email */
+            email: string;
+            nombre: string;
+            password: string;
+            /** @default  */
+            especialidad: string;
         };
         /**
          * @description * `agendada` - Agendada
@@ -761,6 +976,13 @@ export interface components {
             hora_inicio: string;
             /** Format: time */
             hora_fin: string;
+        };
+        HorarioNegocioPublico: {
+            readonly dia_semana: components["schemas"]["DiaSemanaEnum"];
+            /** Format: time */
+            readonly hora_inicio: string;
+            /** Format: time */
+            readonly hora_fin: string;
         };
         /**
          * @description Entrada de `PUT /api/agenda/horario-negocio/`.
@@ -797,11 +1019,32 @@ export interface components {
             hora_fin: string;
         };
         /**
+         * @description Una hora a la que se puede reservar.
+         *
+         *     Solo la hora: con quién lo resuelve el backend al confirmar. Decir de
+         *     antemano qué empleado la tomaría sería una promesa que otra reserva
+         *     simultánea puede romper entre que se muestra y se confirma.
+         */
+        Hueco: {
+            /** Format: date-time */
+            inicio: string;
+        };
+        /**
          * @description Forma de la respuesta de GET /api/negocios/mi-membresia/.
          *
-         *     Pensado para que el frontend, justo después de loguearse, resuelva
-         *     en un solo request "quién soy, en qué negocio y qué puedo hacer"
-         *     sin tener que listar empleados y buscarse a sí mismo por email.
+         *     Resuelve de un solo request "quién soy, en qué negocio, **qué
+         *     experiencia de la app me toca** y qué puedo hacer":
+         *
+         *     - `tipo` es el **discriminador de dominio** (viene del cargo). El
+         *       frontend lo usa para decidir qué shell montar —qué navegación, qué
+         *       pantalla inicial— sin encadenar condicionales por capacidad.
+         *     - `cargo` trae el detalle con las capacidades, que es lo que gatea
+         *       cada acción concreta dentro de ese shell.
+         *
+         *     Los dos niveles son a propósito (ver `CONTRATO.md` 5.10): el tipo
+         *     decide la forma de la app, las capacidades deciden los botones. Y
+         *     ninguno de los dos es la barrera de seguridad — el backend exige la
+         *     capacidad en cada endpoint.
          */
         MiMembresia: {
             readonly id: number;
@@ -810,13 +1053,8 @@ export interface components {
             readonly nombre: string;
             readonly especialidad: string;
             readonly negocio: components["schemas"]["Negocio"];
-            readonly puede_cobrar: boolean;
-            readonly puede_ver_reportes: boolean;
-            readonly puede_editar_precios: boolean;
-            readonly puede_gestionar_empleados: boolean;
-            readonly puede_gestionar_agenda: boolean;
-            readonly puede_configurar_horarios: boolean;
-            readonly puede_ver_agenda_completa: boolean;
+            readonly tipo: components["schemas"]["TipoEnum"];
+            readonly cargo: components["schemas"]["Cargo"];
             readonly activo: boolean;
         };
         /**
@@ -838,19 +1076,22 @@ export interface components {
             readonly especialidad: string;
             readonly activo: boolean;
         };
+        /**
+         * @description Un miembro visto desde la gestión del equipo.
+         *
+         *     Ya no lleva flags `puede_*`: las capacidades viven en el cargo. Se
+         *     envía `cargo` (el id, que es lo editable) y `cargo_detalle` anidado
+         *     para que la UI muestre el nombre y lo que concede sin un segundo
+         *     request.
+         */
         MiembroNegocio: {
             readonly id: number;
             /** Format: email */
             readonly email: string;
             readonly nombre: string;
             especialidad?: string;
-            puede_cobrar?: boolean;
-            puede_ver_reportes?: boolean;
-            puede_editar_precios?: boolean;
-            puede_gestionar_empleados?: boolean;
-            puede_gestionar_agenda?: boolean;
-            puede_configurar_horarios?: boolean;
-            puede_ver_agenda_completa?: boolean;
+            cargo?: number | null;
+            readonly cargo_detalle: components["schemas"]["Cargo"];
             activo?: boolean;
         };
         Negocio: {
@@ -861,6 +1102,43 @@ export interface components {
             readonly direccion: string;
             readonly telefono: string;
             readonly activo: boolean;
+        };
+        /** @description El perfil público completo de un negocio. */
+        NegocioPublico: {
+            readonly slug: string;
+            readonly nombre: string;
+            readonly ciudad: string;
+            readonly direccion: string;
+            readonly telefono: string;
+            readonly servicios: components["schemas"]["ServicioPublico"][];
+            readonly profesionales: components["schemas"]["ProfesionalPublico"][];
+            readonly horario: components["schemas"]["HorarioNegocioPublico"][];
+        };
+        /** @description Un negocio en la lista de resultados de búsqueda. */
+        NegocioPublicoResumen: {
+            readonly slug: string;
+            readonly nombre: string;
+            readonly ciudad: string;
+        };
+        /**
+         * @description Un cargo del negocio: nombre, tipo y qué concede.
+         *
+         *     `miembros` sirve para que la UI avise antes de borrar y para explicar
+         *     a cuánta gente afecta editarlo — que es la contrapartida de que el
+         *     cargo sea la única fuente de verdad.
+         */
+        PatchedCargo: {
+            readonly id?: number;
+            nombre?: string;
+            tipo?: components["schemas"]["TipoEnum"];
+            readonly miembros?: number;
+            puede_cobrar?: boolean;
+            puede_ver_reportes?: boolean;
+            puede_editar_precios?: boolean;
+            puede_gestionar_empleados?: boolean;
+            puede_gestionar_agenda?: boolean;
+            puede_configurar_horarios?: boolean;
+            puede_ver_agenda_completa?: boolean;
         };
         PatchedCita: {
             readonly id?: number;
@@ -886,19 +1164,22 @@ export interface components {
             /** Format: time */
             hora_fin?: string;
         };
+        /**
+         * @description Un miembro visto desde la gestión del equipo.
+         *
+         *     Ya no lleva flags `puede_*`: las capacidades viven en el cargo. Se
+         *     envía `cargo` (el id, que es lo editable) y `cargo_detalle` anidado
+         *     para que la UI muestre el nombre y lo que concede sin un segundo
+         *     request.
+         */
         PatchedMiembroNegocio: {
             readonly id?: number;
             /** Format: email */
             readonly email?: string;
             readonly nombre?: string;
             especialidad?: string;
-            puede_cobrar?: boolean;
-            puede_ver_reportes?: boolean;
-            puede_editar_precios?: boolean;
-            puede_gestionar_empleados?: boolean;
-            puede_gestionar_agenda?: boolean;
-            puede_configurar_horarios?: boolean;
-            puede_ver_agenda_completa?: boolean;
+            cargo?: number | null;
+            readonly cargo_detalle?: components["schemas"]["Cargo"];
             activo?: boolean;
         };
         PatchedServicio: {
@@ -913,6 +1194,18 @@ export interface components {
             porcentaje_comision?: string;
             activo?: boolean;
         };
+        /**
+         * @description Quién atiende, como se le presenta al cliente.
+         *
+         *     Acá es donde `especialidad` gana su razón de ser: es lo que le dice al
+         *     cliente "este hace fades" cuando elige con quién. Sin email, sin cargo
+         *     y sin capacidades — eso es organización interna del negocio.
+         */
+        ProfesionalPublico: {
+            readonly id: number;
+            readonly nombre: string;
+            readonly especialidad: string;
+        };
         RegistroNegocio: {
             nombre_negocio: string;
             ciudad?: string;
@@ -922,13 +1215,47 @@ export interface components {
             email_dueno: string;
             nombre_dueno: string;
             password_dueno: string;
-            empleados?: components["schemas"]["EmpleadoAlta"][];
+            empleados?: components["schemas"]["EmpleadoAltaRegistro"][];
         };
         /** @description Forma de la respuesta de POST /api/negocios/registro/. */
         RegistroNegocioRespuesta: {
             negocio: components["schemas"]["Negocio"];
             access: string;
             refresh: string;
+        };
+        /**
+         * @description Lo que manda un cliente para reservar. Sin cuenta: nombre y teléfono.
+         *
+         *     `empleado` es opcional — si el cliente eligió a alguien, se respeta; si
+         *     no, se le asigna quien esté libre.
+         */
+        Reserva: {
+            servicio: number;
+            /** Format: date-time */
+            fecha_hora_inicio: string;
+            nombre_cliente: string;
+            telefono_cliente: string;
+            empleado?: number | null;
+            /** @default  */
+            notas: string;
+        };
+        /**
+         * @description Lo que se le devuelve al cliente tras reservar.
+         *
+         *     Deliberadamente magro: confirma lo suyo y nada del negocio. No lleva el
+         *     `id` de la cita porque hoy no hay nada que el cliente pueda hacer con
+         *     él —cancelar sin cuenta requeriría un token de acceso, que es una
+         *     decisión aparte— y un id expuesto sin uso solo invita a probar otros.
+         */
+        ReservaConfirmada: {
+            negocio: string;
+            servicio: string;
+            profesional: string;
+            /** Format: date-time */
+            fecha_hora_inicio: string;
+            /** Format: date-time */
+            fecha_hora_fin: string;
+            nombre_cliente: string;
         };
         Servicio: {
             readonly id: number;
@@ -953,6 +1280,28 @@ export interface components {
         ServicioLote: {
             servicios: components["schemas"]["Servicio"][];
         };
+        /**
+         * @description Un servicio como lo ve el cliente: qué es, cuánto cuesta, cuánto dura.
+         *
+         *     Sin `porcentaje_comision`, que es un acuerdo interno entre el negocio y
+         *     su gente.
+         */
+        ServicioPublico: {
+            readonly id: number;
+            readonly nombre: string;
+            readonly descripcion: string;
+            readonly categoria: string;
+            /** Format: decimal */
+            readonly precio: string;
+            readonly duracion_minutos: number;
+        };
+        /**
+         * @description * `administracion` - Administración
+         *     * `recepcion` - Recepción
+         *     * `operativo` - Operativo
+         * @enum {string}
+         */
+        TipoEnum: "administracion" | "recepcion" | "operativo";
         TokenObtainPair: {
             email: string;
             password: string;
@@ -1443,6 +1792,149 @@ export interface operations {
             };
         };
     };
+    negocios_cargos_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cargo"][];
+                };
+            };
+        };
+    };
+    negocios_cargos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Cargo"];
+                "application/x-www-form-urlencoded": components["schemas"]["Cargo"];
+                "multipart/form-data": components["schemas"]["Cargo"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cargo"];
+                };
+            };
+        };
+    };
+    negocios_cargos_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cargo. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cargo"];
+                };
+            };
+        };
+    };
+    negocios_cargos_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cargo. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Cargo"];
+                "application/x-www-form-urlencoded": components["schemas"]["Cargo"];
+                "multipart/form-data": components["schemas"]["Cargo"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cargo"];
+                };
+            };
+        };
+    };
+    negocios_cargos_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cargo. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    negocios_cargos_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cargo. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCargo"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCargo"];
+                "multipart/form-data": components["schemas"]["PatchedCargo"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cargo"];
+                };
+            };
+        };
+    };
     negocios_empleados_list: {
         parameters: {
             query?: never;
@@ -1621,6 +2113,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistroNegocioRespuesta"];
+                };
+            };
+        };
+    };
+    publico_negocios_list: {
+        parameters: {
+            query?: {
+                /** @description Filtra por ciudad. */
+                ciudad?: string;
+                /** @description Busca en el nombre del negocio. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NegocioPublicoResumen"][];
+                };
+            };
+        };
+    };
+    publico_negocios_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NegocioPublico"];
+                };
+            };
+        };
+    };
+    publico_negocios_disponibilidad_list: {
+        parameters: {
+            query: {
+                /** @description Día a consultar (YYYY-MM-DD). */
+                fecha: string;
+                /** @description Id del servicio. */
+                servicio: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hueco"][];
+                };
+            };
+        };
+    };
+    publico_negocios_reservar_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reserva"];
+                "application/x-www-form-urlencoded": components["schemas"]["Reserva"];
+                "multipart/form-data": components["schemas"]["Reserva"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservaConfirmada"];
                 };
             };
         };

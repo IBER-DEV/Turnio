@@ -5,40 +5,115 @@ from apps.negocios.models import Negocio
 from apps.negocios.services import (
     CAMPOS_CAPACIDADES,
     CambioDeCapacidadNoPermitido,
+    validar_asignacion_de_cargo,
     validar_cambio_de_capacidades,
 )
-from apps.usuarios.models import MiembroNegocio, Usuario
+from apps.usuarios.models import Cargo, MiembroNegocio, Usuario
 
 
 def _solicitante(contexto):
     """La membresía de quien hace el request, si la hay.
 
     En el registro de un negocio no hay ninguna: el dueño se está creando
-    en ese mismo request y recibe todas las capacidades por definición.
+    en ese mismo request y recibe el cargo de administración por
+    definición.
     """
     request = contexto.get("request")
     return getattr(request, "membresia", None) if request is not None else None
 
 
-class EmpleadoAltaSerializer(serializers.Serializer):
-    """Empleado adicional dado de alta junto con el registro del negocio."""
+class CargoSerializer(serializers.ModelSerializer):
+    """Un cargo del negocio: nombre, tipo y qué concede.
+
+    `miembros` sirve para que la UI avise antes de borrar y para explicar
+    a cuánta gente afecta editarlo — que es la contrapartida de que el
+    cargo sea la única fuente de verdad.
+    """
+
+    miembros = serializers.IntegerField(source="miembros.count", read_only=True)
+
+    class Meta:
+        model = Cargo
+        fields = ["id", "nombre", "tipo", "miembros", *CAMPOS_CAPACIDADES]
+        read_only_fields = ["id", "miembros"]
+
+    def validate_nombre(self, nombre):
+        request = self.context["request"]
+        repetido = Cargo.objects.filter(
+            negocio=request.membresia.negocio, nombre__iexact=nombre.strip()
+        ).exclude(pk=self.instance.pk if self.instance else None)
+        if repetido.exists():
+            raise serializers.ValidationError("Ya tienes un cargo con ese nombre.")
+        return nombre.strip()
+
+    def validate(self, datos):
+        solicitante = _solicitante(self.context)
+        if solicitante is None:
+            return datos
+
+        # Solo los cambios reales: reenviar una capacidad con el valor que
+        # ya tenía no es un intento de ampliarla.
+        pedidas = {
+            campo: datos[campo]
+            for campo in CAMPOS_CAPACIDADES
+            if campo in datos
+            and (self.instance is None or datos[campo] != getattr(self.instance, campo))
+        }
+        try:
+            validar_cambio_de_capacidades(
+                solicitante=solicitante,
+                capacidades_pedidas=pedidas,
+                es_mi_cargo=self.instance is not None
+                and solicitante.cargo_id == self.instance.pk,
+            )
+        except CambioDeCapacidadNoPermitido as error:
+            raise serializers.ValidationError({"non_field_errors": [str(error)]})
+        return datos
+
+
+class EmpleadoAltaRegistroSerializer(serializers.Serializer):
+    """Empleado dado de alta **dentro del registro del negocio**.
+
+    Sin `cargo` a propósito: en ese request los cargos del negocio todavía
+    no existen, así que un id solo podría apuntar a otro negocio. Estos
+    empleados entran al cargo operativo sembrado y el dueño les cambia el
+    cargo después, ya autenticado.
+    """
 
     email = serializers.EmailField()
     nombre = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True, validators=[validate_password])
     especialidad = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
-    puede_cobrar = serializers.BooleanField(default=False)
-    puede_ver_reportes = serializers.BooleanField(default=False)
-    puede_editar_precios = serializers.BooleanField(default=False)
-    puede_gestionar_empleados = serializers.BooleanField(default=False)
-    puede_gestionar_agenda = serializers.BooleanField(default=False)
-    puede_configurar_horarios = serializers.BooleanField(default=False)
-    puede_ver_agenda_completa = serializers.BooleanField(default=False)
 
     def validate_email(self, value):
         if Usuario.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Ya existe un usuario con este email.")
         return value
+
+
+class EmpleadoAltaSerializer(serializers.Serializer):
+    """Empleado adicional: sus datos de acceso y en qué cargo entra."""
+
+    email = serializers.EmailField()
+    nombre = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    especialidad = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    cargo = serializers.PrimaryKeyRelatedField(
+        queryset=Cargo.objects.all(), required=False, allow_null=True, default=None
+    )
+
+    def validate_email(self, value):
+        if Usuario.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Ya existe un usuario con este email.")
+        return value
+
+    def validate_cargo(self, cargo):
+        solicitante = _solicitante(self.context)
+        if cargo is None or solicitante is None:
+            return cargo
+        if cargo.negocio_id != solicitante.negocio_id:
+            raise serializers.ValidationError("Ese cargo no pertenece a tu negocio.")
+        return cargo
 
     def validate(self, datos):
         solicitante = _solicitante(self.context)
@@ -46,11 +121,8 @@ class EmpleadoAltaSerializer(serializers.Serializer):
             return datos
 
         try:
-            validar_cambio_de_capacidades(
-                solicitante=solicitante,
-                capacidades_pedidas={
-                    campo: datos.get(campo, False) for campo in CAMPOS_CAPACIDADES
-                },
+            validar_asignacion_de_cargo(
+                solicitante=solicitante, objetivo=None, cargo=datos.get("cargo")
             )
         except CambioDeCapacidadNoPermitido as error:
             raise serializers.ValidationError({"non_field_errors": [str(error)]})
@@ -67,7 +139,7 @@ class RegistroNegocioSerializer(serializers.Serializer):
     nombre_dueno = serializers.CharField(max_length=150)
     password_dueno = serializers.CharField(write_only=True, validators=[validate_password])
 
-    empleados = EmpleadoAltaSerializer(many=True, required=False, default=list)
+    empleados = EmpleadoAltaRegistroSerializer(many=True, required=False, default=list)
 
     def validate_email_dueno(self, value):
         if Usuario.objects.filter(email__iexact=value).exists():
@@ -97,8 +169,17 @@ class RegistroNegocioRespuestaSerializer(serializers.Serializer):
 
 
 class MiembroNegocioSerializer(serializers.ModelSerializer):
+    """Un miembro visto desde la gestión del equipo.
+
+    Ya no lleva flags `puede_*`: las capacidades viven en el cargo. Se
+    envía `cargo` (el id, que es lo editable) y `cargo_detalle` anidado
+    para que la UI muestre el nombre y lo que concede sin un segundo
+    request.
+    """
+
     email = serializers.EmailField(source="usuario.email", read_only=True)
     nombre = serializers.CharField(source="usuario.nombre", read_only=True)
+    cargo_detalle = CargoSerializer(source="cargo", read_only=True)
 
     class Meta:
         model = MiembroNegocio
@@ -107,32 +188,28 @@ class MiembroNegocioSerializer(serializers.ModelSerializer):
             "email",
             "nombre",
             "especialidad",
-            "puede_cobrar",
-            "puede_ver_reportes",
-            "puede_editar_precios",
-            "puede_gestionar_empleados",
-            "puede_gestionar_agenda",
-            "puede_configurar_horarios",
-            "puede_ver_agenda_completa",
+            "cargo",
+            "cargo_detalle",
             "activo",
         ]
-        read_only_fields = ["id", "email", "nombre"]
+        read_only_fields = ["id", "email", "nombre", "cargo_detalle"]
+
+    def validate_cargo(self, cargo):
+        request = self.context["request"]
+        if cargo is not None and cargo.negocio_id != request.membresia.negocio_id:
+            raise serializers.ValidationError("Ese cargo no pertenece a tu negocio.")
+        return cargo
 
     def validate(self, datos):
         solicitante = _solicitante(self.context)
-        if solicitante is None or self.instance is None:
+        if solicitante is None or self.instance is None or "cargo" not in datos:
+            return datos
+        if datos["cargo"] == self.instance.cargo:
             return datos
 
-        # Solo los cambios reales: reenviar una capacidad con el valor que
-        # ya tenía no es un cambio y no debe rebotar.
-        pedidas = {
-            campo: datos[campo]
-            for campo in CAMPOS_CAPACIDADES
-            if campo in datos and datos[campo] != getattr(self.instance, campo)
-        }
         try:
-            validar_cambio_de_capacidades(
-                solicitante=solicitante, objetivo=self.instance, capacidades_pedidas=pedidas
+            validar_asignacion_de_cargo(
+                solicitante=solicitante, objetivo=self.instance, cargo=datos["cargo"]
             )
         except CambioDeCapacidadNoPermitido as error:
             raise serializers.ValidationError({"non_field_errors": [str(error)]})
@@ -164,14 +241,29 @@ class MiembroEquipoSerializer(serializers.ModelSerializer):
 class MiMembresiaSerializer(serializers.ModelSerializer):
     """Forma de la respuesta de GET /api/negocios/mi-membresia/.
 
-    Pensado para que el frontend, justo después de loguearse, resuelva
-    en un solo request "quién soy, en qué negocio y qué puedo hacer"
-    sin tener que listar empleados y buscarse a sí mismo por email.
+    Resuelve de un solo request "quién soy, en qué negocio, **qué
+    experiencia de la app me toca** y qué puedo hacer":
+
+    - `tipo` es el **discriminador de dominio** (viene del cargo). El
+      frontend lo usa para decidir qué shell montar —qué navegación, qué
+      pantalla inicial— sin encadenar condicionales por capacidad.
+    - `cargo` trae el detalle con las capacidades, que es lo que gatea
+      cada acción concreta dentro de ese shell.
+
+    Los dos niveles son a propósito (ver `CONTRATO.md` 5.10): el tipo
+    decide la forma de la app, las capacidades deciden los botones. Y
+    ninguno de los dos es la barrera de seguridad — el backend exige la
+    capacidad en cada endpoint.
     """
 
     email = serializers.EmailField(source="usuario.email", read_only=True)
     nombre = serializers.CharField(source="usuario.nombre", read_only=True)
     negocio = NegocioSerializer(read_only=True)
+    cargo = CargoSerializer(read_only=True)
+    # ChoiceField y no CharField para que el schema emita el enum: el
+    # frontend enciende su routing con esto y necesita que TypeScript le
+    # cierre la unión, no un `string` cualquiera.
+    tipo = serializers.ChoiceField(choices=Cargo.Tipo.choices, read_only=True)
 
     class Meta:
         model = MiembroNegocio
@@ -181,13 +273,8 @@ class MiMembresiaSerializer(serializers.ModelSerializer):
             "nombre",
             "especialidad",
             "negocio",
-            "puede_cobrar",
-            "puede_ver_reportes",
-            "puede_editar_precios",
-            "puede_gestionar_empleados",
-            "puede_gestionar_agenda",
-            "puede_configurar_horarios",
-            "puede_ver_agenda_completa",
+            "tipo",
+            "cargo",
             "activo",
         ]
         read_only_fields = fields

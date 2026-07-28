@@ -14,7 +14,7 @@ export function MenuAcciones({ children, trigger }: { children: ReactNode; trigg
           align="end"
           sideOffset={6}
           className={cn(
-            "z-[70] min-w-[180px] overflow-hidden rounded-xl border border-outline-variant bg-white p-1.5 shadow-elevada",
+            "z-70 min-w-[180px] overflow-hidden rounded-xl border border-outline-variant bg-white p-1.5 shadow-elevada",
             "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
           )}
         >
@@ -45,12 +45,12 @@ export function MenuAccionesItem({
       disabled={disabled}
       onSelect={onClick}
       className={cn(
-        "flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 font-body-md text-body-md outline-none transition-colors",
-        "data-[highlighted]:bg-menta/8",
-        "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+        "flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 font-body-md text-body-md outline-hidden transition-colors",
+        "data-highlighted:bg-menta/8",
+        "data-disabled:cursor-not-allowed data-disabled:opacity-50",
         destructivo
-          ? "text-error data-[highlighted]:bg-error/8 data-[highlighted]:text-error"
-          : "text-on-surface data-[highlighted]:text-primary",
+          ? "text-error data-highlighted:bg-error/8 data-highlighted:text-error"
+          : "text-on-surface data-highlighted:text-primary",
         className,
       )}
     >

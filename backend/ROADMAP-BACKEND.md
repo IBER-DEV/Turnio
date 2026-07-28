@@ -746,3 +746,323 @@ de clientes y los seis casos de escalada.
   reglas anti-escalada porque no hay solicitante todavía. Es correcto —el
   dueño se crea con todo en ese request— pero conviene recordarlo si
   alguna vez ese endpoint deja de ser el registro inicial.
+
+## Las capacidades se mudan a `Cargo`, y nace el discriminador de dominio (2026-07-26)
+
+> Decisión del humano, corrigiendo el enfoque del mismo día: los roles en
+> el frontend fueron "muy precipitado". Quiere una tabla de cargos en el
+> backend que **el dueño gestione él mismo**, manteniendo cero
+> complejidad, y que el backend le mande al frontend el **tipo de
+> usuario** para decidir qué pantalla cargar sin encadenar condicionales
+> por permiso — arquitectura PBAC y UI state-driven desde el principio.
+
+### Sobre la decisión de arquitectura registrada
+`CLAUDE.md` prohíbe "un enum cerrado de roles (Dueño/Empleado/
+Recepcionista)". Se señaló explícitamente antes de proceder y **no hay
+contradicción**: `Cargo` es por tenant y editable por el dueño, no un
+catálogo global en el código. Lo que se prohibía era fijar los roles;
+acá los fija cada negocio. Se actualizó `CLAUDE.md` (backend y frontend)
+para que la regla diga lo que ahora es cierto.
+
+### El modelo
+- **`apps.usuarios.Cargo`**: `negocio`, `nombre`, `tipo` y las siete
+  capacidades. Único por `(negocio, nombre)`.
+- **`MiembroNegocio` pierde los siete flags** y gana `cargo`
+  (`on_delete=PROTECT`). Es la **única fuente de verdad**: no hay
+  excepciones por persona. Se descartó el modelo mixto (cargo que siembra
+  + override individual) porque obliga a responder qué pasa al editar un
+  cargo que alguien ya tenía modificado, y esa pregunta no tiene
+  respuesta buena.
+- **`MiembroNegocio.tiene(capacidad)`**: el único camino para preguntar
+  por un permiso. Evita que cada llamador se acuerde de atravesar el
+  cargo y de que puede ser nulo.
+- **`Cargo.tipo`** (`administracion` / `recepcion` / `operativo`): el
+  discriminador de dominio, expuesto en `mi-membresia.tipo`.
+
+### Decisiones y su justificación
+- **El discriminador es explícito, no derivado de las capacidades.**
+  Derivarlo habría evitado un campo, pero entonces darle "ver agenda
+  completa" a un barbero le cambiaría toda la pantalla inicial sin que
+  nadie lo pidiera. Con un campo, la decisión es del dueño y es estable.
+- **`tipo` nunca filtra datos.** Está escrito en el docstring del modelo
+  y en `CONTRATO.md` 5.10: si el tipo fuera la barrera, bastaría pedir
+  otra ruta. Sirve para dibujar, no para proteger.
+- **`tipo` se serializa con `ChoiceField`, no `CharField`**, para que
+  drf-spectacular emita el enum y el frontend reciba una unión de
+  literales. Un `string` suelto habría dejado el routing sin tipar, que
+  es justo lo que este cambio venía a resolver.
+- **La escalada de privilegios ahora tiene dos puertas.** Editar el cargo
+  propio y mudarse a otro cargo son la misma escalada; cerrar solo una no
+  sirve de nada. `validar_cambio_de_capacidades` cubre la primera,
+  `validar_asignacion_de_cargo` la segunda. **Recortar y renombrar el
+  cargo propio sí se permite** — la regla es contra ampliarse.
+- **El alta dentro del registro usa un serializer aparte**
+  (`EmpleadoAltaRegistro`, sin `cargo`). En ese request los cargos del
+  negocio todavía no existen, así que aceptar un id habría permitido
+  colar el de **otro** negocio: el endpoint es `AllowAny` y no hay
+  solicitante contra el cual validar tenant.
+- **Borrar un cargo ocupado responde 400 con explicación**, no el
+  `IntegrityError` crudo que daría `PROTECT` (un 500 sin decir qué hacer).
+- **El default al dar de alta sin cargo es el operativo**, el más
+  acotado: alguien recién llegado no debería arrancar pudiendo de más.
+
+### Migración de datos
+`0004_cargos` reordena lo que Django autogeneró: el autogenerado ponía
+los `RemoveField` **antes** de crear `Cargo`, con lo cual los permisos de
+todo el mundo se perdían. El orden correcto es crear el modelo, agregar
+el FK, repartir la gente y recién entonces borrar las columnas.
+
+Cada negocio recibe un cargo por cada combinación distinta de capacidades
+que tuviera su gente. Las combinaciones reconocibles se bautizan
+(Administración, Recepción, Barbero o estilista); las arbitrarias quedan
+como "Cargo 1", "Cargo 2" — feo pero honesto: inventarle un nombre bonito
+a una combinación arbitraria sería peor que dejar que el dueño la
+renombre. **Nadie gana ni pierde permisos.**
+
+Verificado contra la base de desarrollo, que tenía datos reales de las
+pruebas anteriores: 0 miembros sin cargo, 9 cargos creados en 3 negocios,
+con los nombres esperados.
+
+### Tests
+116 en total (antes 104). Los que existían se adaptaron con una fixture
+nueva, `empleado_con`, que arma "un empleado que solo puede X" creando el
+cargo y metiéndolo ahí — para que los tests sigan leyéndose como
+capacidades y no como plomería de cargos.
+
+Nuevos, sobre lo que el modelo cambia de verdad: que editar un cargo
+alcanza a todos los que lo ocupan, que el negocio nace con sus tres
+cargos y el dueño en administración, que `mi-membresia` trae `tipo` y
+`cargo`, aislamiento por tenant en cargos, borrado protegido, nombre
+único, y las cinco variantes de escalada por las dos puertas.
+
+Verificado además de punta a punta contra el contenedor: 13 casos, desde
+el negocio que nace configurado hasta las dos puertas de escalada.
+
+### Pendiente / a medio hacer
+- **Sigue vigente el bloqueante de Fase 3**: `porcentaje_comision` está
+  en `Servicio` y lo controla `puede_editar_precios`. Separar antes de
+  conectar el cálculo real de comisiones.
+- No hay forma de **duplicar un cargo** ("como Recepción pero sin caja").
+  Con tres cargos no molesta; con diez sí.
+- Un cargo borrado no deja rastro de quién lo tenía. No hay auditoría de
+  cambios de permisos — `CLAUDE.md` la exige desde el MVP solo para Caja
+  y Comisiones (Fase 3), pero cambiar permisos es igual de sensible.
+- `Cargo.tipo` tiene tres valores fijos en el código. Es a propósito —el
+  frontend necesita conocerlos para montar shells— pero significa que un
+  negocio no puede inventarse una experiencia nueva, solo un cargo nuevo
+  dentro de una de las tres.
+
+---
+
+## Fase 2 — Descubrimiento y reserva — backend público COMPLETADO (2026-07-28)
+
+> Primera superficie del proyecto **sin autenticación**. Todo lo que sigue
+> está escrito con esa premisa: no es "unos endpoints más", es exponer el
+> negocio a internet abierto.
+
+### Qué se completó
+- **`apps.publico`**, app nueva con cuatro endpoints bajo `/api/publico/`:
+  búsqueda de negocios, perfil público, disponibilidad y reserva. Sin
+  modelos propios — es una capa de presentación sobre lo que ya existe.
+- **`agenda.services.huecos_disponibles()`**: las horas libres de un día
+  para un servicio.
+- **`SLUGS_RESERVADOS`** en `apps.negocios.models` + `_slug_ocupado()`.
+- **Throttling por IP** (`ScopedRateThrottle`), el primero del proyecto.
+
+### Decisiones y su justificación
+- **Serializers públicos escritos a mano, sin reutilizar los internos.**
+  Es la decisión más importante del módulo y la más fácil de erosionar.
+  Reusar `ServicioSerializer` habría publicado `porcentaje_comision`;
+  reusar `MiembroEquipoSerializer` habría publicado `activo`. Con
+  serializers propios, un campo nuevo en un modelo **no aparece solo** en
+  la web pública: alguien tiene que decidir agregarlo. Hay tests que
+  afirman el set exacto de claves, no solo la ausencia de una.
+- **`huecos_disponibles` carga todo de una y cruza en memoria.** Es el
+  único endpoint público que no se puede cachear —cambia con cada
+  reserva—, así que la versión ingenua (llamar a `empleado_disponible`
+  por cada hueco y empleado) serían ~360 consultas por request en un día
+  de 9 horas con 5 empleados. Se cargan horarios y citas del día en tres
+  queries y se cruza en Python.
+- **La disponibilidad no dice con quién.** Devuelve solo horas. Nombrar
+  al empleado sería una promesa que otra reserva simultánea puede romper
+  entre que se muestra y se confirma; además delataría la ocupación
+  individual de cada persona.
+- **Reservar un hueco tomado responde `400` con mensaje genérico.** No
+  distingue "se acaba de ocupar" de "nunca estuvo disponible". La
+  diferencia convertiría el endpoint en un oráculo: con suficientes
+  intentos se reconstruye la agenda completa del local.
+- **La respuesta de reserva no lleva el `id` de la cita.** Hoy el cliente
+  no puede hacer nada con él —cancelar sin cuenta necesitaría un token de
+  acceso, que es una decisión aparte— y un id expuesto sin uso solo
+  invita a probar los vecinos.
+- **Un negocio inactivo responde `404` en todo**, no solo desaparece del
+  listado. Darlo de baja tiene que sacarlo de internet, no dejarlo
+  accesible por URL directa.
+- **Dos ritmos de throttling.** Leer es barato y frecuente (un cliente
+  indeciso mira varios días): 120/min. Escribir es caro y humanamente
+  lento: 10/hora, que corta el llenado automático de una agenda sin
+  estorbarle a nadie real. Se aplican por `throttle_scope` y no
+  globalmente, para que el staff autenticado no se tope con límites
+  pensados para internet abierto.
+- **Slugs reservados, no validación al vuelo.** El perfil público vivirá
+  en `turnio.app/{slug}`, así que el slug comparte espacio de nombres con
+  las rutas de la app. Se incluyeron nombres que todavía no se usan
+  (`ayuda`, `precios`, `blog`): liberarlos después es trivial, recuperar
+  uno que ya tomó un negocio real significa cambiarle una URL que quizá
+  ya repartió. También se cubrió el nombre de puros símbolos, que dejaba
+  el slug vacío y el perfil en la raíz del sitio.
+
+### Tests
+24 nuevos (140 en total, antes 116). Más de la mitad son negativos, que
+es lo que corresponde en una superficie sin auth: que la comisión no se
+filtre, que el email y el cargo del equipo no se filtren, que las citas
+existentes tapen huecos **sin aparecer**, que un negocio inactivo dé 404,
+que reservar dos veces el mismo hueco no delate al primero, que no se
+pueda consultar el servicio de otro negocio.
+
+Los dos de throttling **se verificó que miden lo real**: quitando el
+`throttle_scope` de la vista de reserva, el test falla con `400 == 429`.
+
+Detalle que costó: `override_settings(REST_FRAMEWORK=…)` **no** cambia
+los límites, porque DRF lee `SimpleRateThrottle.THROTTLE_RATES` una sola
+vez al importar. El síntoma fue un test que pasaba aislado y fallaba con
+la suite completa. Se resolvió parcheando el diccionario de la clase con
+`monkeypatch.setitem`, y queda explicado en el docstring del fixture.
+
+### Pendiente / a medio hacer
+- **La búsqueda no pagina** y `GET /api/publico/negocios/` sin filtros
+  devuelve todos los negocios activos. A la escala actual está bien; a
+  mil negocios no. Es el primer endpoint que va a necesitar paginación de
+  verdad, y `CONTRATO.md` sección 4 exige documentarla antes de activarla.
+- **La búsqueda es `icontains` sobre el nombre.** No hay búsqueda por
+  servicio ("quién hace barba"), ni por cercanía, ni tolerancia a errores
+  de tipeo. Las tres son esperables en cuanto haya volumen real.
+- **El throttling usa el caché por defecto**, que es `LocMemCache`: los
+  contadores son por proceso. Con más de un worker, el límite efectivo se
+  multiplica por el número de procesos. Antes de exponer esto a internet
+  hay que poner Redis detrás del caché — es el primer consumidor real que
+  justifica agregarlo (hasta ahora se había evitado a propósito).
+- **No hay confirmación por ningún canal.** El cliente reserva y no
+  recibe nada; el negocio se entera al mirar su agenda. Es el hueco más
+  visible del flujo para un uso real, y depende de decidir el canal
+  (email, WhatsApp, SMS) — que toca el punto de Fase 6 sobre WhatsApp.
+- **`Cita` sigue sin validar que la fecha no esté en el pasado** a nivel
+  de modelo. `huecos_disponibles` no ofrece horas pasadas, pero un POST
+  directo con una fecha vieja pasa si el empleado tenía horario ese día
+  de la semana. Estaba anotado desde Fase 1 y ahora importa más, porque
+  el endpoint es público.
+
+## Corrección de contrato + cáscara HTML del perfil público (2026-07-28)
+
+> Rama `feature/backend-fase2-publico`. Dos piezas encontradas por el
+> lado de frontend al retomar Fase 2, resueltas del lado backend porque
+> les corresponde a ellas.
+
+### `NegocioPublico.servicios/profesionales/horario` mentían en el schema
+Estaban declarados `type: string` cuando siempre devolvieron listas de
+objetos — el mismo tipo de bug que el `@extend_schema` sobre `create()`
+en vez de `post` de Fase 1: el schema queda sintácticamente válido y
+semánticamente falso, y ni `--validate` ni el CI lo atrapan. Causa: son
+`SerializerMethodField` y drf-spectacular no puede inferir su forma sin
+`@extend_schema_field`. Se anotaron los tres métodos de
+`NegocioPublicoSerializer`, se regeneró `openapi.yaml` y se agregó la
+entrada correspondiente al historial de `CONTRATO.md`. La respuesta de
+la API **no cambió**, solo el schema.
+
+### `PerfilPublicoShellView`: por qué el SPA necesita una excepción
+Decisión del humano tras revisar el plan de compartir `turnio.app/{slug}`
+por WhatsApp/Instagram: los crawlers de esas plataformas leen el HTML
+crudo y no ejecutan JavaScript. El `index.html` que compila Vite es
+genérico ("Turnio", sin más), así que compartir el enlace de cualquier
+negocio se veía idéntico — roto para el caso de uso que Fase 2 existe
+para resolver.
+
+`apps/publico/views_shell.py` agrega `PerfilPublicoShellView`, la única
+vista de este proyecto que no es DRF: intercepta `GET /{slug}/`, busca
+el negocio (mismas reglas que el resto de `apps.publico`: solo
+`activo=True`), lee `frontend/dist/index.html` ya compilado
+(`npm run build`) y le inyecta `<title>` y meta tags Open Graph con
+`escape()` (nombre del negocio es texto de un tercero — sin escapar es
+XSS reflejado en la página más compartida del producto). React monta
+después exactamente igual; esta vista no duplica `PerfilNegocioPage`,
+solo le da al crawler (y a la primera pintura) una respuesta que ya dice
+de qué negocio se trata. Sin `frontend/dist/` construido, responde `404`
+en vez de reventar.
+
+Va como catch-all al final de `config/urls.py` (`<slug:slug>/`, un solo
+segmento): cualquier ruta literal (`admin/`, `api/...`) se resuelve
+primero, y `SLUGS_RESERVADOS` (`Negocio._slug_ocupado`) ya garantiza que
+ningún negocio puede robarse `login`, `agenda`, etc.
+
+### El montaje de Docker que hacía falta
+`docker-compose.yml` solo montaba `./backend:/app`. Con `WORKDIR /app`,
+`BASE_DIR.parent / "frontend"` no existía dentro del contenedor — la
+vista habría dado `404` siempre, incluso con `frontend/dist/` bien
+construido en el host. Se agregó `./frontend/dist:/frontend/dist:ro`
+(solo `dist/`, no todo `frontend/`, para no arrastrar `node_modules`; de
+solo lectura porque el backend nunca escribe ahí).
+
+El servido de `/assets/*` y `/favicon.svg` en `config/urls.py` queda
+detrás de `if settings.DEBUG`, con `django.views.static.serve` — que la
+propia documentación de Django marca como inseguro/ineficiente para
+producción. Es a propósito: no existe todavía ningún pipeline de
+despliegue en este repo (`docker-compose.yml` es solo `db` + `backend`),
+así que inventar una solución de estáticos "de producción" ahora sería
+resolver un problema que no se ha planteado. Queda como bloqueo abierto
+(ver `../ROADMAP.md`, decisión #8) para cuando se decida cómo se
+despliega esto de verdad.
+
+### Refinamiento: las rutas del propio SPA también necesitan el shell
+Verificando en vivo (`docker compose up`, curl real) apareció algo que
+los tests con `index.html` de prueba no podían mostrar: `GET /login/`
+contra Django respondía `404`. No es una regresión — nunca existió esa
+ruta en `urls.py`, así que el comportamiento no cambió — pero sí es un
+hueco real para el día en que Django sea el único origen en producción:
+refrescar la página en `/login` o `/agenda` (rutas de React Router, no
+de Django) rompería.
+
+`SLUGS_RESERVADOS` ya existe justo para esto: es la lista de segmentos
+que un negocio nunca puede tomar como slug porque le pertenecen al SPA.
+`PerfilPublicoShellView` ahora la consulta primero — si el segmento es
+una ruta reservada, sirve el shell genérico (sin meta tags de negocio,
+para que un crawler no confunda `/login` con un perfil) y deja que React
+Router decida qué hacer con esa ruta; si no es reservada, sigue el
+camino de siempre (buscar el negocio, 404 si no existe).
+
+### Verificación en vivo (no solo tests con mocks)
+Los tests de `test_shell.py` apuntan `_DIST_INDEX` a un archivo de
+prueba — determinista, pero no prueba que el contrato real (JSON del
+backend) y lo que el frontend espera encajen de punta a punta. Se
+levantó `docker compose up`, se registraron dos negocios reales por la
+API, se les cargó servicio y horario, y se ejecutó el flujo completo:
+
+- `GET /api/publico/negocios/{slug}/` — forma exacta que espera
+  `PerfilNegocioPage` (arreglos, no strings).
+- `GET .../disponibilidad/` — huecos reales generados desde el horario
+  cargado.
+- `POST .../reservar/` — reserva exitosa, y un segundo intento al mismo
+  hueco confirma el `400` con el mensaje genérico documentado.
+- `GET /{slug}/`, `GET /login/`, `GET /agenda/` contra Django directo:
+  meta tags reales en el primero, shell genérico sin meta tags en los
+  otros dos, sin 404.
+
+Los dos negocios y su cita de prueba se borraron de la base al terminar.
+
+### Tests
+7 nuevos en `apps/publico/tests/test_shell.py` (31 en el módulo, 147 en
+el proyecto): meta tags con los datos reales del negocio, que el resto
+del shell compilado sobrevive intacto (React sigue teniendo `#root`
+donde montar), negocio inactivo → 404, slug inexistente → 404,
+`frontend/dist/` sin construir → 404 en vez de 500, que el nombre del
+negocio no puede inyectar HTML, y que una ruta reservada del SPA sirve
+el shell genérico en vez de 404. Ninguno depende de que `npm run build`
+se haya corrido de verdad: apuntan `views_shell._DIST_INDEX` a un
+`index.html` de prueba vía `monkeypatch`.
+
+### Duda abierta para el humano
+El marketplace de búsqueda (`BuscarNegociosView`) se pospuso a Fase 6+
+del lado de producto (ver `../ROADMAP.md` decisión #8), pero el endpoint
+sigue vivo y con throttling propio. ¿Se deja tal cual hasta entonces, o
+se retira del menú de navegación pública para no ofrecer un flujo que
+el producto ya no prioriza? No se tocó nada del lado de rutas/UI de
+búsqueda en esta sesión — es pregunta para quien lleve frontend.

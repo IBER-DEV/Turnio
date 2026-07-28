@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
 import { apiClient } from "../api/client";
@@ -17,6 +17,7 @@ import { SelectCustom, SelectItem } from "../ui/SelectCustom";
 import { Tabs, TabsLista, TabsTrigger } from "../ui/Tabs";
 import { ToggleGroup, ToggleGroupItem } from "../ui/ToggleGroup";
 import { useToast } from "../ui/Toast";
+import { usePermisos } from "../permisos/usePermisos";
 import { ModalHorarioSemanal } from "./agenda/ModalHorarioSemanal";
 import { franjasDeEmpleado, franjasDelEquipo } from "./agenda/horarioEfectivo";
 import { VistaSemana } from "./agenda/VistaSemana";
@@ -66,11 +67,12 @@ function paraInputFechaHora(dia: Date, horaTexto = "09:00"): string {
 export function AgendaPage() {
   const { membresia } = useAuth();
   const { mostrar } = useToast();
-  const puedeGestionar = membresia?.puede_gestionar_agenda ?? false;
-  const puedeConfigurarHorarios = membresia?.puede_configurar_horarios ?? false;
+  const { puede } = usePermisos();
+  const puedeGestionar = puede("puede_gestionar_agenda");
+  const puedeConfigurarHorarios = puede("puede_configurar_horarios");
   // Sin esto el backend solo devuelve las citas propias, así que filtrar
   // por compañero no tiene nada que filtrar (ver CONTRATO.md 5.8).
-  const veAgendaCompleta = membresia?.puede_ver_agenda_completa ?? false;
+  const veAgendaCompleta = puede("puede_ver_agenda_completa");
 
   const dias = useMemo(() => proximosDias(), []);
   const [diaSeleccionado, setDiaSeleccionado] = useState<Date>(dias[0]);
@@ -172,7 +174,7 @@ export function AgendaPage() {
   }
 
   return (
-    <div className="space-y-md">
+    <div className="space-y-6">
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
@@ -519,7 +521,7 @@ function ModalNuevaCita({
           descripcion="Necesitas al menos un servicio activo para poder agendar una cita."
         />
       ) : (
-        <form className="flex flex-col gap-md" onSubmit={handleSubmit}>
+        <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
           <SelectCustom
             label="Servicio"
             valor={servicio ? String(servicio) : ""}
@@ -573,13 +575,13 @@ function ModalNuevaCita({
           />
 
           {error && (
-            <p role="alert" className="flex items-start gap-xs font-caption text-caption text-error">
+            <p role="alert" className="flex items-start gap-2 font-caption text-caption text-error">
               <Icon name="error" className="shrink-0 text-[18px]" />
               {error}
             </p>
           )}
 
-          <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variante="ghost" onClick={onCerrar} disabled={guardando}>
               Cancelar
             </Button>

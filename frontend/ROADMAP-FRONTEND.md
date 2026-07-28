@@ -574,3 +574,375 @@ El conjunto de cuatro roles salió de la lectura del dominio
 hablar con barberías. Revisarlo en las visitas pendientes (duda abierta 4
 de `../ROADMAP.md`) — sobre todo si hace falta un tipo específico para el
 barbero que alquila silla y maneja su propia plata.
+
+## Shell por tipo de usuario y UI de cargos (2026-07-26)
+
+> Reemplaza la entrada anterior del mismo día ("Tipos de empleado y
+> permisos en lenguaje de negocio"): el humano decidió que los roles en
+> el frontend habían sido precipitados y que los cargos van en el
+> backend. Ver `../CONTRATO.md` 5.10 y `../backend/ROADMAP-BACKEND.md`.
+
+### Qué sobrevivió y qué se fue
+Sobrevive `catalogo.ts` —el lenguaje de negocio de cada permiso y su
+agrupación en Dinero / Agenda / Equipo—, que era la parte que más costó y
+la que el humano quería. Se fueron `roles.ts` (plantillas hardcodeadas),
+`reglas.ts` (absorbido) y `ConfiguracionPermisosPage.tsx` (la matriz por
+persona). El reemplazo es más chico, no más grande.
+
+### `shell.ts`: el discriminador de dominio en acción
+El backend manda `tipo` y de ahí sale la **forma de la app**: qué
+navegación existe y dónde aterriza la persona al entrar.
+
+| tipo | inicio | navegación |
+|---|---|---|
+| `administracion` | `/` | Inicio, Agenda, Servicios, Equipo, Cargos |
+| `recepcion` | `/agenda` | Inicio, Agenda, Servicios, Equipo, Cargos |
+| `operativo` | `/agenda` | Inicio, Agenda |
+
+La división de trabajo, que es lo que pidió el humano:
+- **`tipo` decide la forma** — se resuelve una vez, no por pantalla.
+- **las capacidades deciden las acciones** — los botones dentro.
+
+`Layout` ya no arma la navegación: la lee de `shell.navegacion`. `Login`
+ya no navega a `/` a mano: redirige a `shell.inicio`, y como el guard de
+la propia página lo hace al llegar la membresía, el destino se calcula en
+un solo lugar. `RutaProtegida` también manda al `shell.inicio` en vez de
+a `/` cuando alguien entra donde no le toca — para un operativo, `/` no
+es su pantalla.
+
+Al operativo se le recorta la navegación a propósito: Servicios y Equipo
+le son de solo lectura o directamente 403, y llenarle la barra inferior
+de secciones ajenas le esconde la que sí usa.
+
+### `usePermisos()`: un solo lugar donde se atraviesa el cargo
+Antes cada pantalla leía `membresia.puede_x`. Con las capacidades en el
+cargo eso serían siete `?.` repartidos por el código. El hook expone
+`puede(capacidad)` y `shell`, y es lo único que las pantallas tocan.
+
+### Pantalla de Cargos
+Reemplaza a la matriz por persona. Una tarjeta por cargo con sus permisos
+agrupados, y **cuánta gente lo tiene** — que es la contrapartida de que
+el cargo sea la única fuente de verdad: editar uno alcanza a todos, y eso
+hay que decirlo antes, no después. Se puede crear (eligiendo con qué
+pantalla arranca su gente), renombrar, y borrar solo si está vacío.
+
+Los interruptores bloqueados explican por qué al pasar el cursor,
+espejando las dos reglas del backend: no ampliar el cargo propio, no dar
+lo que uno no tiene. **Recortar sí se permite**, incluso sobre el propio,
+así que solo se bloquea encender.
+
+### Equipo
+Deja de editar permisos: asigna un **cargo** (un select) y muestra qué
+puede hacer quien lo tenga. El alta pide cargo en vez de siete
+interruptores, con enlace a Cargos si ninguno le queda. El badge "Admin"
+sale de `cargo_detalle.tipo`, no de contar flags.
+
+### Tests
+9 nuevos en `src/permisos/shell.test.ts` (26 en total). Cubren la
+completitud del catálogo, que cada tipo tenga traducción, el inicio y la
+navegación de cada shell, que las capacidades sigan recortando dentro del
+shell, y dos invariantes que son fáciles de romper en un refactor: sin
+`tipo` se cae al shell **más acotado** (mostrar de menos es la falla
+segura) y **todo shell arranca en una ruta que él mismo tiene** — un
+inicio fuera de la navegación deja al usuario donde no puede volver.
+
+### Duda abierta
+Los tres `tipo` están fijos en el backend y el frontend tiene un shell
+por cada uno. Es lo que permite el routing eficiente, pero significa que
+un negocio puede inventar cargos, no experiencias. Si aparece un caso
+real que no encaja en administración/recepción/operativo, hay que
+agregarlo en los dos lados a la vez.
+
+### Ajuste posterior: las tarjetas de cargo se pliegan (2026-07-26)
+
+Al ver la pantalla funcionando, el humano notó que siete interruptores
+por cargo, todos abiertos, "asusta" de entrada. Tenía razón: con tres
+cargos eran veintiún controles antes de haber decidido nada.
+
+Ahora la tarjeta muestra plegada lo que se necesita para **reconocer** el
+cargo —nombre, tipo, cuánta gente lo tiene y **chips con lo que
+concede**— y se despliega para verlo y cambiarlo. Los chips usan un campo
+`corto` nuevo en `DEFINICIONES` ("Cobrar", "Precios", "Agenda completa"):
+la etiqueta completa no cabe en una fila y ahí no hace falta. Un cargo
+sin capacidades dice "Solo atiende y maneja sus propias citas" en vez de
+no mostrar nada, que se leería como un error de carga.
+
+Detalles que no son obvios:
+- **Una tarjeta abierta a la vez.** Con varias abiertas hay que hacer
+  scroll para comparar cargos, que es justo lo que uno viene a hacer.
+- Es un disclosure de verdad (`aria-expanded` + `aria-controls`), no un
+  div que aparece: quien navega con lector de pantalla necesita saber que
+  el botón abre algo y qué.
+- El texto del botón cambia según se pueda editar o no ("Ver y cambiar
+  permisos" vs "Ver permisos"), para no prometer lo que la capacidad no
+  da.
+
+Un test nuevo (27 en total) fija que todo permiso tenga `corto` no vacío
+y de ≤16 caracteres: una cadena vacía dejaría un chip fantasma y una
+larga rompería la fila.
+
+## Tailwind 4 y tokens compartidos con la landing (2026-07-28)
+
+> Rama `feature/frontend-sistema-diseno`. Sale de querer "elevar el
+> diseño" y encontrar que no se podía hacer una sola vez: el repo tenía
+> dos Tailwind incompatibles.
+
+### El problema
+`frontend/` estaba en Tailwind 3.4 (config en JS) y `landing/` en 4.3
+(config en CSS). Son majors incompatibles: v4 movió la configuración a
+CSS y cambió el motor. Mientras fueran dos proyectos sin nada en común no
+dolía, pero compartir tokens —que es exactamente lo que "elevar el
+diseño" implica— obliga a unificar primero, o el sistema de diseño se
+construye dos veces y se desincroniza dos veces.
+
+Y ya se había desincronizado: la landing dibujaba las pantallas simuladas
+con `--color-app-primary: #091426` cuando la app hacía rato usaba
+`#1e1b4b`, bajo un comentario que pedía mantenerlos sincronizados a mano.
+El visitante veía un producto que no era el que se encontraba al
+registrarse.
+
+### Qué se hizo
+- **`frontend/` migrado a Tailwind 4.3**: se borraron
+  `tailwind.config.js` y `postcss.config.js`; la configuración vive ahora
+  en `@theme`. Tailwind se carga por `@tailwindcss/vite` y no por
+  PostCSS — es el camino recomendado en v4 y es el que ya usaba la
+  landing. Tener el mismo pipeline en los dos es la mitad de poder
+  compartir tokens.
+- **`design/tokens.css` en la raíz del repo** como fuente de verdad
+  única, importada por `frontend/src/index.css` y por
+  `landing/src/styles/global.css`. Vive en la raíz y no dentro de uno de
+  los dos porque ninguno es dueño del otro.
+- **La landing dejó de copiar tokens.** Sus nombres de marketing
+  (`lienzo`, `superficie`, `borde`, `shadow-tarjeta`) y los `app-*` de
+  las pantallas simuladas pasaron a ser **alias** —
+  `--color-lienzo: var(--color-background)` — en vez de valores propios.
+  El sitio conserva su vocabulario y pierde la copia: si el producto
+  cambia de color, los mockups cambian con él.
+- **Tipografía**: Inter + Montserrat → **Plus Jakarta Sans**, la misma de
+  la landing. Autoalojada vía `@fontsource`, subset `latin`.
+
+### `@theme static`, y por qué no `@theme` a secas
+Por defecto Tailwind 4 solo emite la variable de un token si alguna
+utilidad generada la usa. Un alias (`var(--color-background)`) **no
+cuenta como uso**: `--color-background` quedaba fuera del CSS compilado y
+el `var()` de la landing resolvía a nada. Con `static` se emiten todos.
+
+Cuesta **+0,27 kB gzip** en el frontend (10,24 → 10,51 kB). Es el precio
+de que los alias funcionen; barato comparado con volver a tener dos
+copias.
+
+Está anotado dentro de `tokens.css`, porque alguien que "limpie" ese
+`static` rompe la landing sin tocarla y sin que nada falle en compilación.
+
+### Los mockups de la landing ahora usan los estados reales
+Los badges de cita del `Telefono3D` usaban `app-secondary-fixed` y
+`bg-green-100` — colores que no salían de ningún lado. Pasaron a
+`bg-agendada/15 text-agendada` y equivalentes, que es literalmente lo que
+pinta `src/ui/EstadoCita.ts`. Se eliminaron de la landing los tokens M3
+`*-fixed` que no tienen equivalente en la paleta nueva.
+
+### Verificación
+No basta con que compile: un alias roto no falla el build, deja el color
+vacío. Se verificó **contra el CSS compilado** que los 15 alias `app-*` y
+los de marca resuelven a un token realmente emitido, con su valor. Mismo
+criterio que la nota de mantenimiento de `../landing/ROADMAP-LANDING.md`
+sobre la clase `hide-scroll` que no existía.
+
+`frontend`: build limpio, 27 tests en verde. `landing`: `astro check` con
+0 errores, build limpio.
+
+### Documentación corregida
+`CLAUDE.md` decía que la fuente de verdad era `tailwind.config.js` (que
+ya no existe) y que las fuentes eran Inter + Montserrat. Corregido, junto
+con el comentario de `src/ui/cn.ts`.
+
+También se **precisó la regla sobre shadcn/ui**, que decía "no shadcn
+completo" y se leía como prohibición total. La distinción que importa:
+shadcn no es una dependencia sino código Radix + Tailwind que se copia, y
+este proyecto ya usa Radix y Tailwind. Copiar una implementación y
+re-estilarla con nuestros tokens es compatible y ahorra trabajo; correr
+`npx shadcn init` no lo es, porque trae su propio vocabulario de
+variables CSS que convive mal con el nuestro y `cn()` no sabría cuál gana.
+
+### Pendiente / propuesto, no hecho
+Ideas evaluadas para elevar el diseño, ordenadas por valor/costo. Ninguna
+implementada todavía:
+1. **View Transitions API** — nativa, cero dependencias, funciona en el
+   WebView de Capacitor. Es lo que hace que navegar se sienta nativo. El
+   mayor salto por el menor costo.
+2. **Una pasada de estados vacíos, de carga y de error** con ilustración
+   y copy propio. Hoy son `SkeletonLista` y `EstadoError` genéricos. No
+   es una librería, pero mueve más la aguja que las cuatro de abajo
+   juntas.
+3. **Vaul** (bottom sheets) — el modal de Radix no es el idioma móvil;
+   una hoja que sube desde abajo sí. Encaja con Radix, que ya se usa.
+4. **NumberFlow** — números animados en las métricas del dashboard.
+5. **Lenis** (scroll suave) — **solo landing**; en móvil pelea con el
+   scroll nativo.
+
+Descartado explícitamente:
+- **Paper Shaders en la app del staff.** Compilar un shader cuesta GPU y
+  batería en el arranque. Detrás de un hero que se ve una vez, vale;
+  detrás de la pantalla donde un barbero mira su día veinte veces, no.
+  Si se usan en la landing, tienen que respetar `prefers-reduced-motion`.
+- **Cualquier fuente por CDN** (Fontshare incluida). Esto es Capacitor:
+  una fuente remota se rompe sin conexión y agrega una petición a un
+  tercero en el arranque. Si se cambia de tipografía (Satoshi o General
+  Sans serían un upgrade real), se autoaloja igual que la actual.
+
+A verificar antes de instalar nada: el proyecto está en **React 19.2**.
+Blossom y Paper Shaders hay que probarlos ahí; si alguno no lo soporta,
+Embla es el reemplazo maduro para el carrusel.
+
+### Duda abierta
+El carrusel (Blossom/Embla) y los shaders se evaluaron para el **perfil
+público del negocio**, que es Fase 2 y del lado del visitante, no del
+staff. Queda por decidir si el perfil público se construye dentro de
+`frontend/` (comparte auth y componentes, pero carga el bundle de la app
+a un visitante que no la necesita) o en `landing/` (Astro, estático,
+mucho más liviano para algo que se ve una vez). La decisión cambia qué
+librerías tienen sentido.
+
+## Fase 2: perfil público y reserva sin cuenta (2026-07-28)
+
+> Rama `feature/frontend-sistema-diseno`. Retoma Fase 2 tras cerrar el
+> sistema de diseño compartido (entrada anterior). Backend ya tenía los
+> cuatro endpoints públicos construidos; acá se consumen por primera vez.
+
+### Cambio de alcance decidido antes de escribir código
+El texto original de Fase 2 (`../CLAUDE.md`) incluía "búsqueda de
+negocios por parte del cliente" como parte del MVP. El humano lo corrigió:
+el reemplazo real de "llamar o escribir por WhatsApp" es el enlace único
+que el dueño comparte (`turnio.app/{slug}`), no un marketplace donde el
+cliente descubre negocios que no conoce — eso necesita densidad de oferta
+que la plataforma no tiene todavía. Por eso esta sesión no construye
+`/buscar`, aunque el endpoint `GET /api/publico/negocios/` sigue vivo del
+lado backend para cuando llegue Fase 6+. Detalle completo en
+`../ROADMAP.md` (decisión #8) y `../CLAUDE.md`.
+
+### Bug de contrato encontrado antes de poder tipar nada
+`NegocioPublico.servicios/profesionales/horario` estaban declarados
+`type: string` en el schema (faltaba `@extend_schema_field` sobre los
+`SerializerMethodField`). No se pudo asumir la forma real "porque se leyó
+el serializer": se cruzó a backend a pedir el arreglo, se regeneró el
+contrato, y solo entonces se tipó el cliente. Ver
+`../backend/ROADMAP-BACKEND.md` y `../CONTRATO.md` historial.
+
+### `src/api/publico.ts` — cliente aparte, sin cabecera de auth
+No es el mismo `apiClient` de siempre con otra base URL: ese cliente
+adjunta `Authorization` si hay un token en `localStorage`, y DRF
+autentica antes de evaluar permisos. Un token vencido de una sesión de
+staff anterior habría hecho que un endpoint `AllowAny` respondiera `401`
+— justo para la única persona que ya conoce el producto (el dueño
+mirando su propio perfil). El comentario en el archivo explica el porqué.
+
+### `PerfilNegocioPage` (`/:slug`)
+Header (nombre, ciudad, dirección, teléfono con `tel:`, botón compartir
+con `navigator.share` y fallback a copiar el enlace), servicios (con
+precio en COP y botón "Reservar" por servicio), equipo (avatares con
+iniciales — no hay foto: ver pendiente abajo) y horario por día. Estados
+de carga (skeleton), error (negocio inactivo o inexistente, copy propio
+en vez de un 404 genérico) y vacío (catálogo sin servicios) con
+`EstadoVacio`/`EstadoError`/`Skeleton` ya existentes — no hizo falta
+inventar componentes nuevos, solo el copy específico de este flujo.
+
+### `ReservaHoja`: el flujo de reservar, en una hoja de Vaul
+Fecha → horas disponibles (fetch a `disponibilidad` en cada cambio de
+fecha) → profesional opcional ("Cualquiera disponible" por defecto,
+igual que el backend) → datos (nombre, teléfono, notas) → confirmar.
+
+- **Vaul, no `Modal`.** Es la primera vez que se usa: `Modal` (Radix
+  Dialog) ya parece una hoja en móvil por CSS, pero no se puede arrastrar
+  para cerrar. Vaul agrega el gesto real. Encapsulado en `src/ui/Hoja.tsx`,
+  mismo API que `Modal` (`abierta`, `onCerrar`, `titulo`, `descripcion`) a
+  propósito, para que cambiar de uno a otro sea un cambio de una línea si
+  hace falta en el futuro.
+- **El mensaje de "hueco ocupado" es el que ya devuelve el backend**, no
+  uno inventado: `ReservarView` es deliberadamente genérico ("Ese
+  horario ya no está disponible. Elige otro.") para no distinguir "se
+  acaba de ocupar" de "nunca estuvo disponible". Se repite el mismo texto
+  en el frontend en vez de parsear el `400` — con datos ya validados en
+  el cliente, esa es la única causa realista.
+- **Tras un 400, se refresca la disponibilidad** (`cargarHuecos()`): el
+  hueco que se acaba de perder no debe seguir apareciendo como elegible.
+- Distingue error de conexión (mensaje de "revisa tu internet") de error
+  del servidor (mensaje del backend) — son causas distintas y
+  confundirlas hace perder tiempo a quien reintenta el mismo hueco que ya
+  se ocupó.
+
+### Reestructura de rutas + code-splitting
+`/:slug` se agregó como ruta pública (fuera de `RutaProtegida`), al final
+— React Router ya prioriza segmentos literales (`/login`, `/agenda`…)
+sobre uno dinámico, así que el orden no cambia el comportamiento, pero
+refleja que es el catch-all que `SLUGS_RESERVADOS` protege del lado
+backend.
+
+Se aprovechó para partir el bundle: cada pantalla (`DashboardPage`,
+`ServiciosPage`, `AgendaPage`, `EmpleadosPage`, `ConfiguracionCargosPage`,
+`LoginPage`, `RegistroNegocioPage`, `PerfilNegocioPage`) pasó a
+`React.lazy` + un único `<Suspense>` en `App.tsx`. Antes un visitante que
+abría `/{slug}` bajaba el bundle completo del panel del staff (formularios
+de Agenda, calendario, gestión de equipo…) sin usar nada de eso. El chunk
+principal bajó de **519 kB a 297 kB**; `PerfilNegocioPage` quedó en su
+propio chunk de 40 kB (incluye Vaul). `Layout` y `RutaProtegida` se
+dejaron eager a propósito: son la cáscara que comparten todas las
+pantallas de staff, no el peso que había que separar.
+
+### View Transitions API
+`viewTransition` en los `NavLink` de `Layout` (desktop y bottom nav
+móvil) — nativo, sin dependencias nuevas. El cross-fade por defecto del
+navegador (~250ms) ya encaja con la regla del proyecto de no pasarse de
+ese tiempo en interacciones. Único cuidado: los pseudo-elementos
+`::view-transition-*` no son parte del árbol normal del documento, así
+que el bloque global de `prefers-reduced-motion` en `index.css` (que usa
+`*`) no los alcanzaba — se agregó una regla aparte para ellos, comentada
+en el archivo para que no se pierda por qué hace falta un bloque
+"duplicado".
+
+### Verificación: no solo tipos, no solo mocks
+Además de `tsc -b` + `vitest`, se corrió el flujo completo contra un
+backend real (`docker compose up`): se registraron dos negocios, se les
+cargó servicio y horario, se pidió disponibilidad real y se reservó dos
+veces el mismo hueco para confirmar el `400`. Encontró un caso que los
+tests con mocks no podían mostrar — ver "Refinamiento" en
+`../backend/ROADMAP-BACKEND.md` (rutas reservadas del SPA). Los negocios
+de prueba se borraron al terminar.
+
+### Tests
+5 nuevos en `src/pages/publico/PerfilNegocioPage.test.tsx` (32 en el
+proyecto, antes 27): render de los datos reales, estado de error con
+copy propio, estado vacío del catálogo, el flujo completo de reserva
+(botón deshabilitado hasta tener hora + nombre + teléfono, confirmación
+con los datos que devuelve el backend), y el caso de hueco ocupado con
+refetch. Es el primer test del proyecto que mockea el cliente HTTP
+(`vi.mock("../../api/publico")`) — no había precedente porque hasta
+ahora ningún componente probado hacía fetch directo.
+
+### Pendiente / a medio hacer
+- **No hay ningún campo de imagen** en `Negocio` ni `Servicio` (logo,
+  portada, fotos). Bloquea tanto el `og:image` del enlace compartido
+  como cualquier futuro carrusel de fotos en el perfil. Es de backend
+  (modelo + storage), anotado también en `../ROADMAP.md` decisión #8.
+- **`formatearPrecio`/`MONEDA` (COP) se volvió a duplicar** — ya estaba
+  en `ServiciosPage.tsx` y `ModalCatalogo.tsx`, ahora también en
+  `PerfilNegocioPage.tsx`. Candidato claro para extraer a un helper
+  compartido en una pasada de limpieza; no se tocó en esta sesión para
+  no mezclar refactor con feature nueva.
+- **Sin cancelación ni consulta de la cita reservada**: la respuesta de
+  `reservar` es deliberadamente magra (ver `../CONTRATO.md` 5.11) y no
+  lleva `id`. Cuando haga falta, es un token en el enlace de
+  confirmación, no una cuenta — decisión ya tomada, solo falta construirla.
+- **`ReservaHoja` no valida el formato del teléfono** más allá de "no
+  vacío". El backend tampoco lo valida (`CharField` libre). Si en el uso
+  real llegan números mal escritos, hay que decidir el formato esperado
+  en los dos lados a la vez.
+- Quedó pendiente (no bloqueante) evaluar **Vaul con snap points** para
+  la hoja de reserva en pantallas grandes — hoy ocupa el mismo layout
+  fijo en cualquier tamaño; funciona pero no aprovecha el espacio extra
+  en tablet/desktop.
+
+### Pendiente del paquete visual más amplio (fuera de esta sesión)
+Se evaluaron y quedaron fuera a propósito, documentadas también en la
+entrada anterior de este roadmap: NumberFlow (dashboard), Lenis (solo
+landing), y la pasada de estados vacíos/error con ilustración propia
+(hoy siguen siendo genéricos, solo con copy distinto por pantalla).

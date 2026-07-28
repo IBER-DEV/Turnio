@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
 import { apiClient } from "../api/client";
 import type { components } from "../api/schema";
 import type { ServicioInput } from "../api/types";
 import { conReintentoDeAuth } from "../auth/refresh";
-import { useAuth } from "../auth/AuthContext";
 import { Button } from "../ui/Button";
 import { EstadoError, EstadoVacio, SkeletonLista } from "../ui/Feedback";
 import { Icon } from "../ui/Icon";
@@ -13,6 +12,7 @@ import { Input } from "../ui/Input";
 import { MenuAcciones, MenuAccionesItem, MenuAccionesSeparator } from "../ui/MenuAcciones";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
 import { useToast } from "../ui/Toast";
+import { usePermisos } from "../permisos/usePermisos";
 import { cn } from "../ui/cn";
 import { ModalCatalogo } from "./servicios/ModalCatalogo";
 
@@ -40,9 +40,9 @@ function formatearPrecio(precio: string): string {
 }
 
 export function ServiciosPage() {
-  const { membresia } = useAuth();
   const { mostrar } = useToast();
-  const puedeEditar = membresia?.puede_editar_precios ?? false;
+  const { puede } = usePermisos();
+  const puedeEditar = puede("puede_editar_precios");
 
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -145,7 +145,7 @@ export function ServiciosPage() {
   }
 
   return (
-    <div className="space-y-md">
+    <div className="space-y-6">
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-menta/8">
@@ -280,7 +280,7 @@ export function ServiciosPage() {
           editando ? "Los cambios aplican a las próximas citas." : "Define precio y duración."
         }
       >
-        <form className="flex flex-col gap-md" onSubmit={handleGuardar}>
+        <form className="flex flex-col gap-6" onSubmit={handleGuardar}>
           <Input
             label="Nombre"
             value={datos.nombre}
@@ -334,13 +334,13 @@ export function ServiciosPage() {
           />
 
           {errorFormulario && (
-            <p role="alert" className="flex items-center gap-xs font-caption text-caption text-error">
+            <p role="alert" className="flex items-center gap-2 font-caption text-caption text-error">
               <Icon name="error" className="text-[18px]" />
               {errorFormulario}
             </p>
           )}
 
-          <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variante="ghost"

@@ -96,7 +96,7 @@ export function RegistroNegocioPage() {
     <div className="flex min-h-dvh">
       {/* Panel izquierdo — solo desktop */}
       <aside className="relative hidden w-[480px] shrink-0 flex-col justify-between overflow-hidden bg-primary p-10 lg:flex xl:w-[520px]">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-container/40 to-primary" />
+        <div className="absolute inset-0 bg-linear-to-br from-primary via-primary-container/40 to-primary" />
         <div className="absolute -bottom-20 -right-20 h-[400px] w-[400px] rounded-full bg-menta/10 blur-[100px]" />
 
         <div className="relative z-10">

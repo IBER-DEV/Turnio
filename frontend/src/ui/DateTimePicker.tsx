@@ -119,7 +119,7 @@ export function DateTimePicker({
   const primerDia = primerDiaSemana(anioVista, mesVista);
 
   return (
-    <div className="flex flex-col gap-xs">
+    <div className="flex flex-col gap-2">
       <label className="font-label-md text-label-md text-on-surface">
         {label}
         {required && <span className="text-error"> *</span>}
@@ -129,7 +129,7 @@ export function DateTimePicker({
           <button
             type="button"
             className={cn(
-              "inline-flex w-full items-center justify-between rounded-xl border bg-white py-3 pl-4 pr-3 font-body-md text-body-md outline-none transition-all",
+              "inline-flex w-full items-center justify-between rounded-xl border bg-white py-3 pl-4 pr-3 font-body-md text-body-md outline-hidden transition-all",
               "focus:border-menta focus:ring-2 focus:ring-menta/20",
               error ? "border-error" : "border-outline-variant",
               !valor && "text-outline",
@@ -145,7 +145,7 @@ export function DateTimePicker({
             sideOffset={6}
             align="start"
             className={cn(
-              "z-[70] w-[340px] rounded-xl border border-outline-variant bg-white p-4 shadow-elevada",
+              "z-70 w-[340px] rounded-xl border border-outline-variant bg-white p-4 shadow-elevada",
               "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
             )}
           >
@@ -249,7 +249,7 @@ export function DateTimePicker({
       </Popover.Root>
 
       {error && (
-        <p className="flex items-center gap-xs font-caption text-caption text-error">
+        <p className="flex items-center gap-2 font-caption text-caption text-error">
           <Icon name="error" className="text-[18px]" />
           {error}
         </p>

@@ -1,8 +1,9 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
+import { usePermisos } from "../permisos/usePermisos";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import { Input } from "../ui/Input";
@@ -10,15 +11,20 @@ import { Switch } from "../ui/Switch";
 
 export function LoginPage() {
   const { membresia, cargando, login } = useAuth();
-  const navigate = useNavigate();
+  const { shell } = usePermisos();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [recordar, setRecordar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
+  // Cada tipo de usuario aterriza donde le sirve: administración en el
+  // panel, recepción y operativo directo en la agenda (ver
+  // `permisos/shell.ts`). No hace falta navegar a mano tras el login:
+  // al llegar la membresía este mismo guard redirige, y así el destino
+  // se calcula en un solo lugar.
   if (!cargando && membresia) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={shell.inicio} replace />;
   }
 
   async function handleSubmit(evento: FormEvent) {
@@ -27,18 +33,14 @@ export function LoginPage() {
     setEnviando(true);
     const resultado = await login(email, password);
     setEnviando(false);
-    if (resultado.ok) {
-      navigate("/");
-    } else {
-      setError(resultado.error);
-    }
+    if (!resultado.ok) setError(resultado.error);
   }
 
   return (
     <div className="flex min-h-dvh">
       {/* Panel izquierdo — solo desktop */}
       <aside className="relative hidden w-[480px] shrink-0 flex-col justify-between overflow-hidden bg-primary p-10 lg:flex xl:w-[520px]">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-container/40 to-primary" />
+        <div className="absolute inset-0 bg-linear-to-br from-primary via-primary-container/40 to-primary" />
         <div className="absolute -bottom-20 -right-20 h-[400px] w-[400px] rounded-full bg-menta/10 blur-[100px]" />
 
         <div className="relative z-10">

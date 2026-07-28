@@ -1,0 +1,272 @@
+/**
+ * Tokens de diseño de Turnio — **fuente de verdad única**.
+ *
+ * Lo importan los dos proyectos que tienen interfaz:
+ *   - `frontend/src/index.css`        (app del staff y perfil público)
+ *   - `landing/src/styles/global.css` (sitio de marketing)
+ *
+ * Por qué vive en la raíz y no dentro de uno de los dos: hasta el
+ * 2026-07-28 la landing **copiaba a mano** los tokens de la app, con un
+ * comentario que pedía mantenerlos sincronizados. No se mantuvieron: la
+ * landing dibujaba las pantallas simuladas con `--color-app-primary:
+ * #091426` cuando la app hacía rato usaba `#1e1b4b`. El visitante veía un
+ * producto que no era el que se encontraba al registrarse.
+ *
+ * Regla: no inventar valores sueltos en los componentes. Si hace falta un
+ * color, espaciado o tamaño que no está, se agrega **acá** con nombre
+ * semántico y se usa por ese nombre — nunca un `#hex` ni un `[13px]`
+ * incrustado en un `className`.
+ *
+ * Requiere Tailwind 4 en ambos proyectos (`@theme`). Si alguno vuelve a
+ * v3, esto deja de aplicar y la deriva vuelve.
+ *
+ * `static` y no `@theme` a secas: por defecto Tailwind solo emite la
+ * variable de un token si alguna utilidad generada la usa. La landing
+ * define sus tokens de marca como alias (`--color-lienzo: var(--color-
+ * background)`), y un alias no cuenta como uso — el token quedaría fuera
+ * del CSS y el `var()` resolvería a nada. Con `static` se emiten todos.
+ */
+
+@theme static {
+  /* --- Superficies ------------------------------------------------- */
+  --color-background: #f8fafc;
+  --color-surface: #f8fafc;
+  --color-surface-dim: #e2e8f0;
+  --color-surface-bright: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f1f5f9;
+  --color-surface-container: #e2e8f0;
+  --color-surface-container-high: #cbd5e1;
+  --color-surface-container-highest: #94a3b8;
+  --color-on-surface: #334155;
+  --color-on-surface-variant: #64748b;
+  --color-inverse-surface: #0f172a;
+  --color-inverse-on-surface: #f1f5f9;
+
+  /* --- Marca ------------------------------------------------------- */
+  --color-primary: #1e1b4b;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #312e81;
+  --color-on-primary-container: #c7d2fe;
+  --color-inverse-primary: #a5b4fc;
+
+  --color-secondary: #10b981;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #10b981;
+  --color-on-secondary-container: #ffffff;
+  --color-secondary-hover: #059669;
+
+  --color-tertiary: #f59e0b;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #fef3c7;
+  --color-on-tertiary-container: #92400e;
+
+  --color-error: #ef4444;
+  --color-on-error: #ffffff;
+  --color-error-container: #fef2f2;
+  --color-on-error-container: #991b1b;
+
+  --color-outline: #94a3b8;
+  --color-outline-variant: #e2e8f0;
+  --color-surface-tint: #64748b;
+
+  /* Alias con nombre propio, más cómodos de escribir que los
+     semánticos. Son los mismos valores, no colores aparte. */
+  --color-menta: #10b981;
+  --color-menta-oscura: #059669;
+  --color-indigo: #1e1b4b;
+  --color-pizarra: #0f172a;
+  --color-texto: #334155;
+  --color-texto-suave: #64748b;
+
+  /* --- Estados de una cita ----------------------------------------- */
+  --color-agendada: #f59e0b;
+  --color-confirmada: #3b82f6;
+  --color-completada: #10b981;
+  --color-cancelada: #ef4444;
+
+  /* --- Radios ------------------------------------------------------- */
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+  --radius-full: 9999px;
+
+  /* --- Espaciado ----------------------------------------------------
+     Solo tokens que dicen algo que la escala de Tailwind no dice. Los
+     márgenes de página y el canal entre columnas son decisiones de
+     layout con nombre propio; un "1.5rem de separación" no lo es y se
+     escribe `gap-6`.
+
+     Acá hubo `--spacing-xs/sm/md/lg/xl` con tallas de camiseta, y se
+     quitaron el 2026-07-28 por dos razones:
+
+     1. Eran la escala numérica de Tailwind con otro nombre
+        (xs=0.5rem=`2`, sm=1rem=`4`, md=1.5rem=`6`, lg=2rem=`8`,
+        xl=3rem=`12`). Dos vocabularios para lo mismo.
+     2. **Rompían los contenedores en silencio.** En Tailwind 4 el
+        namespace de spacing le gana al de contenedores, así que con
+        `--spacing-xl` declarado, `max-w-xl` valía 3rem en vez de 36rem
+        — y `max-w-lg` 2rem, y `max-w-sm` 1rem. No falla el build: el
+        texto simplemente sale a una palabra por línea.
+
+     Regla que queda: **no declares un token de spacing cuyo nombre sea
+     `xs`, `sm`, `md`, `lg` o `xl`.** Colisiona con `max-w-*`, `w-*` y
+     `min-w-*`. Si necesitas un espaciado con nombre, que el nombre diga
+     para qué es (como los tres de abajo). */
+  --spacing-gutter: 1rem;
+  --spacing-margin-mobile: 1.25rem;
+  --spacing-margin-desktop: 2.5rem;
+
+  /* --- Tipografía ---------------------------------------------------
+     Las familias apuntan todas a la misma fuente a propósito: los
+     nombres son semánticos (para qué sirve el texto), no descriptivos
+     (qué fuente es). Cambiar la tipografía del producto es cambiar
+     `--font-sans` y estas alias, no cada componente. */
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-display-lg: var(--font-sans);
+  --font-headline-lg: var(--font-sans);
+  --font-headline-lg-mobile: var(--font-sans);
+  --font-headline-md: var(--font-sans);
+  --font-body-lg: var(--font-sans);
+  --font-body-md: var(--font-sans);
+  --font-label-md: var(--font-sans);
+  --font-caption: var(--font-sans);
+
+  --text-display-lg: 48px;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 800;
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 1.2;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-lg--font-weight: 700;
+  --text-headline-lg-mobile: 24px;
+  --text-headline-lg-mobile--line-height: 1.2;
+  --text-headline-lg-mobile--letter-spacing: -0.01em;
+  --text-headline-lg-mobile--font-weight: 700;
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 1.3;
+  --text-headline-md--font-weight: 700;
+  --text-headline-md-mobile: 20px;
+  --text-headline-md-mobile--line-height: 1.3;
+  --text-headline-md-mobile--font-weight: 700;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 1.6;
+  --text-body-lg--font-weight: 400;
+  --text-body-md: 16px;
+  --text-body-md--line-height: 1.5;
+  --text-body-md--font-weight: 400;
+  --text-label-md: 14px;
+  --text-label-md--line-height: 1.4;
+  --text-label-md--letter-spacing: 0.02em;
+  --text-label-md--font-weight: 600;
+  --text-caption: 12px;
+  --text-caption--line-height: 1.4;
+  --text-caption--font-weight: 500;
+
+  /* --- Sombras ------------------------------------------------------ */
+  --shadow-suave: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-card-soft: 0 2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-elevada: 0 20px 45px -15px rgba(30, 27, 75, 0.2);
+  --shadow-nav: 0 -1px 12px rgba(15, 23, 42, 0.06);
+
+  /* --- Animaciones ---------------------------------------------------
+     Nada por encima de ~250ms en interacciones. El bloque global de
+     `prefers-reduced-motion` de cada proyecto las neutraliza, así que no
+     hace falta repetirlo en cada animación nueva. */
+  --animate-fade-in: fade-in 150ms ease-out;
+  --animate-fade-out: fade-out 150ms ease-in;
+  --animate-slide-up: slide-up 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-slide-down: slide-down 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-zoom-in: zoom-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-zoom-out: zoom-out 150ms ease-in;
+  --animate-slide-in-top: slide-in-top 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-in-bottom: slide-in-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-aparecer: aparecer 450ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes slide-up {
+    from {
+      transform: translate(-50%, 100%);
+    }
+    to {
+      transform: translate(-50%, 0);
+    }
+  }
+  @keyframes slide-down {
+    from {
+      transform: translate(-50%, 0);
+    }
+    to {
+      transform: translate(-50%, 100%);
+    }
+  }
+  @keyframes zoom-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+  @keyframes zoom-out {
+    from {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.96);
+    }
+  }
+  @keyframes slide-in-top {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes slide-in-bottom {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}

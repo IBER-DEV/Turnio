@@ -186,7 +186,7 @@ class CitaViewSet(viewsets.ModelViewSet):
 
         membresia = self.request.membresia
         citas = membresia.negocio.citas.select_related("servicio", "empleado__usuario")
-        if membresia.puede_ver_agenda_completa:
+        if membresia.tiene("puede_ver_agenda_completa"):
             return citas.all()
         # Acota también `retrieve` y las transiciones: una cita ajena
         # responde 404, igual que una inexistente (CONTRATO.md 5.2).

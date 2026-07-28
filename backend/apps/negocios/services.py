@@ -2,111 +2,179 @@ from django.db import transaction
 
 from apps.negocios.models import Negocio
 from apps.tenants.models import Tenant
-from apps.usuarios.models import MiembroNegocio, Usuario
+from apps.usuarios.models import CAPACIDADES, Cargo, MiembroNegocio, Usuario
 
-CAPACIDADES_OPERADOR_UNICO = {
-    "puede_cobrar": True,
-    "puede_ver_reportes": True,
-    "puede_editar_precios": True,
-    "puede_gestionar_empleados": True,
-    "puede_gestionar_agenda": True,
-    "puede_configurar_horarios": True,
-    "puede_ver_agenda_completa": True,
-}
+CAMPOS_CAPACIDADES = list(CAPACIDADES)
 
-CAMPOS_CAPACIDADES = list(CAPACIDADES_OPERADOR_UNICO.keys())
+CAPACIDADES_OPERADOR_UNICO = {campo: True for campo in CAMPOS_CAPACIDADES}
+
+#: Los cargos con que arranca un negocio nuevo. Son un punto de partida
+#: editable, no un catálogo fijo: cada negocio los renombra, los cambia,
+#: crea otros o borra los que no usa (ver `Cargo`). El dueño queda en el
+#: primero, que es el único con todas las capacidades.
+CARGOS_INICIALES = [
+    {
+        "nombre": "Administración",
+        "tipo": Cargo.Tipo.ADMINISTRACION,
+        "capacidades": list(CAMPOS_CAPACIDADES),
+    },
+    {
+        "nombre": "Recepción",
+        "tipo": Cargo.Tipo.RECEPCION,
+        "capacidades": [
+            "puede_cobrar",
+            "puede_gestionar_agenda",
+            "puede_ver_agenda_completa",
+        ],
+    },
+    {
+        "nombre": "Barbero o estilista",
+        "tipo": Cargo.Tipo.OPERATIVO,
+        "capacidades": [],
+    },
+]
+
+
+def crear_cargo(*, negocio, nombre, tipo, capacidades):
+    """Crea un cargo del negocio. `capacidades` es la lista de las que concede."""
+    return Cargo.objects.create(
+        tenant=negocio.tenant,
+        negocio=negocio,
+        nombre=nombre,
+        tipo=tipo,
+        **{campo: campo in capacidades for campo in CAMPOS_CAPACIDADES},
+    )
+
+
+def sembrar_cargos_iniciales(negocio):
+    """Deja al negocio con sus tres cargos de arranque y devuelve el de
+    administración, que es donde entra el dueño."""
+    creados = [
+        crear_cargo(
+            negocio=negocio,
+            nombre=plantilla["nombre"],
+            tipo=plantilla["tipo"],
+            capacidades=plantilla["capacidades"],
+        )
+        for plantilla in CARGOS_INICIALES
+    ]
+    return creados[0]
 
 
 class CambioDeCapacidadNoPermitido(Exception):
     """El solicitante no puede hacer ese cambio de capacidades."""
 
 
-def validar_cambio_de_capacidades(*, solicitante, capacidades_pedidas, objetivo=None):
+def validar_cambio_de_capacidades(*, solicitante, capacidades_pedidas, es_mi_cargo=False):
     """Reglas que acotan a quien tiene `puede_gestionar_empleados`.
 
-    Sin ellas, esa capacidad era una escalada de privilegios completa: el
-    endpoint de edición de empleados acepta los flags `puede_*` y su
-    queryset incluye la propia membresía del solicitante, así que
-    cualquiera que pudiera gestionar el equipo podía concederse el resto
-    de capacidades con un solo PATCH sobre sí mismo.
+    Sin ellas, esa capacidad era una escalada de privilegios completa:
+    quien podía administrar el equipo podía concederse el resto de
+    capacidades editando lo suyo.
 
     Dos reglas, ambas sobre el mismo principio de que un permiso lo
     concede alguien que ya lo tiene y no uno mismo:
 
-    1. **Nadie edita sus propias capacidades.** Que otro te las cambie es
-       administración; cambiártelas tú es auto-ascenso. Editar tu propia
-       `especialidad` sí se permite: no es una capacidad.
+    1. **Nadie amplía las capacidades del cargo que él mismo ocupa.**
+       Renombrarlo o recortarlo sí se permite; agregarle capacidades es
+       auto-ascenso con un paso extra.
     2. **Nadie concede una capacidad que no tiene.** Si no puedes editar
-       precios, no puedes habilitar a otro a que lo haga — si no, la
-       regla 1 se esquiva en dos pasos con un cómplice.
+       precios, no puedes crear un cargo que lo permita — si no, la regla
+       1 se esquiva creando un cargo nuevo y mudándose a él.
 
-    Quitar una capacidad que uno no tiene sí se permite: reducir permisos
-    ajenos no amplía los propios, y bloquearlo dejaría a un administrador
-    sin poder frenar a alguien con más capacidades que él.
+    **Quitar** una capacidad que uno no tiene sí se permite: reducir
+    permisos ajenos no amplía los propios, y bloquearlo dejaría a un
+    administrador sin poder frenar a alguien con más capacidades que él.
 
-    `capacidades_pedidas` es un dict parcial {campo: bool} con solo lo que
-    el request pretende cambiar. `objetivo` es `None` al dar de alta a
-    alguien nuevo, donde la regla 1 no aplica: un empleado que aún no
-    existe no puede ser uno mismo.
+    `capacidades_pedidas` es un dict parcial {campo: bool} con solo lo
+    que el request pretende cambiar.
     """
     if not capacidades_pedidas:
         return
 
+    concedidas = sorted(campo for campo, valor in capacidades_pedidas.items() if valor)
+
+    if es_mi_cargo and concedidas:
+        raise CambioDeCapacidadNoPermitido(
+            "No puedes agregarle capacidades al cargo que tú ocupas. "
+            "Pídeselo a otra persona que gestione el equipo."
+        )
+
+    sin_tenerlas = [campo for campo in concedidas if not solicitante.tiene(campo)]
+    if sin_tenerlas:
+        raise CambioDeCapacidadNoPermitido(
+            "No puedes conceder una capacidad que tú no tienes: "
+            + ", ".join(sin_tenerlas)
+        )
+
+
+def validar_asignacion_de_cargo(*, solicitante, objetivo, cargo):
+    """Que asignar un cargo no sea la forma barata de auto-ascenderse.
+
+    Mudarse a un cargo con más capacidades es exactamente la misma
+    escalada que editarse el propio, solo que por la puerta de al lado.
+    Y darle a otro un cargo con capacidades que uno no tiene equivale a
+    concedérselas.
+    """
     if objetivo is not None and solicitante.pk == objetivo.pk:
         raise CambioDeCapacidadNoPermitido(
-            "No puedes cambiar tus propias capacidades. Pídeselo a otra "
+            "No puedes cambiarte el cargo a ti mismo. Pídeselo a otra "
             "persona que gestione el equipo."
         )
 
-    concedidas_sin_tenerlas = sorted(
+    if cargo is None:
+        return
+
+    sin_tenerlas = [
         campo
-        for campo, valor in capacidades_pedidas.items()
-        if valor and not getattr(solicitante, campo, False)
-    )
-    if concedidas_sin_tenerlas:
+        for campo, valor in cargo.capacidades().items()
+        if valor and not solicitante.tiene(campo)
+    ]
+    if sin_tenerlas:
         raise CambioDeCapacidadNoPermitido(
-            "No puedes conceder una capacidad que tú no tienes: "
-            + ", ".join(concedidas_sin_tenerlas)
+            "Ese cargo incluye capacidades que tú no tienes: " + ", ".join(sorted(sin_tenerlas))
         )
 
 
 @transaction.atomic
 def registrar_negocio(*, nombre_negocio, email_dueno, password_dueno, nombre_dueno, **datos_negocio):
-    """Crea Tenant + Negocio + Usuario dueño + su membresía con todas las capacidades.
+    """Crea Tenant + Negocio + sus cargos de arranque + el dueño en Administración.
 
-    Este es el flujo de alta para el caso n=1 (operador único): el dueño
-    arranca con todas las capacidades sin necesidad de crear un "empleado"
-    aparte. Para negocios con varios empleados, se agregan luego con
-    `agregar_empleado`.
+    El negocio nace con tres cargos ya listos para que dar de alta gente
+    sea elegir uno, no configurar siete interruptores. Son editables: el
+    dueño los renombra, los cambia o crea otros (ver `Cargo`).
     """
     tenant = Tenant.objects.create(nombre=nombre_negocio)
     negocio = Negocio.objects.create(tenant=tenant, nombre=nombre_negocio, **datos_negocio)
+    cargo_administracion = sembrar_cargos_iniciales(negocio)
     dueno = Usuario.objects.create_user(
         email=email_dueno, password=password_dueno, nombre=nombre_dueno
     )
     membresia = MiembroNegocio.objects.create(
-        tenant=tenant, negocio=negocio, usuario=dueno, **CAPACIDADES_OPERADOR_UNICO
+        tenant=tenant, negocio=negocio, usuario=dueno, cargo=cargo_administracion
     )
     return negocio, dueno, membresia
 
 
 @transaction.atomic
-def agregar_empleado(*, negocio, email, password, nombre, especialidad="", capacidades=None):
+def agregar_empleado(*, negocio, email, password, nombre, especialidad="", cargo=None):
     """Da de alta un empleado adicional en un negocio ya existente.
 
-    `capacidades` es un dict parcial con las capacidades a otorgar
-    (ej: {"puede_cobrar": True}); las no incluidas quedan en False.
+    `cargo` decide qué podrá hacer. Si no se pasa, entra al cargo
+    operativo más acotado del negocio (el que menos capacidades concede),
+    que es el default prudente: alguien recién llegado no debería
+    arrancar pudiendo más de lo necesario.
     """
-    capacidades = capacidades or {}
-    capacidades_validas = {
-        campo: bool(capacidades.get(campo, False)) for campo in CAMPOS_CAPACIDADES
-    }
+    if cargo is None:
+        cargo = (
+            negocio.cargos.filter(tipo=Cargo.Tipo.OPERATIVO).first() or negocio.cargos.first()
+        )
     usuario = Usuario.objects.create_user(email=email, password=password, nombre=nombre)
     membresia = MiembroNegocio.objects.create(
         tenant=negocio.tenant,
         negocio=negocio,
         usuario=usuario,
         especialidad=especialidad,
-        **capacidades_validas,
+        cargo=cargo,
     )
     return usuario, membresia

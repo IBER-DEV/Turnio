@@ -2,7 +2,7 @@ import { clsx } from "clsx";
 import type { ClassValue } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 
-/** `tailwind-merge` no conoce los tokens propios de `tailwind.config.js`,
+/** `tailwind-merge` no conoce los tokens propios de `design/tokens.css`,
  * así que hay que declararle los que generan conflicto entre sí. Sin
  * esto trataría `text-body-md` (tamaño) y `text-primary` (color) como
  * grupos distintos por adivinanza, y podría no resolver bien un

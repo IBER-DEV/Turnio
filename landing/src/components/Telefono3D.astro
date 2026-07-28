@@ -70,7 +70,7 @@
           <div class="mt-3 space-y-2 px-4">
             <!-- Cita en vivo: cambia de estado en bucle -->
             <div
-              class="rounded-2xl border p-3 transition-all duration-500 data-[estado=agendada]:border-app-primary-fixed-dim data-[estado=agendada]:bg-app-surface-variant data-[estado=completada]:scale-[1.02] data-[estado=completada]:border-green-500/50 data-[estado=completada]:bg-green-50 data-[estado=confirmada]:border-app-secondary-container data-[estado=confirmada]:bg-app-secondary-fixed/50"
+              class="rounded-2xl border p-3 transition-all duration-500 data-[estado=agendada]:border-agendada data-[estado=agendada]:bg-agendada/10 data-[estado=completada]:scale-[1.02] data-[estado=completada]:border-completada data-[estado=completada]:bg-completada/10 data-[estado=confirmada]:border-confirmada data-[estado=confirmada]:bg-confirmada/10"
               data-tarjeta
               data-estado="agendada"
             >
@@ -113,7 +113,7 @@
                   </p>
                 </div>
                 <span
-                  class="shrink-0 rounded-full bg-app-surface-variant px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-app-primary-fixed-dim"
+                  class="shrink-0 rounded-full bg-agendada/15 px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-agendada"
                   >Agendada</span
                 >
               </div>
@@ -219,10 +219,13 @@
 
   const SECUENCIA: Estado[] = ["agendada", "confirmada", "completada"];
 
+  // Mismos tokens que pinta el panel de verdad (`ESTILO_ESTADO` en
+  // `frontend/src/ui/EstadoCita.ts`): el badge del mockup y el que ve el
+  // usuario al registrarse salen de la misma paleta.
   const BADGE: Record<Estado, string> = {
-    agendada: "bg-app-surface-variant text-app-primary-fixed-dim",
-    confirmada: "bg-app-secondary-fixed text-app-on-secondary-fixed-variant",
-    completada: "bg-green-100 text-green-700",
+    agendada: "bg-agendada/15 text-agendada",
+    confirmada: "bg-confirmada/15 text-confirmada",
+    completada: "bg-completada/15 text-completada",
   };
 
   const ETIQUETA: Record<Estado, string> = {
@@ -240,8 +243,8 @@
 
   const BOTON: Record<Estado, string> = {
     agendada: "bg-app-primary text-app-on-primary",
-    confirmada: "bg-app-secondary-container text-app-on-secondary-fixed-variant",
-    completada: "bg-green-600 text-white",
+    confirmada: "bg-secondary text-on-secondary",
+    completada: "bg-completada text-white",
   };
 
   function iniciar(escena: HTMLElement) {

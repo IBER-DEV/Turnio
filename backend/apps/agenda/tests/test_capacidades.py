@@ -1,67 +1,47 @@
-"""Separación de `puede_gestionar_agenda` y visibilidad de citas.
+"""Separación de capacidades de agenda y visibilidad de citas.
 
-Dos cambios que van juntos porque parten del mismo diagnóstico: una sola
-capacidad estaba decidiendo cosas que un dueño quiere decidir por
-separado.
+Desde 2026-07-26 las capacidades viven en `Cargo`, así que "un empleado
+que solo puede X" se arma con la fixture `empleado_con`.
 """
 
 import datetime
 
 import pytest
 from django.utils import timezone
-from rest_framework.test import APIClient
 
 from apps.agenda import services
 from apps.negocios import services as negocios_services
-from apps.servicios import services as servicios_services
+from apps.usuarios.models import Cargo
 
 pytestmark = pytest.mark.django_db
 
-PASSWORD = "claveSegura123"
 LUNES_10AM = timezone.make_aware(datetime.datetime(2024, 1, 1, 10, 0))
-
 FRANJA_LUNES = [{"dia_semana": 0, "hora_inicio": "09:00:00", "hora_fin": "18:00:00"}]
-
-
-def _cliente_de(email):
-    client = APIClient()
-    respuesta = client.post(
-        "/api/auth/login/", {"email": email, "password": PASSWORD}, format="json"
-    )
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {respuesta.data['access']}")
-    return client
-
-
-def _empleado(negocio, email, nombre, **capacidades):
-    _usuario, membresia = negocios_services.agregar_empleado(
-        negocio=negocio, email=email, password=PASSWORD, nombre=nombre, capacidades=capacidades
-    )
-    return _cliente_de(email), membresia
 
 
 # --- El caso que motivó la separación: agendar sin decidir el horario ---
 
 
 @pytest.fixture
-def recepcionista(negocio_con_dueno):
+def recepcionista(negocio_con_dueno, empleado_con):
     """Opera la agenda del día, pero no decide cuándo abre el local."""
     negocio, _dueno, _membresia = negocio_con_dueno
-    return _empleado(
-        negocio,
-        "recepcion@test.com",
-        "Recepcion",
-        puede_gestionar_agenda=True,
-        puede_ver_agenda_completa=True,
+    return empleado_con(
+        negocio=negocio,
+        email="recepcion@test.com",
+        nombre="Recepcion",
+        tipo=Cargo.Tipo.RECEPCION,
+        capacidades=["puede_gestionar_agenda", "puede_ver_agenda_completa"],
     )
 
 
 def test_recepcionista_puede_agendar_citas(
-    recepcionista, negocio_con_dueno, servicio_de_prueba, cliente_autenticado_dueno
+    recepcionista, servicio_de_prueba, cliente_autenticado_dueno
 ):
     cliente_autenticado_dueno.put(
         "/api/agenda/horario-negocio/", {"franjas": FRANJA_LUNES}, format="json"
     )
-    client, _membresia = recepcionista
+    _membresia, client = recepcionista
 
     respuesta = client.post(
         "/api/agenda/citas/",
@@ -79,7 +59,7 @@ def test_recepcionista_puede_agendar_citas(
 def test_recepcionista_no_puede_cambiar_el_horario_del_negocio(recepcionista, negocio_con_dueno):
     """El caso exacto que pidió el humano: gestiona citas, no horarios."""
     negocio, _dueno, _membresia = negocio_con_dueno
-    client, _membresia_recepcion = recepcionista
+    _membresia_recepcion, client = recepcionista
 
     respuesta = client.put(
         "/api/agenda/horario-negocio/",
@@ -94,8 +74,8 @@ def test_recepcionista_no_puede_cambiar_el_horario_del_negocio(recepcionista, ne
 def test_recepcionista_no_puede_cambiar_el_horario_de_un_empleado(
     recepcionista, negocio_con_dueno
 ):
-    negocio, _dueno, membresia_dueno = negocio_con_dueno
-    client, _membresia_recepcion = recepcionista
+    _negocio, _dueno, membresia_dueno = negocio_con_dueno
+    _membresia_recepcion, client = recepcionista
 
     respuesta = client.put(
         "/api/agenda/horarios/semana/",
@@ -108,15 +88,18 @@ def test_recepcionista_no_puede_cambiar_el_horario_de_un_empleado(
 
 
 def test_quien_configura_horarios_no_puede_agendar_citas(
-    negocio_con_dueno, servicio_de_prueba, cliente_autenticado_dueno
+    negocio_con_dueno, empleado_con, servicio_de_prueba, cliente_autenticado_dueno
 ):
     """La separación corta en las dos direcciones, no solo en una."""
     negocio, _dueno, _membresia = negocio_con_dueno
     cliente_autenticado_dueno.put(
         "/api/agenda/horario-negocio/", {"franjas": FRANJA_LUNES}, format="json"
     )
-    client, _membresia = _empleado(
-        negocio, "rrhh@test.com", "RRHH", puede_configurar_horarios=True
+    _membresia, client = empleado_con(
+        negocio=negocio,
+        email="rrhh@test.com",
+        nombre="RRHH",
+        capacidades=["puede_configurar_horarios"],
     )
 
     respuesta = client.post(
@@ -132,10 +115,13 @@ def test_quien_configura_horarios_no_puede_agendar_citas(
     assert respuesta.status_code == 403
 
 
-def test_quien_configura_horarios_si_puede_cambiarlos(negocio_con_dueno):
+def test_quien_configura_horarios_si_puede_cambiarlos(negocio_con_dueno, empleado_con):
     negocio, _dueno, _membresia = negocio_con_dueno
-    client, _membresia = _empleado(
-        negocio, "rrhh@test.com", "RRHH", puede_configurar_horarios=True
+    _membresia, client = empleado_con(
+        negocio=negocio,
+        email="rrhh@test.com",
+        nombre="RRHH",
+        capacidades=["puede_configurar_horarios"],
     )
 
     respuesta = client.put(
@@ -149,19 +135,8 @@ def test_quien_configura_horarios_si_puede_cambiarlos(negocio_con_dueno):
 # --- Visibilidad: la agenda completa es la libreta de clientes ---
 
 
-def _cita_para(negocio, empleado, servicio, nombre_cliente, hora=LUNES_10AM):
-    return services.agendar_cita(
-        negocio=negocio,
-        servicio=servicio,
-        empleado=empleado,
-        fecha_hora_inicio=hora,
-        nombre_cliente=nombre_cliente,
-        telefono_cliente="3001234567",
-    )
-
-
 @pytest.fixture
-def negocio_con_dos_barberos(negocio_con_dueno, servicio_de_prueba):
+def negocio_con_dos_barberos(negocio_con_dueno, servicio_de_prueba, empleado_con):
     negocio, _dueno, membresia_dueno = negocio_con_dueno
     services.reemplazar_horario_negocio(
         negocio=negocio,
@@ -173,15 +148,22 @@ def negocio_con_dos_barberos(negocio_con_dueno, servicio_de_prueba):
             }
         ],
     )
-    client_barbero, barbero = _empleado(negocio, "barbero@test.com", "Barbero")
-    _cita_para(negocio, barbero, servicio_de_prueba, "Cliente Del Barbero")
-    _cita_para(
-        negocio,
-        membresia_dueno,
-        servicio_de_prueba,
-        "Cliente Del Dueno",
-        hora=LUNES_10AM + datetime.timedelta(hours=2),
+    barbero, client_barbero = empleado_con(
+        negocio=negocio, email="barbero@test.com", nombre="Barbero"
     )
+
+    def _cita(empleado, nombre_cliente, hora):
+        return services.agendar_cita(
+            negocio=negocio,
+            servicio=servicio_de_prueba,
+            empleado=empleado,
+            fecha_hora_inicio=hora,
+            nombre_cliente=nombre_cliente,
+            telefono_cliente="3001234567",
+        )
+
+    _cita(barbero, "Cliente Del Barbero", LUNES_10AM)
+    _cita(membresia_dueno, "Cliente Del Dueno", LUNES_10AM + datetime.timedelta(hours=2))
     return client_barbero, barbero, negocio
 
 
@@ -195,9 +177,7 @@ def test_empleado_sin_la_capacidad_solo_ve_sus_propias_citas(negocio_con_dos_bar
     assert nombres == {"Cliente Del Barbero"}
 
 
-def test_no_puede_leer_la_cita_ajena_ni_pidiendola_por_id(
-    negocio_con_dos_barberos, servicio_de_prueba
-):
+def test_no_puede_leer_la_cita_ajena_ni_pidiendola_por_id(negocio_con_dos_barberos):
     """Filtrar la lista no sirve de nada si el detalle sigue abierto."""
     client_barbero, _barbero, negocio = negocio_con_dos_barberos
     ajena = negocio.citas.get(nombre_cliente="Cliente Del Dueno")
@@ -233,8 +213,8 @@ def test_sigue_pudiendo_transicionar_las_propias(negocio_con_dos_barberos):
 
 def test_con_la_capacidad_ve_toda_la_agenda(negocio_con_dos_barberos):
     client_barbero, barbero, _negocio = negocio_con_dos_barberos
-    barbero.puede_ver_agenda_completa = True
-    barbero.save(update_fields=["puede_ver_agenda_completa"])
+    barbero.cargo.puede_ver_agenda_completa = True
+    barbero.cargo.save(update_fields=["puede_ver_agenda_completa"])
 
     respuesta = client_barbero.get("/api/agenda/citas/")
 
@@ -256,35 +236,45 @@ def test_el_telefono_del_cliente_ajeno_no_se_filtra(negocio_con_dos_barberos):
 
     respuesta = client_barbero.get("/api/agenda/citas/")
 
-    telefonos_visibles = [cita["telefono_cliente"] for cita in respuesta.data]
-    assert len(telefonos_visibles) == 1
+    assert len([cita["telefono_cliente"] for cita in respuesta.data]) == 1
 
 
-# --- Alta de negocio: el dueño arranca con todas ---
+# --- El negocio nace configurado ---
 
 
-def test_el_dueno_recibe_las_capacidades_nuevas_al_registrarse(negocio_con_dueno):
-    _negocio, _dueno, membresia = negocio_con_dueno
+def test_el_negocio_nace_con_sus_cargos_y_el_dueno_en_administracion(negocio_con_dueno):
+    negocio, _dueno, membresia = negocio_con_dueno
 
-    assert membresia.puede_configurar_horarios is True
-    assert membresia.puede_ver_agenda_completa is True
+    assert negocio.cargos.count() == len(negocios_services.CARGOS_INICIALES)
+    assert membresia.cargo.tipo == Cargo.Tipo.ADMINISTRACION
+    assert all(membresia.tiene(campo) for campo in negocios_services.CAMPOS_CAPACIDADES)
 
 
-def test_mi_membresia_expone_las_capacidades_nuevas(cliente_autenticado_dueno):
-    """El frontend decide qué renderizar con esto; si falta un flag,
-    la UI no puede distinguir los casos."""
+def test_mi_membresia_expone_el_tipo_y_el_cargo(cliente_autenticado_dueno):
+    """El frontend monta el shell con `tipo` y gatea acciones con el
+    cargo; si falta cualquiera de los dos, no puede."""
     respuesta = cliente_autenticado_dueno.get("/api/negocios/mi-membresia/")
 
     assert respuesta.status_code == 200
-    assert respuesta.data["puede_configurar_horarios"] is True
-    assert respuesta.data["puede_ver_agenda_completa"] is True
+    assert respuesta.data["tipo"] == Cargo.Tipo.ADMINISTRACION
+    assert respuesta.data["cargo"]["nombre"] == "Administración"
+    assert respuesta.data["cargo"]["puede_configurar_horarios"] is True
 
 
-def test_el_alta_de_empleados_cubre_todas_las_capacidades_del_modelo():
-    """Atrapa la deriva: agregar un flag al modelo y olvidarlo en el
-    serializer de alta lo dejaría imposible de otorgar al crear."""
-    from apps.negocios.serializers import EmpleadoAltaSerializer
+def test_el_cargo_expone_todas_las_capacidades_del_modelo(cliente_autenticado_dueno):
+    """Atrapa la deriva: agregar una capacidad al modelo y olvidarla en el
+    serializer la dejaría invisible para el frontend."""
+    respuesta = cliente_autenticado_dueno.get("/api/negocios/mi-membresia/")
 
-    campos = set(EmpleadoAltaSerializer().get_fields())
+    assert set(negocios_services.CAMPOS_CAPACIDADES) <= set(respuesta.data["cargo"])
 
-    assert set(negocios_services.CAMPOS_CAPACIDADES) <= campos
+
+def test_un_empleado_sin_cargo_explicito_entra_al_operativo(negocio_con_dueno):
+    negocio, _dueno, _membresia = negocio_con_dueno
+
+    _usuario, membresia = negocios_services.agregar_empleado(
+        negocio=negocio, email="nuevo@test.com", password="claveSegura123", nombre="Nuevo"
+    )
+
+    assert membresia.cargo.tipo == Cargo.Tipo.OPERATIVO
+    assert not any(membresia.tiene(campo) for campo in negocios_services.CAMPOS_CAPACIDADES)

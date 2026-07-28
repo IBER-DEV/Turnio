@@ -25,7 +25,7 @@ export function Modal({
       <Dialog.Portal>
         <Dialog.Overlay
           className={cn(
-            "fixed inset-0 z-[60] bg-pizarra/50 backdrop-blur-sm",
+            "fixed inset-0 z-60 bg-pizarra/50 backdrop-blur-xs",
             "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
           )}
         />
@@ -35,16 +35,16 @@ export function Modal({
             (evento.currentTarget as HTMLElement).focus();
           }}
           className={cn(
-            "fixed bottom-0 left-1/2 z-[60] max-h-[90dvh] w-full max-w-[480px] -translate-x-1/2",
-            "overflow-y-auto rounded-t-3xl bg-white p-md shadow-elevada safe-bottom",
-            "focus:outline-none",
+            "fixed bottom-0 left-1/2 z-60 max-h-[90dvh] w-full max-w-[480px] -translate-x-1/2",
+            "overflow-y-auto rounded-t-3xl bg-white p-6 shadow-elevada safe-bottom",
+            "focus:outline-hidden",
             "sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl",
             "data-[state=open]:animate-slide-up data-[state=closed]:animate-slide-down",
             "sm:data-[state=open]:animate-zoom-in sm:data-[state=closed]:animate-zoom-out",
             className,
           )}
         >
-          <div className="mb-md flex items-start justify-between gap-4">
+          <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <Dialog.Title className="font-headline-md text-headline-md text-primary">
                 {titulo}
@@ -95,7 +95,7 @@ export function ModalConfirmacion({
 }) {
   return (
     <Modal abierto={abierto} onCerrar={onCancelar} titulo={titulo} descripcion={mensaje}>
-      <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button variante="ghost" onClick={onCancelar} disabled={cargando}>
           Cancelar
         </Button>

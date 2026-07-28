@@ -33,23 +33,16 @@ def test_crear_horario_via_api(cliente_autenticado_dueno, negocio_con_dueno):
     _cargar_horario_lunes(cliente_autenticado_dueno, membresia)
 
 
-def test_crear_horario_requiere_puede_gestionar_agenda(negocio_con_dueno):
+def test_crear_horario_requiere_puede_configurar_horarios(negocio_con_dueno, empleado_con):
+    """Tener otra capacidad no alcanza: los horarios tienen la suya
+    propia desde que se separó de `puede_gestionar_agenda`."""
     negocio, _dueno, membresia = negocio_con_dueno
-    negocios_services.agregar_empleado(
+    _membresia, client = empleado_con(
         negocio=negocio,
         email="sinpermiso@test.com",
-        password="claveSegura123",
         nombre="Sin Permiso",
-        capacidades={"puede_editar_precios": True},
+        capacidades=["puede_editar_precios"],
     )
-
-    client = APIClient()
-    login = client.post(
-        "/api/auth/login/",
-        {"email": "sinpermiso@test.com", "password": "claveSegura123"},
-        format="json",
-    )
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
 
     respuesta = client.post(
         "/api/agenda/horarios/",
