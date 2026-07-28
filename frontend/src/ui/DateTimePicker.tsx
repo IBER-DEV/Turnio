@@ -119,7 +119,7 @@ export function DateTimePicker({
   const primerDia = primerDiaSemana(anioVista, mesVista);
 
   return (
-    <div className="flex flex-col gap-xs">
+    <div className="flex flex-col gap-2">
       <label className="font-label-md text-label-md text-on-surface">
         {label}
         {required && <span className="text-error"> *</span>}
@@ -249,7 +249,7 @@ export function DateTimePicker({
       </Popover.Root>
 
       {error && (
-        <p className="flex items-center gap-xs font-caption text-caption text-error">
+        <p className="flex items-center gap-2 font-caption text-caption text-error">
           <Icon name="error" className="text-[18px]" />
           {error}
         </p>

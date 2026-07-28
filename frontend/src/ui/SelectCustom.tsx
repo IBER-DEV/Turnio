@@ -33,7 +33,7 @@ export function SelectCustom({
   className,
 }: SelectCustomProps) {
   return (
-    <div className={cn("flex flex-col gap-xs", className)}>
+    <div className={cn("flex flex-col gap-2", className)}>
       <label
         className={cn(
           "font-label-md text-label-md text-on-surface",
@@ -77,7 +77,7 @@ export function SelectCustom({
       </SelectPrimitive.Root>
 
       {error ? (
-        <p className="flex items-center gap-xs font-caption text-caption text-error">
+        <p className="flex items-center gap-2 font-caption text-caption text-error">
           <Icon name="error" className="text-[18px]" />
           {error}
         </p>

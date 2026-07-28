@@ -145,7 +145,7 @@ export function ServiciosPage() {
   }
 
   return (
-    <div className="space-y-md">
+    <div className="space-y-6">
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-menta/8">
@@ -280,7 +280,7 @@ export function ServiciosPage() {
           editando ? "Los cambios aplican a las próximas citas." : "Define precio y duración."
         }
       >
-        <form className="flex flex-col gap-md" onSubmit={handleGuardar}>
+        <form className="flex flex-col gap-6" onSubmit={handleGuardar}>
           <Input
             label="Nombre"
             value={datos.nombre}
@@ -334,13 +334,13 @@ export function ServiciosPage() {
           />
 
           {errorFormulario && (
-            <p role="alert" className="flex items-center gap-xs font-caption text-caption text-error">
+            <p role="alert" className="flex items-center gap-2 font-caption text-caption text-error">
               <Icon name="error" className="text-[18px]" />
               {errorFormulario}
             </p>
           )}
 
-          <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variante="ghost"

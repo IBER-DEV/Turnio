@@ -105,7 +105,7 @@ export function DashboardPage() {
   const accesos = todosLosAccesos.filter((acceso) => acceso.visible);
 
   return (
-    <div className="space-y-lg">
+    <div className="space-y-8">
       {/* Saludo contextual — solo en desktop (mobile tiene el header) */}
       <header className="hidden lg:block">
         <h1 className="font-headline-lg text-headline-lg tracking-tight text-primary">

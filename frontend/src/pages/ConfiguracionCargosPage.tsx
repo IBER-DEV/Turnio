@@ -158,7 +158,7 @@ export function ConfiguracionCargosPage() {
   }
 
   return (
-    <div className="space-y-lg">
+    <div className="space-y-8">
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-headline-md text-headline-md-mobile tracking-tight text-primary md:text-headline-md">
@@ -184,7 +184,7 @@ export function ConfiguracionCargosPage() {
       </header>
 
       {!puedoGestionar && (
-        <p className="flex items-start gap-xs rounded-lg bg-surface-container-low p-3 font-caption text-caption text-on-surface-variant">
+        <p className="flex items-start gap-2 rounded-lg bg-surface-container-low p-3 font-caption text-caption text-on-surface-variant">
           <Icon name="lock" className="shrink-0 text-[18px]" />
           Solo lectura: necesitas el permiso de agregar gente y dar permisos para cambiar algo acá.
         </p>
@@ -195,7 +195,7 @@ export function ConfiguracionCargosPage() {
       ) : error ? (
         <EstadoError mensaje="No pudimos cargar los cargos." onReintentar={cargar} />
       ) : (
-        <div className="grid items-start gap-md lg:grid-cols-2">
+        <div className="grid items-start gap-6 lg:grid-cols-2">
           {cargos.map((cargo) => {
             const esElMio = cargo.id === membresia?.cargo?.id;
             const abierto = expandido === cargo.id;
@@ -290,7 +290,7 @@ export function ConfiguracionCargosPage() {
                 {abierto && (
                   <div id={panelId} className="animate-fade-in px-5 pb-5">
                     {cargo.miembros > 0 && puedoGestionar && (
-                      <p className="mb-4 flex items-start gap-xs rounded-lg bg-surface-container-low p-2.5 text-[11px] text-on-surface-variant">
+                      <p className="mb-4 flex items-start gap-2 rounded-lg bg-surface-container-low p-2.5 text-[11px] text-on-surface-variant">
                         <Icon name="info" className="shrink-0 text-[16px] text-menta" />
                         Lo que cambies acá aplica a las {cargo.miembros}{" "}
                         {cargo.miembros === 1 ? "persona" : "personas"} con este cargo.
@@ -348,7 +348,7 @@ export function ConfiguracionCargosPage() {
         titulo="Nuevo cargo"
         descripcion="Ponle un nombre y decide con qué pantalla arranca la gente que lo tenga. Los permisos se ajustan después."
       >
-        <form className="flex flex-col gap-md" onSubmit={crear}>
+        <form className="flex flex-col gap-6" onSubmit={crear}>
           <Input
             label="Nombre del cargo"
             value={nuevo.nombre}
@@ -400,13 +400,13 @@ export function ConfiguracionCargosPage() {
           </fieldset>
 
           {errorFormulario && (
-            <p role="alert" className="flex items-start gap-xs font-caption text-caption text-error">
+            <p role="alert" className="flex items-start gap-2 font-caption text-caption text-error">
               <Icon name="error" className="shrink-0 text-[18px]" />
               {errorFormulario}
             </p>
           )}
 
-          <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variante="ghost"

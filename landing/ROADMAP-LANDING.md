@@ -233,3 +233,53 @@ Detalles de comportamiento:
 El claim de tiempo ("menos de 5 minutos") sale de sumar los estimados
 por paso (1 + 1 + 2 min + 30 s) con holgura. Si al validar con negocios
 reales resulta optimista, se ajusta acá.
+
+## Los tokens dejan de copiarse: pasan a `design/tokens.css` (2026-07-28)
+
+> Contraparte del trabajo descrito en
+> `../frontend/ROADMAP-FRONTEND.md` del mismo día. Acá solo lo que
+> cambió en el sitio.
+
+`global.css` tenía dos bloques de tokens copiados a mano del panel, bajo
+un comentario que decía "si cambian allá, hay que actualizarlos acá: son
+dos proyectos con deploys distintos, no comparten config a propósito".
+No se actualizaron: las pantallas simuladas se dibujaban con
+`--color-app-primary: #091426` cuando la app ya usaba `#1e1b4b`. El
+visitante veía un producto que no era el que se encontraba al
+registrarse — que es justo lo que esta landing existe para evitar.
+
+Ahora `global.css` importa `../../../design/tokens.css` y **no define un
+solo color propio del producto**.
+
+### El vocabulario de marketing se queda, la copia no
+Los nombres del sitio (`lienzo`, `superficie`, `borde`, `shadow-tarjeta`)
+siguen existiendo, pero como **alias**: `--color-lienzo:
+var(--color-background)`. Se conserva el prefijo `app-` de los mockups
+por la misma razón — `bg-app-primary` dentro de una pantalla simulada se
+lee distinto a `bg-indigo` en el hero, aunque hoy den el mismo color. La
+diferencia es que ya no hay un valor que mantener sincronizado.
+
+Se borraron del sitio los tokens que ahora vienen de la raíz (`menta`,
+`indigo`, `texto`, los cuatro estados de cita, `shadow-suave`,
+`shadow-elevada`, `animate-aparecer` y su keyframe). Eran idénticos en
+valor: no hay cambio visual.
+
+### Los badges de estado se corrigieron de paso
+`Telefono3D` pintaba los estados con tokens M3 `*-fixed` y con
+`bg-green-100` de la paleta por defecto de Tailwind — colores que no
+salían del sistema de diseño. Ahora usan `bg-agendada/15 text-agendada` y
+equivalentes, que es literalmente lo que pinta `ESTILO_ESTADO` en
+`../frontend/src/ui/EstadoCita.ts`.
+
+### Nota de mantenimiento (segunda de este tipo)
+Igual que con la clase inventada `hide-scroll`, **un alias roto no falla
+el build**: Tailwind emite `var(--color-x)` y si `--color-x` no existe el
+color simplemente no se aplica. Se verificó contra el CSS compilado que
+los 15 alias `app-*` y los de marca resuelven a un token realmente
+emitido, con su valor.
+
+Relacionado: `design/tokens.css` está declarado `@theme static` para que
+esto funcione. Con `@theme` a secas Tailwind descarta los tokens que
+ninguna utilidad usa, y un alias no cuenta como uso — los `var()` de esta
+hoja resolverían a nada. Si alguien "limpia" ese `static`, la landing se
+rompe sin que nadie toque la landing.

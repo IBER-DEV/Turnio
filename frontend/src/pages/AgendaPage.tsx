@@ -174,7 +174,7 @@ export function AgendaPage() {
   }
 
   return (
-    <div className="space-y-md">
+    <div className="space-y-6">
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
@@ -521,7 +521,7 @@ function ModalNuevaCita({
           descripcion="Necesitas al menos un servicio activo para poder agendar una cita."
         />
       ) : (
-        <form className="flex flex-col gap-md" onSubmit={handleSubmit}>
+        <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
           <SelectCustom
             label="Servicio"
             valor={servicio ? String(servicio) : ""}
@@ -575,13 +575,13 @@ function ModalNuevaCita({
           />
 
           {error && (
-            <p role="alert" className="flex items-start gap-xs font-caption text-caption text-error">
+            <p role="alert" className="flex items-start gap-2 font-caption text-caption text-error">
               <Icon name="error" className="shrink-0 text-[18px]" />
               {error}
             </p>
           )}
 
-          <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variante="ghost" onClick={onCerrar} disabled={guardando}>
               Cancelar
             </Button>

@@ -19,9 +19,15 @@
  *
  * Requiere Tailwind 4 en ambos proyectos (`@theme`). Si alguno vuelve a
  * v3, esto deja de aplicar y la deriva vuelve.
+ *
+ * `static` y no `@theme` a secas: por defecto Tailwind solo emite la
+ * variable de un token si alguna utilidad generada la usa. La landing
+ * define sus tokens de marca como alias (`--color-lienzo: var(--color-
+ * background)`), y un alias no cuenta como uso — el token quedaría fuera
+ * del CSS y el `var()` resolvería a nada. Con `static` se emiten todos.
  */
 
-@theme {
+@theme static {
   /* --- Superficies ------------------------------------------------- */
   --color-background: #f8fafc;
   --color-surface: #f8fafc;
@@ -87,13 +93,28 @@
   --radius-3xl: 2rem;
   --radius-full: 9999px;
 
-  /* --- Espaciado ---------------------------------------------------- */
-  --spacing-base: 4px;
-  --spacing-xs: 0.5rem;
-  --spacing-sm: 1rem;
-  --spacing-md: 1.5rem;
-  --spacing-lg: 2rem;
-  --spacing-xl: 3rem;
+  /* --- Espaciado ----------------------------------------------------
+     Solo tokens que dicen algo que la escala de Tailwind no dice. Los
+     márgenes de página y el canal entre columnas son decisiones de
+     layout con nombre propio; un "1.5rem de separación" no lo es y se
+     escribe `gap-6`.
+
+     Acá hubo `--spacing-xs/sm/md/lg/xl` con tallas de camiseta, y se
+     quitaron el 2026-07-28 por dos razones:
+
+     1. Eran la escala numérica de Tailwind con otro nombre
+        (xs=0.5rem=`2`, sm=1rem=`4`, md=1.5rem=`6`, lg=2rem=`8`,
+        xl=3rem=`12`). Dos vocabularios para lo mismo.
+     2. **Rompían los contenedores en silencio.** En Tailwind 4 el
+        namespace de spacing le gana al de contenedores, así que con
+        `--spacing-xl` declarado, `max-w-xl` valía 3rem en vez de 36rem
+        — y `max-w-lg` 2rem, y `max-w-sm` 1rem. No falla el build: el
+        texto simplemente sale a una palabra por línea.
+
+     Regla que queda: **no declares un token de spacing cuyo nombre sea
+     `xs`, `sm`, `md`, `lg` o `xl`.** Colisiona con `max-w-*`, `w-*` y
+     `min-w-*`. Si necesitas un espaciado con nombre, que el nombre diga
+     para qué es (como los tres de abajo). */
   --spacing-gutter: 1rem;
   --spacing-margin-mobile: 1.25rem;
   --spacing-margin-desktop: 2.5rem;

@@ -680,3 +680,125 @@ Detalles que no son obvios:
 Un test nuevo (27 en total) fija que todo permiso tenga `corto` no vacío
 y de ≤16 caracteres: una cadena vacía dejaría un chip fantasma y una
 larga rompería la fila.
+
+## Tailwind 4 y tokens compartidos con la landing (2026-07-28)
+
+> Rama `feature/frontend-sistema-diseno`. Sale de querer "elevar el
+> diseño" y encontrar que no se podía hacer una sola vez: el repo tenía
+> dos Tailwind incompatibles.
+
+### El problema
+`frontend/` estaba en Tailwind 3.4 (config en JS) y `landing/` en 4.3
+(config en CSS). Son majors incompatibles: v4 movió la configuración a
+CSS y cambió el motor. Mientras fueran dos proyectos sin nada en común no
+dolía, pero compartir tokens —que es exactamente lo que "elevar el
+diseño" implica— obliga a unificar primero, o el sistema de diseño se
+construye dos veces y se desincroniza dos veces.
+
+Y ya se había desincronizado: la landing dibujaba las pantallas simuladas
+con `--color-app-primary: #091426` cuando la app hacía rato usaba
+`#1e1b4b`, bajo un comentario que pedía mantenerlos sincronizados a mano.
+El visitante veía un producto que no era el que se encontraba al
+registrarse.
+
+### Qué se hizo
+- **`frontend/` migrado a Tailwind 4.3**: se borraron
+  `tailwind.config.js` y `postcss.config.js`; la configuración vive ahora
+  en `@theme`. Tailwind se carga por `@tailwindcss/vite` y no por
+  PostCSS — es el camino recomendado en v4 y es el que ya usaba la
+  landing. Tener el mismo pipeline en los dos es la mitad de poder
+  compartir tokens.
+- **`design/tokens.css` en la raíz del repo** como fuente de verdad
+  única, importada por `frontend/src/index.css` y por
+  `landing/src/styles/global.css`. Vive en la raíz y no dentro de uno de
+  los dos porque ninguno es dueño del otro.
+- **La landing dejó de copiar tokens.** Sus nombres de marketing
+  (`lienzo`, `superficie`, `borde`, `shadow-tarjeta`) y los `app-*` de
+  las pantallas simuladas pasaron a ser **alias** —
+  `--color-lienzo: var(--color-background)` — en vez de valores propios.
+  El sitio conserva su vocabulario y pierde la copia: si el producto
+  cambia de color, los mockups cambian con él.
+- **Tipografía**: Inter + Montserrat → **Plus Jakarta Sans**, la misma de
+  la landing. Autoalojada vía `@fontsource`, subset `latin`.
+
+### `@theme static`, y por qué no `@theme` a secas
+Por defecto Tailwind 4 solo emite la variable de un token si alguna
+utilidad generada la usa. Un alias (`var(--color-background)`) **no
+cuenta como uso**: `--color-background` quedaba fuera del CSS compilado y
+el `var()` de la landing resolvía a nada. Con `static` se emiten todos.
+
+Cuesta **+0,27 kB gzip** en el frontend (10,24 → 10,51 kB). Es el precio
+de que los alias funcionen; barato comparado con volver a tener dos
+copias.
+
+Está anotado dentro de `tokens.css`, porque alguien que "limpie" ese
+`static` rompe la landing sin tocarla y sin que nada falle en compilación.
+
+### Los mockups de la landing ahora usan los estados reales
+Los badges de cita del `Telefono3D` usaban `app-secondary-fixed` y
+`bg-green-100` — colores que no salían de ningún lado. Pasaron a
+`bg-agendada/15 text-agendada` y equivalentes, que es literalmente lo que
+pinta `src/ui/EstadoCita.ts`. Se eliminaron de la landing los tokens M3
+`*-fixed` que no tienen equivalente en la paleta nueva.
+
+### Verificación
+No basta con que compile: un alias roto no falla el build, deja el color
+vacío. Se verificó **contra el CSS compilado** que los 15 alias `app-*` y
+los de marca resuelven a un token realmente emitido, con su valor. Mismo
+criterio que la nota de mantenimiento de `../landing/ROADMAP-LANDING.md`
+sobre la clase `hide-scroll` que no existía.
+
+`frontend`: build limpio, 27 tests en verde. `landing`: `astro check` con
+0 errores, build limpio.
+
+### Documentación corregida
+`CLAUDE.md` decía que la fuente de verdad era `tailwind.config.js` (que
+ya no existe) y que las fuentes eran Inter + Montserrat. Corregido, junto
+con el comentario de `src/ui/cn.ts`.
+
+También se **precisó la regla sobre shadcn/ui**, que decía "no shadcn
+completo" y se leía como prohibición total. La distinción que importa:
+shadcn no es una dependencia sino código Radix + Tailwind que se copia, y
+este proyecto ya usa Radix y Tailwind. Copiar una implementación y
+re-estilarla con nuestros tokens es compatible y ahorra trabajo; correr
+`npx shadcn init` no lo es, porque trae su propio vocabulario de
+variables CSS que convive mal con el nuestro y `cn()` no sabría cuál gana.
+
+### Pendiente / propuesto, no hecho
+Ideas evaluadas para elevar el diseño, ordenadas por valor/costo. Ninguna
+implementada todavía:
+1. **View Transitions API** — nativa, cero dependencias, funciona en el
+   WebView de Capacitor. Es lo que hace que navegar se sienta nativo. El
+   mayor salto por el menor costo.
+2. **Una pasada de estados vacíos, de carga y de error** con ilustración
+   y copy propio. Hoy son `SkeletonLista` y `EstadoError` genéricos. No
+   es una librería, pero mueve más la aguja que las cuatro de abajo
+   juntas.
+3. **Vaul** (bottom sheets) — el modal de Radix no es el idioma móvil;
+   una hoja que sube desde abajo sí. Encaja con Radix, que ya se usa.
+4. **NumberFlow** — números animados en las métricas del dashboard.
+5. **Lenis** (scroll suave) — **solo landing**; en móvil pelea con el
+   scroll nativo.
+
+Descartado explícitamente:
+- **Paper Shaders en la app del staff.** Compilar un shader cuesta GPU y
+  batería en el arranque. Detrás de un hero que se ve una vez, vale;
+  detrás de la pantalla donde un barbero mira su día veinte veces, no.
+  Si se usan en la landing, tienen que respetar `prefers-reduced-motion`.
+- **Cualquier fuente por CDN** (Fontshare incluida). Esto es Capacitor:
+  una fuente remota se rompe sin conexión y agrega una petición a un
+  tercero en el arranque. Si se cambia de tipografía (Satoshi o General
+  Sans serían un upgrade real), se autoaloja igual que la actual.
+
+A verificar antes de instalar nada: el proyecto está en **React 19.2**.
+Blossom y Paper Shaders hay que probarlos ahí; si alguno no lo soporta,
+Embla es el reemplazo maduro para el carrusel.
+
+### Duda abierta
+El carrusel (Blossom/Embla) y los shaders se evaluaron para el **perfil
+público del negocio**, que es Fase 2 y del lado del visitante, no del
+staff. Queda por decidir si el perfil público se construye dentro de
+`frontend/` (comparte auth y componentes, pero carga el bundle de la app
+a un visitante que no la necesita) o en `landing/` (Astro, estático,
+mucho más liviano para algo que se ve una vez). La decisión cambia qué
+librerías tienen sentido.

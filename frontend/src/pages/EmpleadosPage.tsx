@@ -119,7 +119,7 @@ export function EmpleadosPage() {
   }
 
   return (
-    <div className="space-y-md">
+    <div className="space-y-6">
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
@@ -157,7 +157,7 @@ export function EmpleadosPage() {
           onReintentar={cargar}
         />
       ) : (
-        <div className="flex flex-col gap-lg md:flex-row">
+        <div className="flex flex-col gap-8 md:flex-row">
           {/* Lista de empleados */}
           <ul className="flex-1 space-y-2">
             {empleados.map((empleado) => {
@@ -318,7 +318,7 @@ export function EmpleadosPage() {
         titulo="Agregar al equipo"
         descripcion="Define sus datos de acceso y qué podrá hacer dentro del negocio."
       >
-        <form className="flex flex-col gap-md" onSubmit={handleCrear}>
+        <form className="flex flex-col gap-6" onSubmit={handleCrear}>
           <Input
             label="Nombre completo"
             value={nuevo.nombre}
@@ -393,7 +393,7 @@ export function EmpleadosPage() {
                 );
               })}
             </div>
-            <p className="mt-3 flex items-start gap-xs font-caption text-caption text-on-surface-variant">
+            <p className="mt-3 flex items-start gap-2 font-caption text-caption text-on-surface-variant">
               <Icon name="info" className="shrink-0 text-[16px] text-menta" />
               ¿Ninguno le queda? Crea uno nuevo en{" "}
               <Link to="/configuracion/cargos" className="font-semibold text-menta underline">
@@ -404,13 +404,13 @@ export function EmpleadosPage() {
           </div>
 
           {errorFormulario && (
-            <p role="alert" className="flex items-start gap-xs font-caption text-caption text-error">
+            <p role="alert" className="flex items-start gap-2 font-caption text-caption text-error">
               <Icon name="error" className="shrink-0 text-[18px]" />
               {errorFormulario}
             </p>
           )}
 
-          <div className="flex flex-col-reverse gap-xs sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variante="ghost"

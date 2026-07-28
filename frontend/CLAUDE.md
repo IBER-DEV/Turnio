@@ -66,34 +66,55 @@ nunca de leer o adivinar el código Django directamente.
   por pantalla. Suficiente para el volumen de Fase 1; revisar si hace
   falta algo más cuando el número de pantallas con caché compartida
   crezca.
-- **Sistema de diseño propio sobre Tailwind** (revisado 2026-07-25; la
+- **Sistema de diseño propio sobre Tailwind 4** (revisado 2026-07-28; la
   decisión original era "CSS plano en `src/App.css`, sin Tailwind", y
-  quedó obsoleta con el rediseño de UI/UX). **`tailwind.config.js` es la
-  fuente de verdad del sistema de diseño**: colores, tipografías,
-  espaciados, sombras y animaciones. Los mockups de los que se
-  extrajeron esos tokens (generados con `diseno-ui-ux-prompt.md`) se
-  borraron del repo a propósito una vez volcados, para no mantener dos
-  copias que se desincronizarían — así que no busques una carpeta de
-  diseño, no existe. Regla práctica: **nada de `#hex` ni `[13px]`
-  sueltos en un `className`**; si falta un valor, se agrega al config
-  con nombre semántico y se usa por ese nombre. Los componentes
-  compartidos viven en `src/ui/`.
+  quedó obsoleta con el rediseño de UI/UX). **La fuente de verdad es
+  `../design/tokens.css`, en la raíz del repo**: colores, tipografías,
+  espaciados, sombras y animaciones. **No existe `tailwind.config.js`** —
+  en v4 la configuración vive en CSS (`@theme`), y Tailwind se carga por
+  el plugin de Vite, no por PostCSS. `src/index.css` lo importa.
+  - Vive en la raíz porque lo comparte con `../landing/`. Antes la
+    landing copiaba los tokens a mano y se desincronizaron: el sitio
+    mostraba pantallas simuladas con una paleta que la app ya no usaba.
+  - Está declarado `@theme static` a propósito (el porqué está comentado
+    en el archivo). Si lo cambias a `@theme` a secas, los alias de la
+    landing dejan de resolver.
+  - **Un cambio ahí toca los dos proyectos**: compila `frontend/` y
+    `landing/` antes de darlo por bueno.
+
+  Los mockups de los que se extrajeron los tokens originales (generados
+  con `diseno-ui-ux-prompt.md`) se borraron del repo a propósito una vez
+  volcados. Regla práctica: **nada de `#hex` ni `[13px]` sueltos en un
+  `className`**; si falta un valor, se agrega a `tokens.css` con nombre
+  semántico y se usa por ese nombre. Los componentes compartidos viven en
+  `src/ui/`.
 - **Sin librería de componentes con estilos propios** (no MUI, no
-  Chakra, no shadcn completo): pelearían con el sistema de diseño ya
-  definido. Lo que sí se usa son **primitivas headless de Radix**
-  (`@radix-ui/react-dialog`) para el comportamiento accesible que es
-  fácil de hacer mal a mano: focus trap, restauración de foco, scroll
-  lock, cableado de `aria-*`. Radix no trae estilos, así que el diseño
-  sigue siendo 100% nuestro. Si hace falta otro primitivo complejo
-  (select, popover, tabs), la preferencia es el equivalente de Radix
-  antes que escribirlo a mano.
+  Chakra): pelearían con el sistema de diseño ya definido. Lo que sí se
+  usa son **primitivas headless de Radix** (`@radix-ui/react-dialog`)
+  para el comportamiento accesible que es fácil de hacer mal a mano:
+  focus trap, restauración de foco, scroll lock, cableado de `aria-*`.
+  Radix no trae estilos, así que el diseño sigue siendo 100% nuestro. Si
+  hace falta otro primitivo complejo (select, popover, tabs), la
+  preferencia es el equivalente de Radix antes que escribirlo a mano.
+- **shadcn/ui: sí como referencia, no como instalación** (precisado
+  2026-07-28; antes la regla decía "no shadcn completo" a secas y se
+  leía como una prohibición total). La distinción que importa es que
+  shadcn **no es una dependencia**: es código Radix + Tailwind que uno
+  copia y adapta, y este proyecto ya usa Radix y Tailwind.
+  - **Sí**: leer su implementación de un componente y copiarla
+    re-estilada con nuestros tokens. Ahorra reescribir el cableado
+    accesible que ellos ya resolvieron.
+  - **No**: correr `npx shadcn init`. Trae su propia convención de
+    variables CSS (`--background`, `--foreground`, `bg-background`) que
+    convive mal con la nuestra — quedarían dos vocabularios de color en
+    el mismo `className` y `cn()` no sabría cuál gana.
 - **`cn()` usa `clsx` + `tailwind-merge`** (`src/ui/cn.ts`): sin
   `tailwind-merge`, pasar `className="px-2"` a un componente que por
   dentro trae `px-4` dejaba ambas clases y ganaba la que Tailwind
   emitiera de último en el CSS — no la del call site. Los tokens propios
   del proyecto están declarados en `extendTailwindMerge` ahí mismo; si
-  agregas un token de tipografía nuevo en `tailwind.config.js`, agrégalo
-  también a esa lista o los conflictos no se resolverán.
+  agregas un token de tipografía nuevo en `../design/tokens.css`,
+  agrégalo también a esa lista o los conflictos no se resolverán.
 - **Iconos: SVG inline generado, no fuente de iconos.** `src/ui/Icon.tsx`
   lee de `src/ui/iconos.generated.ts`, que produce `npm run iconos`
   (script en `scripts/generar-iconos.mjs`) tomando de
@@ -106,11 +127,14 @@ nunca de leer o adivinar el código Django directamente.
   enteraba). El archivo generado se commitea; no hace falta regenerarlo
   en cada build. Los nombres válidos están en
   https://fonts.google.com/icons.
-- **Fuentes: solo el subset `latin`** (`@fontsource/inter/latin-400.css`,
-  no `@fontsource/inter/400.css`). Cubre todo el español; el paquete
-  completo arrastraba cirílico, griego y vietnamita.
+- **Fuentes: Plus Jakarta Sans, autoalojada y solo el subset `latin`**
+  (`@fontsource/plus-jakarta-sans/latin-400.css`, no
+  `.../400.css`). Es la misma fuente de la landing. Autoalojada y nunca
+  por CDN: esto es un bundle Capacitor y tiene que verse igual sin
+  conexión. El subset `latin` cubre todo el español; el paquete completo
+  arrastraba cirílico, griego y vietnamita.
 - **Animaciones vía `tailwindcss-animate` + keyframes propios** en
-  `tailwind.config.js`. Nada por encima de ~250ms en interacciones. Hay
+  `../design/tokens.css`. Nada por encima de ~250ms en interacciones. Hay
   un bloque global de `prefers-reduced-motion` en `index.css`: cualquier
   animación nueva lo respeta automáticamente, no hace falta repetirlo.
 - **Tipos generados desde el contrato**: `openapi-typescript` genera
