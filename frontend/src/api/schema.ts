@@ -680,6 +680,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/publico/negocios/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Busca negocios para reservar. Público, sin autenticación.
+         *
+         *     Devuelve solo negocios activos. Sin parámetros lista todos, que hoy es razonable por el volumen; cuando crezca habrá que paginar.
+         */
+        get: operations["publico_negocios_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/publico/negocios/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description El perfil público de un negocio: sus servicios, quién atiende y su horario. Público, sin autenticación.
+         *
+         *     Esta respuesta es **cacheable**: cambia solo cuando el negocio edita su catálogo, su equipo o su horario. La disponibilidad, que cambia con cada reserva, vive en un endpoint aparte a propósito.
+         */
+        get: operations["publico_negocios_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/publico/negocios/{slug}/disponibilidad/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Las horas libres para un servicio en un día. Público, sin autenticación.
+         *
+         *     **No cachear**: cambia con cada reserva. Devuelve solo horas futuras, y nunca revela quién está ocupado ni con quién — las citas existentes se usan para descartar huecos y nada más.
+         */
+        get: operations["publico_negocios_disponibilidad_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/publico/negocios/{slug}/reservar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Reserva una cita sin necesidad de cuenta: basta nombre y teléfono. Es el reemplazo directo de llamar o escribir por WhatsApp.
+         *
+         *     `empleado` es opcional: si se omite, se asigna quien esté disponible. Si el hueco se ocupó entre que se mostró y se confirmó —dos clientes reservando a la vez— responde `400`, no una cita encima de otra.
+         */
+        post: operations["publico_negocios_reservar_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/servicios/": {
         parameters: {
             query?: never;
@@ -893,6 +977,13 @@ export interface components {
             /** Format: time */
             hora_fin: string;
         };
+        HorarioNegocioPublico: {
+            readonly dia_semana: components["schemas"]["DiaSemanaEnum"];
+            /** Format: time */
+            readonly hora_inicio: string;
+            /** Format: time */
+            readonly hora_fin: string;
+        };
         /**
          * @description Entrada de `PUT /api/agenda/horario-negocio/`.
          *
@@ -926,6 +1017,17 @@ export interface components {
             hora_inicio: string;
             /** Format: time */
             hora_fin: string;
+        };
+        /**
+         * @description Una hora a la que se puede reservar.
+         *
+         *     Solo la hora: con quién lo resuelve el backend al confirmar. Decir de
+         *     antemano qué empleado la tomaría sería una promesa que otra reserva
+         *     simultánea puede romper entre que se muestra y se confirma.
+         */
+        Hueco: {
+            /** Format: date-time */
+            inicio: string;
         };
         /**
          * @description Forma de la respuesta de GET /api/negocios/mi-membresia/.
@@ -1001,6 +1103,23 @@ export interface components {
             readonly telefono: string;
             readonly activo: boolean;
         };
+        /** @description El perfil público completo de un negocio. */
+        NegocioPublico: {
+            readonly slug: string;
+            readonly nombre: string;
+            readonly ciudad: string;
+            readonly direccion: string;
+            readonly telefono: string;
+            readonly servicios: components["schemas"]["ServicioPublico"][];
+            readonly profesionales: components["schemas"]["ProfesionalPublico"][];
+            readonly horario: components["schemas"]["HorarioNegocioPublico"][];
+        };
+        /** @description Un negocio en la lista de resultados de búsqueda. */
+        NegocioPublicoResumen: {
+            readonly slug: string;
+            readonly nombre: string;
+            readonly ciudad: string;
+        };
         /**
          * @description Un cargo del negocio: nombre, tipo y qué concede.
          *
@@ -1075,6 +1194,18 @@ export interface components {
             porcentaje_comision?: string;
             activo?: boolean;
         };
+        /**
+         * @description Quién atiende, como se le presenta al cliente.
+         *
+         *     Acá es donde `especialidad` gana su razón de ser: es lo que le dice al
+         *     cliente "este hace fades" cuando elige con quién. Sin email, sin cargo
+         *     y sin capacidades — eso es organización interna del negocio.
+         */
+        ProfesionalPublico: {
+            readonly id: number;
+            readonly nombre: string;
+            readonly especialidad: string;
+        };
         RegistroNegocio: {
             nombre_negocio: string;
             ciudad?: string;
@@ -1091,6 +1222,40 @@ export interface components {
             negocio: components["schemas"]["Negocio"];
             access: string;
             refresh: string;
+        };
+        /**
+         * @description Lo que manda un cliente para reservar. Sin cuenta: nombre y teléfono.
+         *
+         *     `empleado` es opcional — si el cliente eligió a alguien, se respeta; si
+         *     no, se le asigna quien esté libre.
+         */
+        Reserva: {
+            servicio: number;
+            /** Format: date-time */
+            fecha_hora_inicio: string;
+            nombre_cliente: string;
+            telefono_cliente: string;
+            empleado?: number | null;
+            /** @default  */
+            notas: string;
+        };
+        /**
+         * @description Lo que se le devuelve al cliente tras reservar.
+         *
+         *     Deliberadamente magro: confirma lo suyo y nada del negocio. No lleva el
+         *     `id` de la cita porque hoy no hay nada que el cliente pueda hacer con
+         *     él —cancelar sin cuenta requeriría un token de acceso, que es una
+         *     decisión aparte— y un id expuesto sin uso solo invita a probar otros.
+         */
+        ReservaConfirmada: {
+            negocio: string;
+            servicio: string;
+            profesional: string;
+            /** Format: date-time */
+            fecha_hora_inicio: string;
+            /** Format: date-time */
+            fecha_hora_fin: string;
+            nombre_cliente: string;
         };
         Servicio: {
             readonly id: number;
@@ -1114,6 +1279,21 @@ export interface components {
          */
         ServicioLote: {
             servicios: components["schemas"]["Servicio"][];
+        };
+        /**
+         * @description Un servicio como lo ve el cliente: qué es, cuánto cuesta, cuánto dura.
+         *
+         *     Sin `porcentaje_comision`, que es un acuerdo interno entre el negocio y
+         *     su gente.
+         */
+        ServicioPublico: {
+            readonly id: number;
+            readonly nombre: string;
+            readonly descripcion: string;
+            readonly categoria: string;
+            /** Format: decimal */
+            readonly precio: string;
+            readonly duracion_minutos: number;
         };
         /**
          * @description * `administracion` - Administración
@@ -1933,6 +2113,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistroNegocioRespuesta"];
+                };
+            };
+        };
+    };
+    publico_negocios_list: {
+        parameters: {
+            query?: {
+                /** @description Filtra por ciudad. */
+                ciudad?: string;
+                /** @description Busca en el nombre del negocio. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NegocioPublicoResumen"][];
+                };
+            };
+        };
+    };
+    publico_negocios_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NegocioPublico"];
+                };
+            };
+        };
+    };
+    publico_negocios_disponibilidad_list: {
+        parameters: {
+            query: {
+                /** @description Día a consultar (YYYY-MM-DD). */
+                fecha: string;
+                /** @description Id del servicio. */
+                servicio: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hueco"][];
+                };
+            };
+        };
+    };
+    publico_negocios_reservar_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reserva"];
+                "application/x-www-form-urlencoded": components["schemas"]["Reserva"];
+                "multipart/form-data": components["schemas"]["Reserva"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservaConfirmada"];
                 };
             };
         };

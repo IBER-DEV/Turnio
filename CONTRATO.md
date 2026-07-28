@@ -696,3 +696,23 @@ ahí** o un negocio podrá tomarla.
      del frontend tiene que reservarla ahí.
 
   Sin cambios en los endpoints autenticados que ya existían.
+- **2026-07-28** — **Corrección de forma en `NegocioPublico`** (ver 5.11).
+  `servicios`, `profesionales` y `horario` estaban declarados
+  `type: string` en el schema cuando siempre devolvieron listas de
+  objetos. Ahora son `array` con `$ref` a `ServicioPublico`,
+  `ProfesionalPublico` y `HorarioNegocioPublico`, que aparecen como
+  componentes propios.
+
+  **La respuesta de la API no cambió**: el bug era del schema, no del
+  endpoint. Causa: los tres son `SerializerMethodField` y sin
+  `@extend_schema_field` drf-spectacular no puede inferir qué devuelven,
+  así que cae a `string`. Es el mismo tipo de fallo que el
+  `@extend_schema` puesto sobre `create()` en vez de `post` (entrada del
+  2026-07-24): el schema queda sintácticamente válido y semánticamente
+  falso, así que no lo atrapa `--validate` ni el CI.
+
+  Lo encontró el frontend al intentar tipar el perfil público, que es la
+  pantalla central de Fase 2 — con `servicios: string` no se podía
+  escribir. Regla práctica que queda: **un `SerializerMethodField` sin
+  `@extend_schema_field` es un campo mal documentado**, aunque el código
+  funcione.

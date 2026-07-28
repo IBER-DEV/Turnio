@@ -1719,6 +1719,25 @@ components:
       - hora_fin
       - hora_inicio
       - id
+    HorarioNegocioPublico:
+      type: object
+      properties:
+        dia_semana:
+          allOf:
+          - $ref: '#/components/schemas/DiaSemanaEnum'
+          readOnly: true
+        hora_inicio:
+          type: string
+          format: time
+          readOnly: true
+        hora_fin:
+          type: string
+          format: time
+          readOnly: true
+      required:
+      - dia_semana
+      - hora_fin
+      - hora_inicio
     HorarioNegocioSemanal:
       type: object
       description: |-
@@ -1976,13 +1995,19 @@ components:
           type: string
           readOnly: true
         servicios:
-          type: string
+          type: array
+          items:
+            $ref: '#/components/schemas/ServicioPublico'
           readOnly: true
         profesionales:
-          type: string
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfesionalPublico'
           readOnly: true
         horario:
-          type: string
+          type: array
+          items:
+            $ref: '#/components/schemas/HorarioNegocioPublico'
           readOnly: true
       required:
       - ciudad
@@ -2159,6 +2184,28 @@ components:
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
         activo:
           type: boolean
+    ProfesionalPublico:
+      type: object
+      description: |-
+        Quién atiende, como se le presenta al cliente.
+
+        Acá es donde `especialidad` gana su razón de ser: es lo que le dice al
+        cliente "este hace fades" cuando elige con quién. Sin email, sin cargo
+        y sin capacidades — eso es organización interna del negocio.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          readOnly: true
+        especialidad:
+          type: string
+          readOnly: true
+      required:
+      - especialidad
+      - id
+      - nombre
     RegistroNegocio:
       type: object
       properties:
@@ -2317,6 +2364,41 @@ components:
             $ref: '#/components/schemas/Servicio'
       required:
       - servicios
+    ServicioPublico:
+      type: object
+      description: |-
+        Un servicio como lo ve el cliente: qué es, cuánto cuesta, cuánto dura.
+
+        Sin `porcentaje_comision`, que es un acuerdo interno entre el negocio y
+        su gente.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          readOnly: true
+        descripcion:
+          type: string
+          readOnly: true
+        categoria:
+          type: string
+          readOnly: true
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        duracion_minutos:
+          type: integer
+          readOnly: true
+      required:
+      - categoria
+      - descripcion
+      - duracion_minutos
+      - id
+      - nombre
+      - precio
     TipoEnum:
       enum:
       - administracion

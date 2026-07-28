@@ -141,7 +141,7 @@
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
 | Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
-| Fase 2 — Descubrimiento y reserva de clientes | 🟡 Backend público completo (2026-07-28); falta el frontend | Backend: búsqueda de negocios, perfil público, disponibilidad y reserva **sin cuenta**, con throttling y slugs reservados. Ver `CONTRATO.md` 5.11. Frontend: perfil público en `turnio.app/{slug}`, búsqueda y flujo de reserva — sin empezar. |
+| Fase 2 — Perfil público y reserva sin cuenta | 🟡 Backend completo (2026-07-28); frontend en curso | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver bloqueo/decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: en construcción. |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
@@ -182,6 +182,34 @@ NO hacer todavía.
    `Servicio` y lo controla `puede_editar_precios`. Hoy es inerte, pero
    cuando Caja conecte el cálculo real, quien pueda editar servicios
    podrá subirse su propia comisión. Separar antes de conectar.
+8. **Cambio de alcance de Fase 2 (2026-07-28, decisión del humano)**:
+   el reemplazo de "llamar o escribir por WhatsApp" es el **enlace
+   único y público del negocio** (`turnio.app/{slug}`, compartido por
+   el dueño en su bio de Instagram o WhatsApp Business), no un
+   marketplace donde el cliente descubre negocios que no conoce. La
+   búsqueda (`BuscarNegociosView`, `GET /api/publico/negocios/`) sigue
+   construida y con contrato — no se revierte — pero pasa a ser
+   infraestructura para el buscador de Fase 6+, no el flujo principal
+   de Fase 2. `CLAUDE.md` (principio de diseño y fases) actualizado en
+   consecuencia.
+
+   De ahí salieron dos hallazgos que quedan como bloqueos reales, no
+   del contrato sino de producto/infraestructura:
+   - **No hay ningún campo de imagen** en `Negocio` ni en `Servicio`
+     (ni logo, ni foto de portada, ni fotos de servicios). Bloquea
+     tanto un carrusel de fotos en el perfil como la vista previa con
+     imagen al compartir el enlace (`og:image`). Es de backend
+     (modelo + storage) cuando se priorice.
+   - **El SPA no tenía forma de generar un preview real al compartir el
+     enlace**: los crawlers de WhatsApp/Instagram no ejecutan
+     JavaScript, así que `index.html` genérico mostraba "Turnio" igual
+     para cualquier negocio. Resuelto con `PerfilPublicoShellView` en
+     Django (`backend/apps/publico/views_shell.py`): intercepta
+     `/{slug}/` en el servidor e inyecta meta tags Open Graph reales
+     antes de que React monte. **No hay pipeline de despliegue en el
+     repo todavía** (`docker-compose.yml` solo tiene `db` + `backend`),
+     así que cómo se sirve `frontend/dist/` fuera de desarrollo local
+     sigue abierto — ver `backend/ROADMAP-BACKEND.md`.
 
 ## Historial de fases
 

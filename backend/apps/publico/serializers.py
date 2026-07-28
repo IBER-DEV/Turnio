@@ -10,6 +10,7 @@ Por eso acá cada campo está escrito a mano: si alguien agrega un campo a
 un modelo, no aparece solo en la web pública.
 """
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.agenda.models import HorarioNegocio
@@ -84,14 +85,26 @@ class NegocioPublicoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    # Los tres `@extend_schema_field` no son decoración: sin ellos
+    # drf-spectacular no puede inferir qué devuelve un
+    # `SerializerMethodField` y cae a `type: string`. El schema declaraba
+    # `servicios`, `profesionales` y `horario` como cadenas cuando son
+    # listas de objetos, y el frontend no podía tipar el perfil público
+    # —el corazón de Fase 2— contra el contrato. Mismo tipo de bug que el
+    # de `@extend_schema` sobre `create()` en vez de `post` (ver
+    # ROADMAP-BACKEND). Si agregas otro método acá, anótalo también.
+
+    @extend_schema_field(ServicioPublicoSerializer(many=True))
     def get_servicios(self, negocio):
         activos = [servicio for servicio in negocio.servicios.all() if servicio.activo]
         return ServicioPublicoSerializer(activos, many=True).data
 
+    @extend_schema_field(ProfesionalPublicoSerializer(many=True))
     def get_profesionales(self, negocio):
         activos = [miembro for miembro in negocio.miembros.all() if miembro.activo]
         return ProfesionalPublicoSerializer(activos, many=True).data
 
+    @extend_schema_field(HorarioNegocioPublicoSerializer(many=True))
     def get_horario(self, negocio):
         return HorarioNegocioPublicoSerializer(negocio.horarios.all(), many=True).data
 

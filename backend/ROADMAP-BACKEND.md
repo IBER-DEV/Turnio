@@ -951,3 +951,81 @@ la suite completa. Se resolvió parcheando el diccionario de la clase con
   directo con una fecha vieja pasa si el empleado tenía horario ese día
   de la semana. Estaba anotado desde Fase 1 y ahora importa más, porque
   el endpoint es público.
+
+## Corrección de contrato + cáscara HTML del perfil público (2026-07-28)
+
+> Rama `feature/backend-fase2-publico`. Dos piezas encontradas por el
+> lado de frontend al retomar Fase 2, resueltas del lado backend porque
+> les corresponde a ellas.
+
+### `NegocioPublico.servicios/profesionales/horario` mentían en el schema
+Estaban declarados `type: string` cuando siempre devolvieron listas de
+objetos — el mismo tipo de bug que el `@extend_schema` sobre `create()`
+en vez de `post` de Fase 1: el schema queda sintácticamente válido y
+semánticamente falso, y ni `--validate` ni el CI lo atrapan. Causa: son
+`SerializerMethodField` y drf-spectacular no puede inferir su forma sin
+`@extend_schema_field`. Se anotaron los tres métodos de
+`NegocioPublicoSerializer`, se regeneró `openapi.yaml` y se agregó la
+entrada correspondiente al historial de `CONTRATO.md`. La respuesta de
+la API **no cambió**, solo el schema.
+
+### `PerfilPublicoShellView`: por qué el SPA necesita una excepción
+Decisión del humano tras revisar el plan de compartir `turnio.app/{slug}`
+por WhatsApp/Instagram: los crawlers de esas plataformas leen el HTML
+crudo y no ejecutan JavaScript. El `index.html` que compila Vite es
+genérico ("Turnio", sin más), así que compartir el enlace de cualquier
+negocio se veía idéntico — roto para el caso de uso que Fase 2 existe
+para resolver.
+
+`apps/publico/views_shell.py` agrega `PerfilPublicoShellView`, la única
+vista de este proyecto que no es DRF: intercepta `GET /{slug}/`, busca
+el negocio (mismas reglas que el resto de `apps.publico`: solo
+`activo=True`), lee `frontend/dist/index.html` ya compilado
+(`npm run build`) y le inyecta `<title>` y meta tags Open Graph con
+`escape()` (nombre del negocio es texto de un tercero — sin escapar es
+XSS reflejado en la página más compartida del producto). React monta
+después exactamente igual; esta vista no duplica `PerfilNegocioPage`,
+solo le da al crawler (y a la primera pintura) una respuesta que ya dice
+de qué negocio se trata. Sin `frontend/dist/` construido, responde `404`
+en vez de reventar.
+
+Va como catch-all al final de `config/urls.py` (`<slug:slug>/`, un solo
+segmento): cualquier ruta literal (`admin/`, `api/...`) se resuelve
+primero, y `SLUGS_RESERVADOS` (`Negocio._slug_ocupado`) ya garantiza que
+ningún negocio puede robarse `login`, `agenda`, etc.
+
+### El montaje de Docker que hacía falta
+`docker-compose.yml` solo montaba `./backend:/app`. Con `WORKDIR /app`,
+`BASE_DIR.parent / "frontend"` no existía dentro del contenedor — la
+vista habría dado `404` siempre, incluso con `frontend/dist/` bien
+construido en el host. Se agregó `./frontend/dist:/frontend/dist:ro`
+(solo `dist/`, no todo `frontend/`, para no arrastrar `node_modules`; de
+solo lectura porque el backend nunca escribe ahí).
+
+El servido de `/assets/*` y `/favicon.svg` en `config/urls.py` queda
+detrás de `if settings.DEBUG`, con `django.views.static.serve` — que la
+propia documentación de Django marca como inseguro/ineficiente para
+producción. Es a propósito: no existe todavía ningún pipeline de
+despliegue en este repo (`docker-compose.yml` es solo `db` + `backend`),
+así que inventar una solución de estáticos "de producción" ahora sería
+resolver un problema que no se ha planteado. Queda como bloqueo abierto
+(ver `../ROADMAP.md`, decisión #8) para cuando se decida cómo se
+despliega esto de verdad.
+
+### Tests
+6 nuevos en `apps/publico/tests/test_shell.py` (30 en el módulo, 146 en
+el proyecto): meta tags con los datos reales del negocio, que el resto
+del shell compilado sobrevive intacto (React sigue teniendo `#root`
+donde montar), negocio inactivo → 404, slug inexistente → 404,
+`frontend/dist/` sin construir → 404 en vez de 500, y que el nombre del
+negocio no puede inyectar HTML. Ninguno depende de que `npm run build`
+se haya corrido de verdad: apuntan `views_shell._DIST_INDEX` a un
+`index.html` de prueba vía `monkeypatch`.
+
+### Duda abierta para el humano
+El marketplace de búsqueda (`BuscarNegociosView`) se pospuso a Fase 6+
+del lado de producto (ver `../ROADMAP.md` decisión #8), pero el endpoint
+sigue vivo y con throttling propio. ¿Se deja tal cual hasta entonces, o
+se retira del menú de navegación pública para no ofrecer un flujo que
+el producto ya no prioriza? No se tocó nada del lado de rutas/UI de
+búsqueda en esta sesión — es pregunta para quien lleve frontend.
