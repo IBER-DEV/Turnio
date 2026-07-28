@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Serenity Spa | Reserva tu Bienestar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Libre+Caslon+Text:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed-variant": "#4f378a",
+                    "surface-variant": "#e6e0e9",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#4f378a",
+                    "secondary-fixed-dim": "#cdc0e9",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-fixed-dim": "#e7c365",
+                    "primary-fixed": "#e9ddff",
+                    "error-container": "#ffdad6",
+                    "inverse-on-surface": "#f5eff7",
+                    "on-tertiary-fixed": "#241a00",
+                    "on-primary-fixed": "#22005d",
+                    "tertiary": "#765b00",
+                    "on-primary-container": "#e0d2ff",
+                    "tertiary-fixed": "#ffdf93",
+                    "error": "#ba1a1a",
+                    "inverse-surface": "#322f35",
+                    "on-surface-variant": "#494551",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary-container": "#503d00",
+                    "on-surface": "#1d1b20",
+                    "on-tertiary-fixed-variant": "#594400",
+                    "surface-container-highest": "#e6e0e9",
+                    "on-primary": "#ffffff",
+                    "surface": "#fdf7ff",
+                    "on-error-container": "#93000a",
+                    "on-background": "#1d1b20",
+                    "background": "#fdf7ff",
+                    "surface-container": "#f2ecf4",
+                    "on-secondary-container": "#645a7d",
+                    "surface-dim": "#ded8e0",
+                    "primary-fixed-dim": "#cfbcff",
+                    "secondary": "#63597c",
+                    "surface-container-low": "#f8f2fa",
+                    "on-error": "#ffffff",
+                    "surface-container-high": "#ece6ee",
+                    "outline": "#7a7582",
+                    "inverse-primary": "#cfbcff",
+                    "tertiary-container": "#c9a74d",
+                    "on-secondary-fixed": "#1f1635",
+                    "outline-variant": "#cbc4d2",
+                    "secondary-container": "#e1d4fd",
+                    "secondary-fixed": "#e9ddff",
+                    "surface-bright": "#fdf7ff",
+                    "on-secondary-fixed-variant": "#4b4263",
+                    "surface-tint": "#6750a4",
+                    "primary-container": "#6750a4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "16px",
+                    "lg": "16px",
+                    "xl": "24px",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "sm": "8px",
+                    "md": "16px",
+                    "xs": "4px",
+                    "margin-mobile": "16px",
+                    "lg": "24px",
+                    "base": "4px",
+                    "gutter": "16px",
+                    "margin-desktop": "64px",
+                    "xl": "32px"
+            },
+            "fontFamily": {
+                    "headline-sm": ["Inter"],
+                    "headline-md": ["Libre Caslon Text"],
+                    "label-sm": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Libre Caslon Text"],
+                    "label-md": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-sm": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-md": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Custom Ambient Shadow for Spa Theme */
+        .spa-shadow {
+            box-shadow: 0 10px 30px rgba(122, 139, 123, 0.1);
+        }
+
+        .booking-sheet-transition {
+            transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased mb-20 md:mb-0">
+<!-- Top AppBar (Mobile/Web) -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline shadow-sm flex items-center justify-between px-margin-mobile h-14 w-full">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim">arrow_back</span>
+<div class="flex items-center gap-sm">
+<img alt="Serenity Spa Logo" class="h-8 w-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDx2i1y7rKR9Xgf2ZBExuNpP_-AWHUajFPwQJrvTM9YTCLB30iFLVk3GAUSycO4h8R01ZAmRiQhlMwviagoBTDvUICtJaWIBPsw-dkXOrKlwvsQpagPKrzM8o_k-fjNn_xJmfq59wLuTkAkdREElkb-1LHsDEmHQfKSPdTtE1wSDUtgXVB7Ske73yznFwpUJgX2AlFAF1HWxKG7FjDjm2X7BAFRl5hUlcbr2PzJ7dU1FEHOgJwrJnlqWQ"/>
+<h1 class="font-headline-sm text-headline-sm text-primary dark:text-primary-fixed-dim">Serenity Spa</h1>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim">share</span>
+</div>
+</header>
+<main class="pt-14 pb-12 max-w-[1200px] mx-auto">
+<!-- Hero Section -->
+<section class="relative w-full h-64 md:h-[400px] overflow-hidden">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDLL-uM6g9J3cf07xJb5EkPCUfFvUdgWyf7ydrXFgo_2HwGlVl7quDDUJq2MOmYUrpzdx8oP_55RyttKwXmwmScQpr7viS333v1UBF7bxr9wzAlYa3AUfF8JG3Ji47U8UQIr1yknQjj6rzWO5e_cgqA3hpETsdypdw6MwKkkr1LDto1dBJDgmokBtXuwsIEgEIv78AEnK6qDWU_AWlZ4EU3CpUaNQA0BVeU2EiLNMz6d6aGFiKw93H8Bg')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-lg left-margin-mobile text-white">
+<div class="flex items-center gap-xs mb-xs">
+<span class="material-symbols-outlined text-tertiary-fixed" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-md text-label-md">4.8 (85 reseñas)</span>
+</div>
+<h2 class="font-display-lg text-display-lg mb-xs">Bienestar Holístico</h2>
+<div class="flex items-center gap-xs opacity-90">
+<span class="material-symbols-outlined text-sm">location_on</span>
+<p class="font-label-md text-label-md">Av. Relax 456, Centro</p>
+</div>
+</div>
+</section>
+<!-- Main Content Grid -->
+<div class="px-margin-mobile md:px-margin-desktop py-lg grid grid-cols-1 lg:grid-cols-12 gap-lg">
+<!-- Services Section -->
+<div class="lg:col-span-8 space-y-lg">
+<section>
+<div class="flex justify-between items-end mb-md">
+<h3 class="font-headline-md text-headline-md text-primary">Nuestros Servicios</h3>
+<a class="text-primary font-label-md border-b border-primary/30" href="#">Ver todo</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<!-- Service Card 1 -->
+<div class="bg-surface-container-lowest p-md rounded-xl spa-shadow border border-outline-variant hover:border-primary transition-all group">
+<div class="flex justify-between items-start mb-md">
+<div class="bg-secondary-container p-sm rounded-full">
+<span class="material-symbols-outlined text-on-secondary-container">spa</span>
+</div>
+<span class="text-primary font-bold">$1,200</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm mb-xs group-hover:text-primary transition-colors">Masaje Sueco</h4>
+<p class="text-on-surface-variant font-body-md mb-md">60 min de relajación profunda para liberar tensiones musculares.</p>
+<button class="w-full py-sm bg-primary text-white rounded-lg font-label-md active:scale-95 transition-transform">Seleccionar</button>
+</div>
+<!-- Service Card 2 -->
+<div class="bg-surface-container-lowest p-md rounded-xl spa-shadow border border-outline-variant hover:border-primary transition-all group">
+<div class="flex justify-between items-start mb-md">
+<div class="bg-secondary-container p-sm rounded-full">
+<span class="material-symbols-outlined text-on-secondary-container">face</span>
+</div>
+<span class="text-primary font-bold">$950</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm mb-xs group-hover:text-primary transition-colors">Facial Hidratante</h4>
+<p class="text-on-surface-variant font-body-md mb-md">Tratamiento intensivo con extractos botánicos para una piel radiante.</p>
+<button class="w-full py-sm border border-primary text-primary rounded-lg font-label-md active:scale-95 transition-transform">Seleccionar</button>
+</div>
+<!-- Service Card 3 -->
+<div class="bg-surface-container-lowest p-md rounded-xl spa-shadow border border-outline-variant hover:border-primary transition-all group md:col-span-2">
+<div class="flex items-center gap-md">
+<div class="bg-secondary-container p-sm rounded-full shrink-0">
+<span class="material-symbols-outlined text-on-secondary-container">clean_hands</span>
+</div>
+<div class="flex-1">
+<h4 class="font-headline-sm text-headline-sm group-hover:text-primary transition-colors">Exfoliación Corporal</h4>
+<p class="text-on-surface-variant font-body-md">Sales marinas y aceites esenciales para renovar tu piel.</p>
+</div>
+<div class="text-right">
+<span class="block text-primary font-bold mb-xs">$800</span>
+<button class="px-md py-xs border border-primary text-primary rounded-lg font-label-md active:scale-95 transition-transform">Añadir</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Professionals Section -->
+<section>
+<h3 class="font-headline-md text-headline-md text-primary mb-md">Especialistas</h3>
+<div class="flex gap-md overflow-x-auto pb-md hide-scrollbar">
+<div class="flex-none w-48 bg-surface-container-low p-md rounded-xl text-center border border-outline-variant">
+<div class="w-20 h-20 mx-auto mb-sm rounded-full overflow-hidden border-2 border-primary/20">
+<img class="w-full h-full object-cover" data-alt="Professional headshot of Elena, a spa therapist with a serene expression, wearing a minimalist sage green uniform, standing in a soft-lit holistic spa environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqqXgzleQ3rgdWcGndz4dWDxH8NprvFOv6F78j5L-XMbW3HVzAkWhSfwOTRdnETrZXLtQOultlpsaHzNwootxu4fhSyFy9VhJ3g3F6XdQDIYtUnSb4Qss-C7uFzr9lp0HFSYVlB33xKpNu3uPIvISaIXLcW3EBQBRkonD_4Sy1j9wEFUc6FMsfy85VagRjW-X3Y9DQN-IPq2ZERQ_vGZoSViBgBLoWDC2_3bZaxwTsVVsCvSsf8TESRA"/>
+</div>
+<h5 class="font-headline-sm text-label-md">Elena</h5>
+<p class="text-on-surface-variant text-label-sm">Terapeuta Senior</p>
+</div>
+<div class="flex-none w-48 bg-surface-container-low p-md rounded-xl text-center border border-outline-variant">
+<div class="w-20 h-20 mx-auto mb-sm rounded-full overflow-hidden border-2 border-primary/20">
+<img class="w-full h-full object-cover" data-alt="Portrait of Sofia, an aesthetician, smiling warmly in a professional dental clinic-style clean environment. She is wearing a crisp white medical tunic, set against a blurred background of modern skincare equipment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDO1cIOfnQ2yB9piTFrUKnPcLCQuqMUdH-nVjilbNSuXgjLeJIZQE9LwYoNdTxCwlBa8Pg2kfEwewcfEJcVSKAkK84yuxeVjQNqXcmUdcCPBi_yTV1y_l5N4G8HNJzHVKwyFmDDjX3flymJsv3vSJ4Pj8t8VJP2cbfIylF4L0hR9k59q6mTSPMG3hx450vhRZA9KQjsuvazSLO3Bq1rOxp1th9ADC_9PUE48PTxhaw5uB4qRG0rm6QtEQ"/>
+</div>
+<h5 class="font-headline-sm text-label-md">Sofía</h5>
+<p class="text-on-surface-variant text-label-sm">Esteticista</p>
+</div>
+</div>
+</section>
+</div>
+<!-- Sticky Info Sidebar (Web Only) -->
+<aside class="hidden lg:block lg:col-span-4 space-y-lg h-fit sticky top-24">
+<div class="bg-surface-container-highest p-lg rounded-xl border border-outline-variant">
+<h4 class="font-headline-sm text-headline-sm text-primary mb-md">Información</h4>
+<div class="space-y-md">
+<div class="flex items-start gap-md">
+<span class="material-symbols-outlined text-primary">schedule</span>
+<div>
+<p class="font-label-md">Horario de Atención</p>
+<p class="text-on-surface-variant text-label-sm">Lun - Sáb: 09:00 - 20:00</p>
+</div>
+</div>
+<div class="flex items-start gap-md">
+<span class="material-symbols-outlined text-primary">directions_car</span>
+<div>
+<p class="font-label-md">Estacionamiento</p>
+<p class="text-on-surface-variant text-label-sm">Gratuito para clientes</p>
+</div>
+</div>
+<div class="w-full h-32 rounded-lg overflow-hidden border border-outline">
+<img class="w-full h-full object-cover grayscale opacity-80" data-location="Av. Relax 456, Centro" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBd-eIDuyhX3juumMUV0FE7tSXjYYgJTDY7XwfYYKTl9wEz-wp2MGkqnGTy3sPlmA7zCz8T2ufzA0KEEWjr5S4iIO1DfC5E1VwIM_xotxgIeMaHq1URxoSPuWqSAtuLXw4AOoaLzSmejWzD2uxph0l26pRSxCE56Ti0P1nMH1p4rzGzZLHbx-ccsyUB3MeCTmgeJOgCU7OiI3BIKxO0z797Sfg59GdlHfBNGXcf0qyu8ADQhmyIv2QAbQ"/>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Bottom Navigation Shell (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-gutter py-sm bg-surface-container dark:bg-surface-container-lowest border-t border-outline-variant dark:border-outline shadow-lg rounded-t-full z-[60]">
+<div class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-md py-xs active:scale-90 transition-transform">
+<span class="material-symbols-outlined">content_cut</span>
+<span class="font-label-md text-label-md">Services</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-transform">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">Staff</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-transform">
+<span class="material-symbols-outlined">star</span>
+<span class="font-label-md text-label-md">Reviews</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-transform">
+<span class="material-symbols-outlined">info</span>
+<span class="font-label-md text-label-md">Info</span>
+</div>
+</nav>
+<!-- Booking Bottom Sheet -->
+<div class="fixed bottom-0 left-0 w-full bg-white dark:bg-inverse-surface z-[100] rounded-t-[32px] spa-shadow booking-sheet-transition translate-y-[70%] md:translate-y-[85%] lg:max-w-md lg:left-auto lg:right-margin-desktop lg:rounded-xl" id="booking-sheet">
+<!-- Drag Handle -->
+<div class="w-full flex justify-center py-md cursor-pointer" onclick="toggleSheet()">
+<div class="w-10 h-1 bg-outline-variant rounded-full"></div>
+</div>
+<div class="px-margin-mobile pb-xl">
+<header class="flex justify-between items-center mb-md">
+<div>
+<h3 class="font-headline-sm text-headline-sm">Reservar Cita</h3>
+<p class="text-on-surface-variant text-label-sm">Masaje Sueco • Elena</p>
+</div>
+<div class="text-right">
+<span class="block font-headline-sm text-primary">$1,200</span>
+</div>
+</header>
+<!-- Custom Date Picker Simple -->
+<div class="mb-lg">
+<label class="block font-label-md text-label-md mb-sm">Selecciona Fecha
+<div class="flex gap-sm overflow-x-auto pb-sm hide-scrollbar">
+<button class="flex-none w-14 py-md bg-primary text-white rounded-xl text-center">
+<span class="block text-label-sm opacity-80">Hoy</span>
+<span class="block font-bold">24</span>
+</button>
+<button class="flex-none w-14 py-md border border-outline-variant rounded-xl text-center hover:bg-surface-variant">
+<span class="block text-label-sm text-on-surface-variant">Lun</span>
+<span class="block font-bold">25</span>
+</button>
+<button class="flex-none w-14 py-md border border-outline-variant rounded-xl text-center hover:bg-surface-variant">
+<span class="block text-label-sm text-on-surface-variant">Mar</span>
+<span class="block font-bold">26</span>
+</button>
+<button class="flex-none w-14 py-md border border-outline-variant rounded-xl text-center hover:bg-surface-variant">
+<span class="block text-label-sm text-on-surface-variant">Mié</span>
+<span class="block font-bold">27</span>
+</button>
+<button class="flex-none w-14 py-md border border-outline-variant rounded-xl text-center hover:bg-surface-variant">
+<span class="block text-label-sm text-on-surface-variant">Jue</span>
+<span class="block font-bold">28</span>
+</button>
+</div>
+</label></div>
+<!-- Time Slots -->
+<div class="mb-lg">
+<label class="block font-label-md text-label-md mb-sm">Horarios Disponibles
+<div class="grid grid-cols-3 gap-sm">
+<button class="py-sm bg-secondary-container text-on-secondary-container font-bold rounded-lg border border-primary/20">09:00</button>
+<button class="py-sm border border-outline-variant rounded-lg hover:border-primary transition-colors">10:30</button>
+<button class="py-sm border border-outline-variant rounded-lg hover:border-primary transition-colors">14:00</button>
+</div>
+</label></div>
+<button class="w-full py-md bg-primary text-white rounded-full font-headline-sm shadow-lg shadow-primary/20 active:scale-95 transition-transform" onclick="confirmBooking()">
+                Confirmar Reserva
+            </button>
+</div>
+</div>
+<!-- Success Toast (Hidden) -->
+<div class="fixed top-20 left-1/2 -translate-x-1/2 bg-on-surface text-surface px-lg py-md rounded-full font-label-md shadow-xl opacity-0 pointer-events-none transition-opacity duration-300 z-[200]" id="success-toast">
+        ¡Cita confirmada! Te esperamos.
+    </div>
+<script>
+        let isExpanded = false;
+        const sheet = document.getElementById('booking-sheet');
+        const toast = document.getElementById('success-toast');
+
+        function toggleSheet() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                sheet.classList.remove('translate-y-[70%]', 'md:translate-y-[85%]');
+                sheet.classList.add('translate-y-0');
+            } else {
+                sheet.classList.remove('translate-y-0');
+                sheet.classList.add('translate-y-[70%]', 'md:translate-y-[85%]');
+            }
+        }
+
+        function confirmBooking() {
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                toast.classList.remove('opacity-100');
+                toggleSheet();
+            }, 3000);
+        }
+
+        // Interaction logic for service buttons to trigger sheet
+        document.querySelectorAll('button').forEach(btn => {
+            if(btn.innerText === 'Seleccionar' || btn.innerText === 'Añadir') {
+                btn.addEventListener('click', () => {
+                    if(!isExpanded) toggleSheet();
+                });
+            }
+        });
+    </script>
+</body></html>

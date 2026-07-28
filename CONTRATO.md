@@ -546,14 +546,26 @@ mismo `PATCH /api/negocios/mi-negocio/`:
 
 | Campo | Tipo | Regla |
 |---|---|---|
-| `tema` | enum | Catálogo **cerrado** que define el backend. Hoy: `estandar`, `vitrina`. |
+| `tema` | enum | Catálogo **cerrado** que define el backend. Hoy: `barberia`, `spa`, `clinica`. Por defecto `spa`. |
 | `color_acento` | string | `#rrggbb` o **cadena vacía**. Vacío = usa el color de Turnio. |
 | `portada` | imagen | Igual que `logo`: multipart para subir, vacío para quitar. |
 
 - **`tema` es un enum del backend, no texto libre.** Un valor fuera del
   catálogo responde `400`. El frontend debe **degradar** ante un tema que
   no conozca (backend desplegado por delante de la app instalada en un
-  teléfono) cayendo en `estandar`, no romperse.
+  teléfono) cayendo en la plantilla por defecto, no romperse.
+- **El backend no conoce las paletas.** `tema` es solo la etiqueta de la
+  plantilla; los colores, radios y tipografías viven en
+  `frontend/src/tema/plantillas.ts`. La única excepción es
+  `Negocio.FONDO_POR_TEMA`, que duplica el color de fondo de cada
+  plantilla para poder emitir `theme-color` — si se agrega o cambia una
+  paleta en el frontend, hay que tocarlo (hay un test que fija que estén
+  todas las plantillas, no que los valores coincidan).
+- **Las plantillas traen portada de muestra.** Un negocio sin `portada`
+  propia se muestra con la foto de su plantilla, servida por el frontend
+  en `/plantillas/{tema}.webp`. **No se usa como `og:image`**: dentro de
+  la página se marca "Foto de muestra", pero en una tarjeta de WhatsApp
+  no hay dónde aclararlo y pasaría por foto del local.
 - **`color_acento` vacío no es "sin color"**: significa "el de Turnio".
   Guardar un color propio y después vaciarlo es cómo se vuelve al
   default. Un valor que no sea `#rrggbb` responde `400` — se valida en el
@@ -573,9 +585,11 @@ móvil, que no comparte origen con la API.
 - `og:image` con la **portada**, o el logo, o la primera foto de la
   galería, en ese orden. La portada va primera porque es la única pensada
   para ser ancha, que es la forma que pide una tarjeta de WhatsApp.
-- `theme-color` con el color del negocio, **reemplazando** el genérico
-  que trae `index.html`. Reemplazar y no agregar: ante dos `theme-color`
-  el navegador se queda con el primero del documento, y el genérico está
+- `theme-color` con el **fondo de la plantilla** (no con `color_acento`:
+  esa meta tiñe la barra del navegador, que debe acompañar al lienzo, no
+  al color de los botones), **reemplazando** el genérico que trae
+  `index.html`. Reemplazar y no agregar: ante dos `theme-color` el
+  navegador se queda con el primero del documento, y el genérico está
   antes del punto de inyección.
 
 **Almacenamiento**: los archivos van a `MEDIA_ROOT` en disco local y se
@@ -898,3 +912,29 @@ que `frontend/dist/` (ver `backend/ROADMAP-BACKEND.md`).
   habría visto nunca aunque el test pasara.
 
   Aditivo en todo lo demás: ninguna respuesta existente cambió de forma.
+- **2026-07-28** — **Las plantillas del perfil pasan a nombrarse por
+  rubro** (ver 5.12). `tema` cambia de `estandar`/`vitrina` (dos
+  composiciones neutras) a `barberia`/`spa`/`clinica` (tres diseños
+  completos: paleta, radios y tipografía). **Cambio con ruptura del
+  enum**, con migración de datos incluida (`vitrina`→`barberia`,
+  `estandar`→`spa`) para que ningún negocio quede con un valor muerto.
+  Nuevo default: `spa`.
+
+  Dos cambios de comportamiento en `GET /{slug}/`:
+  - `theme-color` sale ahora del **fondo de la plantilla** y ya no de
+    `color_acento`. Esa meta tiñe la barra del navegador, que debe
+    acompañar al lienzo de la página: en la plantilla oscura, una barra
+    clara se ve como un error de carga.
+  - Un negocio sin `portada` se muestra con la **foto de muestra** de su
+    plantilla, servida desde `/plantillas/{tema}.webp`. Esa foto **no**
+    se usa como `og:image`: en la página lleva un aviso "Foto de
+    muestra", pero en una tarjeta de WhatsApp no hay dónde aclararlo y
+    pasaría por el local real.
+
+  `color_acento` no cambió de forma, pero sí de alcance: ahora sustituye
+  el **primario de la plantilla** (botones, precios, detalles) en vez de
+  ser el único color del perfil. El fondo y las superficies siguen siendo
+  de la plantilla — un negocio elige su color de marca, no rediseña la
+  plantilla.
+
+  Nuevo slug reservado: `plantillas`.

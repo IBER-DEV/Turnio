@@ -8,7 +8,7 @@ import { Hoja } from "../../ui/Hoja";
 import { Icon } from "../../ui/Icon";
 import { Input } from "../../ui/Input";
 import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
-import { variablesDeTema } from "../../tema/colores";
+import { variablesDePlantilla } from "../../tema/plantillas";
 
 /** El mensaje que ya devuelve el backend para `SinDisponibilidad`
  * (`apps/publico/views.py`, `ReservarView.post`) — deliberadamente
@@ -18,6 +18,18 @@ import { variablesDeTema } from "../../tema/colores";
  * realista de un error en este endpoint. */
 const MENSAJE_HUECO_OCUPADO = "Ese horario ya no está disponible. Elige otro.";
 const MENSAJE_SIN_CONEXION = "No se pudo conectar. Revisa tu internet e intenta de nuevo.";
+
+/** Chips de hora y de profesional con la paleta del negocio.
+ *
+ * `ToggleGroupItem` trae los colores de Turnio por defecto; acá se
+ * sobreescriben con los tokens del perfil. `cn()` (tailwind-merge)
+ * resuelve el conflicto por variante, así que basta con repetir las
+ * mismas condiciones `data-[state=...]`. */
+const CHIP_DEL_NEGOCIO = [
+  "data-[state=on]:bg-perfil-primario data-[state=on]:text-perfil-sobre-primario",
+  "data-[state=off]:bg-perfil-superficie-alta data-[state=off]:text-perfil-texto-suave",
+  "focus-visible:ring-perfil-primario/40",
+].join(" ");
 
 function hoyISO(): string {
   const hoy = new Date();
@@ -60,9 +72,9 @@ export function ReservaHoja({
   const [envio, setEnvio] = useState<EstadoEnvio>({ tipo: "inactivo" });
 
   // La hoja vive en un portal colgado del `body`, fuera del árbol del
-  // perfil: el color del negocio hay que volver a declararlo acá o esta
-  // sería la única pantalla del flujo con el color de Turnio.
-  const tema = variablesDeTema(negocio.color_acento);
+  // perfil: la plantilla hay que volver a declararla acá o esta sería la
+  // única pantalla del flujo con los colores de Turnio.
+  const tema = variablesDePlantilla(negocio.tema, negocio.color_acento);
 
   const cargarHuecos = useCallback(async () => {
     setHuecos({ tipo: "cargando" });
@@ -121,6 +133,7 @@ export function ReservaHoja({
         descripcion="Tu cita quedó confirmada."
         onCerrar={onCerrar}
         style={tema}
+        className="rounded-t-perfil-hoja bg-perfil-superficie"
       >
         <div className="flex flex-col items-center gap-4 py-4 text-center">
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-completada/10">
@@ -163,6 +176,7 @@ export function ReservaHoja({
       descripcion={`${servicio.nombre} · ${negocio.nombre}`}
       onCerrar={onCerrar}
       style={tema}
+      className="rounded-t-perfil-hoja bg-perfil-superficie"
     >
       <div className="flex flex-col gap-6">
         <Input
@@ -198,7 +212,11 @@ export function ReservaHoja({
           {huecos.tipo === "listo" && huecos.huecos.length > 0 && (
             <ToggleGroup valor={horaElegida} onChange={setHoraElegida}>
               {huecos.huecos.map((hueco) => (
-                <ToggleGroupItem key={hueco.inicio} value={hueco.inicio}>
+                <ToggleGroupItem
+                  key={hueco.inicio}
+                  value={hueco.inicio}
+                  className={CHIP_DEL_NEGOCIO}
+                >
                   {formatearHora(hueco.inicio)}
                 </ToggleGroupItem>
               ))}
@@ -210,9 +228,15 @@ export function ReservaHoja({
           <div>
             <p className="mb-2 font-label-md text-label-md text-on-surface">Con quién (opcional)</p>
             <ToggleGroup valor={profesionalId} onChange={setProfesionalId}>
-              <ToggleGroupItem value="cualquiera">Cualquiera disponible</ToggleGroupItem>
+              <ToggleGroupItem value="cualquiera" className={CHIP_DEL_NEGOCIO}>
+                Cualquiera disponible
+              </ToggleGroupItem>
               {negocio.profesionales.map((profesional) => (
-                <ToggleGroupItem key={profesional.id} value={String(profesional.id)}>
+                <ToggleGroupItem
+                  key={profesional.id}
+                  value={String(profesional.id)}
+                  className={CHIP_DEL_NEGOCIO}
+                >
                   {profesional.nombre}
                 </ToggleGroupItem>
               ))}

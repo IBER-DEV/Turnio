@@ -9,7 +9,7 @@ import pytest
 from django.test import Client
 
 from apps.negocios import services as negocios_services
-from apps.negocios.models import SLUGS_RESERVADOS
+from apps.negocios.models import SLUGS_RESERVADOS, Negocio
 from apps.publico import views_shell
 
 pytestmark = pytest.mark.django_db
@@ -173,8 +173,8 @@ def test_la_portada_le_gana_al_logo_como_og_image(
     assert negocio.logo.url not in html
 
 
-def test_el_color_del_negocio_reemplaza_el_theme_color_generico(cliente, dist_index):
-    """Y **reemplaza**, no se suma.
+def test_el_theme_color_sale_del_fondo_de_la_plantilla(cliente, dist_index):
+    """Y **reemplaza** al genérico, no se suma.
 
     Ante dos `theme-color`, el navegador se queda con el primero del
     documento — que es el genérico de `index.html`, porque está antes del
@@ -182,24 +182,37 @@ def test_el_color_del_negocio_reemplaza_el_theme_color_generico(cliente, dist_in
     quitar el otro deja un color que no se ve nunca.
     """
     negocio = _crear_negocio()
-    negocio.color_acento = "#ff5733"
-    negocio.save(update_fields=["color_acento"])
+    negocio.tema = Negocio.Tema.BARBERIA
+    negocio.save(update_fields=["tema"])
 
     respuesta = cliente.get(f"/{negocio.slug}/")
 
     html = respuesta.content.decode("utf-8")
     assert html.count('name="theme-color"') == 1
-    assert '<meta name="theme-color" content="#ff5733">' in html
+    assert '<meta name="theme-color" content="#121212">' in html
 
 
-def test_sin_color_propio_se_conserva_el_theme_color_de_turnio(cliente, dist_index):
+def test_el_theme_color_no_sale_del_color_de_acento(cliente, dist_index):
+    """Tiñe la barra del navegador, que debe acompañar al **fondo** de la
+    página; el acento pinta botones. En la plantilla clara, un acento
+    oscuro no debe oscurecer la barra."""
     negocio = _crear_negocio()
+    negocio.tema = Negocio.Tema.CLINICA
+    negocio.color_acento = "#be123c"
+    negocio.save(update_fields=["tema", "color_acento"])
 
     respuesta = cliente.get(f"/{negocio.slug}/")
 
     html = respuesta.content.decode("utf-8")
-    assert html.count('name="theme-color"') == 1
-    assert 'content="#f8f9ff"' in html
+    assert '<meta name="theme-color" content="#f8fafc">' in html
+    assert "#be123c" not in html
+
+
+def test_toda_plantilla_tiene_su_color_de_fondo(db):
+    """`FONDO_POR_TEMA` es un espejo a mano de las paletas del frontend:
+    una plantilla nueva allá sin su fondo acá dejaría la barra del
+    navegador con el color de la anterior."""
+    assert set(Negocio.FONDO_POR_TEMA) == {tema.value for tema in Negocio.Tema}
 
 
 def test_sin_logo_usa_la_primera_foto_de_la_galeria(

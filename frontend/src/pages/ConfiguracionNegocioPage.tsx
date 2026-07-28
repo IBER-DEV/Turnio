@@ -6,7 +6,7 @@ import { cuerpoMultipart } from "../api/multipart";
 import type { components } from "../api/schema";
 import { useAuth } from "../auth/AuthContext";
 import { conReintentoDeAuth } from "../auth/refresh";
-import { CATALOGO_TEMAS } from "./publico/temas";
+import { CATALOGO_PLANTILLAS } from "../tema/plantillas";
 import { SelectorColor } from "./negocio/SelectorColor";
 import { Button } from "../ui/Button";
 import { Card, EstadoError, Skeleton } from "../ui/Feedback";
@@ -339,68 +339,58 @@ export function ConfiguracionNegocioPage() {
       <Card className="p-5">
         <h2 className="mb-1 font-label-md text-label-md text-on-surface">Diseño de tu página</h2>
         <p className="mb-4 font-caption text-caption text-on-surface-variant">
-          Elige cómo se arma tu página. Puedes cambiarlo cuando quieras.
+          Elige el que se parezca a tu negocio. Cambia los colores, las formas y la portada de
+          muestra — puedes cambiarlo cuando quieras.
         </p>
-        <ul className="grid grid-cols-2 gap-3 sm:max-w-md">
-          {CATALOGO_TEMAS.map((tema) => {
-            const elegido = negocio.tema === tema.id;
+        <ul className="grid gap-3 sm:grid-cols-3">
+          {CATALOGO_PLANTILLAS.map((plantilla) => {
+            const elegida = negocio.tema === plantilla.id;
             return (
-              <li key={tema.id}>
+              <li key={plantilla.id}>
                 <button
                   type="button"
                   disabled={cambiandoTema}
-                  aria-pressed={elegido}
+                  aria-pressed={elegida}
                   onClick={async () => {
-                    if (elegido) return;
-                    const ok = await guardarApariencia({ tema: tema.id }, setCambiandoTema);
-                    if (ok) mostrar("exito", `Diseño ${tema.nombre} aplicado.`);
+                    if (elegida) return;
+                    const ok = await guardarApariencia({ tema: plantilla.id }, setCambiandoTema);
+                    if (ok) mostrar("exito", `Diseño ${plantilla.nombre} aplicado.`);
                   }}
                   className={cn(
-                    "w-full rounded-xl border p-3 text-left transition-all disabled:opacity-60",
-                    elegido
-                      ? "border-menta bg-menta/5 ring-2 ring-menta/20"
+                    "w-full overflow-hidden rounded-xl border text-left transition-all disabled:opacity-60",
+                    elegida
+                      ? "border-menta ring-2 ring-menta/20"
                       : "border-outline-variant hover:border-menta/40",
                   )}
                 >
-                  {/* Miniatura dibujada, no una captura: una imagen del
-                      tema se desactualiza en silencio cada vez que se
-                      toca el perfil, y nadie se entera hasta que un dueño
-                      elige algo que no se parece a lo que recibe. */}
-                  <span
-                    aria-hidden="true"
-                    className="mb-2 flex h-24 w-full flex-col overflow-hidden rounded-lg border border-outline-variant bg-white"
-                  >
-                    {tema.id === "vitrina" ? (
-                      <>
-                        <span className="flex h-2/3 flex-col items-center justify-center gap-1 bg-primary">
-                          <span className="h-1.5 w-12 rounded-full bg-white/80" />
-                          <span className="h-2 w-8 rounded-full bg-acento" />
-                        </span>
-                        <span className="flex flex-1 flex-col justify-center gap-1 px-2">
-                          <span className="h-1 w-full rounded-full bg-surface-container" />
-                          <span className="h-1 w-2/3 rounded-full bg-surface-container" />
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="flex items-center gap-1 px-2 pt-2">
-                          <span className="h-4 w-4 rounded bg-primary" />
-                          <span className="h-1.5 w-10 rounded-full bg-surface-container-high" />
-                        </span>
-                        <span className="flex flex-1 flex-col justify-center gap-1.5 px-2">
-                          <span className="h-3 w-full rounded bg-surface-container" />
-                          <span className="h-3 w-full rounded bg-surface-container" />
-                          <span className="h-3 w-full rounded bg-surface-container" />
-                        </span>
-                      </>
-                    )}
+                  {/* La vista previa se pinta con las variables reales de
+                      la plantilla, así que no puede desincronizarse del
+                      perfil: si mañana cambia una paleta, esto cambia
+                      con ella. La foto es la misma portada de muestra
+                      que verá su página hasta que suba la suya. */}
+                  <span style={plantilla.variables} className="block bg-perfil-fondo">
+                    <span className="relative block">
+                      <img
+                        src={plantilla.portadaMuestra}
+                        alt=""
+                        loading="lazy"
+                        className="h-24 w-full object-cover"
+                      />
+                      <span className="absolute inset-0 bg-linear-to-t from-perfil-fondo to-transparent" />
+                    </span>
+                    <span className="flex items-center gap-2 px-3 pb-3">
+                      <span className="h-6 flex-1 rounded-perfil bg-perfil-primario" />
+                      <span className="h-6 w-6 rounded-perfil bg-perfil-superficie-alta" />
+                    </span>
                   </span>
-                  <span className="flex items-center gap-1.5 font-label-md text-label-md text-on-surface">
-                    {elegido && <Icon name="check_circle" className="text-[16px] text-menta" />}
-                    {tema.nombre}
-                  </span>
-                  <span className="mt-0.5 block font-caption text-caption text-on-surface-variant">
-                    {tema.descripcion}
+                  <span className="block px-3 pb-3 pt-2">
+                    <span className="flex items-center gap-1.5 font-label-md text-label-md text-on-surface">
+                      {elegida && <Icon name="check_circle" className="text-[16px] text-menta" />}
+                      {plantilla.nombre}
+                    </span>
+                    <span className="mt-0.5 block font-caption text-caption text-on-surface-variant">
+                      {plantilla.descripcion}
+                    </span>
                   </span>
                 </button>
               </li>

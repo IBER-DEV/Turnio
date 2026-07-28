@@ -1511,11 +1511,12 @@ export interface components {
             readonly duracion_minutos: number;
         };
         /**
-         * @description * `estandar` - Estándar
-         *     * `vitrina` - Vitrina
+         * @description * `barberia` - Barbería
+         *     * `spa` - Spa y estética
+         *     * `clinica` - Clínica y salud
          * @enum {string}
          */
-        TemaEnum: "estandar" | "vitrina";
+        TemaEnum: "barberia" | "spa" | "clinica";
         /**
          * @description * `administracion` - Administración
          *     * `recepcion` - Recepción

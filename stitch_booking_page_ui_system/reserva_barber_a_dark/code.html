@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Libre+Caslon+Text:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .vintage-overlay {
+            background: linear-gradient(to bottom, rgba(18, 18, 18, 0) 0%, rgba(18, 18, 18, 0.9) 80%, rgba(18, 18, 18, 1) 100%);
+        }
+        .gold-border {
+            border-top: 1px solid rgba(212, 175, 55, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #121212;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #D4AF37;
+            border-radius: 6px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#D4AF37",
+                        "on-primary": "#121212",
+                        "background": "#121212",
+                        "surface": "#1E1E1E",
+                        "surface-dim": "#121212",
+                        "on-surface": "#FDF7FF",
+                        "on-surface-variant": "#CBC4D2",
+                        "outline": "#7A7582",
+                        "outline-variant": "#494551",
+                        "secondary-container": "#D4AF37",
+                        "on-secondary-container": "#121212",
+                        "surface-container": "#1E1E1E",
+                        "surface-container-high": "#2A2A2A",
+                        "surface-container-lowest": "#0A0A0A"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "6px",
+                        "lg": "6px",
+                        "xl": "12px",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "margin-mobile": "16px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "headline-md": ["Libre Caslon Text"],
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Libre Caslon Text"],
+                        "label-md": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "headline-md": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md selection:bg-primary selection:text-on-primary">
+<!-- Top AppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant shadow-sm flex items-center justify-between px-margin-mobile h-14">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary active:scale-95 duration-100 cursor-pointer">arrow_back</span>
+<h1 class="font-headline-sm text-headline-sm text-primary tracking-tight">The Royal Barber</h1>
+</div>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-xs rounded-full transition-colors cursor-pointer">share</span>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-primary/30">
+<img alt="The Royal Barber Logo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA55_nDqL-7Jw_tSIhB7WhpwS2aBu5vVhC2uO-duNZFrKs8yftaO6bVPXcgIOiH2TxJvw5rvoGKQHPh2mS2HrzM6Bi30IL31jmWIL9dtmTYRI17F3YsDq6sPEbsoqwLzi4guWIg0J43rtBhe6qCNGq1f1_x4_0X2uJlE6t06pZabHnJB7U7virJ4MUbMD5O-_rEqEhxv2rW9fNHzz6WhvaKVdUC5PQfXivElUC2-5tIwCfeEXeGxuR35w"/>
+</div>
+</div>
+</header>
+<main class="pb-32 pt-0 overflow-x-hidden">
+<!-- Hero Banner Section -->
+<section class="relative h-[45vh] w-full overflow-hidden">
+<div class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC-06ema7CbSy9u0l_Qq9YcDtmFjENjp9rN2baAnP_bOquTxSdrt4a3ZRa5RoBYjn67H1mxrBfb3CW0x18OeD0rtWuLD2YE0-EQRwALLON9cX-ccF8DCBwQVmFOga6aQ-N0yrFjSJj2nR7AuU3ve86WI7W6SC43Psx9IRyK00ZvKE8Bhz9jTS6pPZsiSJckttoJ3DZ3sa9fTzCALwhlNhUoADmIaWXxo3afojVEEvDyhMa5i4i_Ylz6cQ')"></div>
+<div class="absolute inset-0 vintage-overlay"></div>
+<div class="absolute bottom-0 left-0 w-full p-margin-mobile flex flex-col gap-xs">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-md text-label-md text-on-surface">4.9 (120 reseñas)</span>
+</div>
+<h2 class="font-display-lg text-display-lg text-primary leading-tight">The Royal Barber</h2>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+<span class="font-label-sm text-label-sm">Calle Falsa 123, Ciudad</span>
+</div>
+</div>
+</section>
+<!-- Bento Grid Content -->
+<section class="px-margin-mobile mt-lg grid grid-cols-1 md:grid-cols-12 gap-md">
+<!-- Services Bento Box -->
+<div class="md:col-span-8 flex flex-col gap-md">
+<h3 class="font-headline-sm text-headline-sm text-primary">Nuestros Servicios</h3>
+<div class="grid grid-cols-1 gap-sm">
+<!-- Service Card -->
+<div class="bg-surface rounded-lg p-md gold-border group hover:bg-surface-container-high transition-all cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-bold">Corte Clásico</h4>
+<p class="text-on-surface-variant text-label-md mt-xs">Tradición y precisión en cada tijeretazo.</p>
+</div>
+<span class="text-primary font-bold">$25.00</span>
+</div>
+<div class="mt-md flex justify-end">
+<button class="bg-primary/10 text-primary px-md py-xs rounded-full text-label-md hover:bg-primary hover:text-on-primary transition-colors">Reservar ahora</button>
+</div>
+</div>
+<div class="bg-surface rounded-lg p-md gold-border group hover:bg-surface-container-high transition-all cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-bold">Barba VIP</h4>
+<p class="text-on-surface-variant text-label-md mt-xs">Perfilado con toalla caliente y aceites esenciales.</p>
+</div>
+<span class="text-primary font-bold">$20.00</span>
+</div>
+<div class="mt-md flex justify-end">
+<button class="bg-primary/10 text-primary px-md py-xs rounded-full text-label-md hover:bg-primary hover:text-on-primary transition-colors">Reservar ahora</button>
+</div>
+</div>
+<div class="bg-surface rounded-lg p-md gold-border group hover:bg-surface-container-high transition-all cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-bold">Tratamiento Capilar</h4>
+<p class="text-on-surface-variant text-label-md mt-xs">Cuidado intensivo para fortalecer el cuero cabelludo.</p>
+</div>
+<span class="text-primary font-bold">$35.00</span>
+</div>
+<div class="mt-md flex justify-end">
+<button class="bg-primary/10 text-primary px-md py-xs rounded-full text-label-md hover:bg-primary hover:text-on-primary transition-colors">Reservar ahora</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Professionals Sidebar Bento Box -->
+<div class="md:col-span-4 flex flex-col gap-md">
+<h3 class="font-headline-sm text-headline-sm text-primary">Barberos Elite</h3>
+<div class="bg-surface rounded-lg p-md gold-border flex flex-col gap-lg">
+<div class="flex items-center gap-md">
+<div class="w-14 h-14 rounded-full bg-surface-container-high border-2 border-primary flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close up portrait of a professional male barber named Mateo with a groomed beard and vintage style clothing, looking confident in a moody, dark-toned studio setting with gold lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAneksmOPzI-qgLWERwMpi-UJqUP22SAG2vIlrQ466WFaaUopMa2zVJJM-LrpFQjleY0quf3aNQRFDmHiVIw9o72sxQ2E1u5fnbWrkgU0JkTsQYEp0Qy7QJ1UR4DOvckDs_1bKjLsfbohxUnl6-wG7TU6ny8eC8Ga5eusUxc3Cn-i_k8FqqtKzwnIR96T76vdoKExyJIzbCGdHEcNVNCy_gPL4f4FrJqxRVJAHkrbqE66fwY9RygnCwgA"/>
+</div>
+<div>
+<h5 class="font-body-md text-body-md text-on-surface font-bold">Mateo</h5>
+<p class="text-primary text-label-sm uppercase tracking-widest">Máster Barber</p>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="w-14 h-14 rounded-full bg-surface-container-high border-2 border-outline flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a young male stylist named Lucas, modern haircut, wearing a black apron, professional lighting, vintage barber shop background blurred in the distance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBuwBsNMmj8WLRzDHKx4kLJU8XYMXE9jWwVLi1cTLscTdWWxFzr4LGOmZn8WHkf8dgwda0MzJMG2ShvAs40sNnRShtdq8Jn_PTttrLbL3dxYlFU8xE1p2RSNU3WnjaO3mpdXds5q42B3eincggK--WHUS1ESc-yAmiClbfqMiM8q8FKt-3qzSaFI9o2v46mgVBRPejOJlnWxceYX8Y211n3OPfPQMpAeCShyAxfCT89cxj6j0cD4PzSig"/>
+</div>
+<div>
+<h5 class="font-body-md text-body-md text-on-surface font-bold">Lucas</h5>
+<p class="text-on-surface-variant text-label-sm uppercase tracking-widest">Estilista</p>
+</div>
+</div>
+</div>
+<!-- Location Map Placeholder -->
+<div class="bg-surface rounded-lg p-md gold-border overflow-hidden relative h-48 group">
+<div class="absolute inset-0 grayscale opacity-50 group-hover:opacity-100 transition-opacity">
+<div class="w-full h-full bg-cover" data-alt="A stylized minimalist map showing the area around Calle Falsa 123, with vintage black and gold colors, focused on a street grid." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCVNGk_tzLel-i2psM0qLnhI18ZOpiHgEfiHOO1tTe2hSx0pbUwgC_eR7hyVIPLW7PyRbEeTW4dTPIe3GHWajFYWSsVOiotEiUc7nY9w0pC_yNGPEqKJGulQyZ4VVTGz9p7iPCTBHA_NH_OJw2o33LKuI34qfkxxu3MjA6O8d46YPHUjM9dROOpnd0TQxO3uzHQ4MRf7Snrt83Ql4XMi1_WcvHSL9a1meF6eCxi0G0ytnZxK7NkIL8FqA')"></div>
+</div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+<div class="absolute bottom-md left-md right-md flex justify-between items-end">
+<span class="text-label-sm text-on-surface">Abrir en Mapas</span>
+<span class="material-symbols-outlined text-primary">near_me</span>
+</div>
+<a class="absolute inset-0" data-location="Calle Falsa 123, Ciudad" href="#"></a>
+</div>
+</div>
+</section>
+</main>
+<!-- Booking Bottom Sheet (Partially Visible State) -->
+<div class="fixed bottom-0 left-0 w-full z-[60] bg-surface border-t border-outline-variant shadow-[0_-10px_40px_rgba(0,0,0,0.5)] rounded-t-xl transform translate-y-[65%] transition-transform duration-500 ease-in-out md:max-w-md md:left-1/2 md:-translate-x-1/2" id="booking-sheet">
+<!-- Drag Handle -->
+<div class="w-full py-md flex justify-center cursor-pointer" onclick="toggleSheet()">
+<div class="w-10 h-1 bg-outline-variant rounded-full"></div>
+</div>
+<div class="px-margin-mobile pb-margin-mobile">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-md">Agenda tu cita</h3>
+<!-- Date Picker (Simplified Horizontal) -->
+<div class="flex gap-sm overflow-x-auto pb-md custom-scrollbar">
+<button class="flex-shrink-0 w-16 h-20 bg-primary text-on-primary flex flex-col items-center justify-center rounded-lg shadow-lg">
+<span class="text-label-sm">HOY</span>
+<span class="text-headline-sm">24</span>
+</button>
+<button class="flex-shrink-0 w-16 h-20 bg-surface-container-high border border-outline-variant flex flex-col items-center justify-center rounded-lg hover:border-primary transition-colors">
+<span class="text-label-sm text-on-surface-variant">MAÑ</span>
+<span class="text-headline-sm text-on-surface">25</span>
+</button>
+<button class="flex-shrink-0 w-16 h-20 bg-surface-container-high border border-outline-variant flex flex-col items-center justify-center rounded-lg hover:border-primary transition-colors">
+<span class="text-label-sm text-on-surface-variant">LUN</span>
+<span class="text-headline-sm text-on-surface">26</span>
+</button>
+<button class="flex-shrink-0 w-16 h-20 bg-surface-container-high border border-outline-variant flex flex-col items-center justify-center rounded-lg hover:border-primary transition-colors">
+<span class="text-label-sm text-on-surface-variant">MAR</span>
+<span class="text-headline-sm text-on-surface">27</span>
+</button>
+</div>
+<!-- Time Slots -->
+<div class="mt-md">
+<p class="text-label-md text-on-surface-variant mb-sm">Horarios disponibles</p>
+<div class="flex flex-wrap gap-sm">
+<button class="px-md py-sm rounded-lg border border-primary text-primary font-bold hover:bg-primary/10">10:00</button>
+<button class="px-md py-sm rounded-lg border border-primary text-primary font-bold hover:bg-primary/10">11:00</button>
+<button class="px-md py-sm rounded-lg border border-primary text-primary font-bold hover:bg-primary/10">12:00</button>
+<button class="px-md py-sm rounded-lg border border-outline-variant text-on-surface-variant opacity-50 cursor-not-allowed">13:00</button>
+</div>
+</div>
+<button class="w-full mt-xl bg-primary text-on-primary h-11 rounded-lg font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform">
+                Confirmar Reserva
+            </button>
+</div>
+</div>
+<!-- Mobile Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-surface-container dark:bg-surface-container-lowest flex justify-around items-center px-gutter py-sm border-t border-outline-variant rounded-t-full shadow-lg md:hidden">
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-md py-xs active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">content_cut</span>
+<span class="font-label-md text-label-md">Services</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">Staff</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">star</span>
+<span class="font-label-md text-label-md">Reviews</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">info</span>
+<span class="font-label-md text-label-md">Info</span>
+</a>
+</nav>
+<script>
+        let isExpanded = false;
+        const sheet = document.getElementById('booking-sheet');
+
+        function toggleSheet() {
+            if (isExpanded) {
+                sheet.style.transform = 'translateY(65%)';
+                if (window.innerWidth >= 768) sheet.style.transform = 'translateX(-50%) translateY(65%)';
+            } else {
+                sheet.style.transform = 'translateY(0%)';
+                if (window.innerWidth >= 768) sheet.style.transform = 'translateX(-50%) translateY(0%)';
+            }
+            isExpanded = !isExpanded;
+        }
+
+        // Horizontal scroll support with wheel for the date picker
+        const scrollContainer = document.querySelector('.custom-scrollbar');
+        scrollContainer.addEventListener('wheel', (evt) => {
+            evt.preventDefault();
+            scrollContainer.scrollLeft += evt.deltaY;
+        });
+    </script>
+</body></html>

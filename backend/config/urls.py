@@ -1,3 +1,4 @@
+import mimetypes
 from pathlib import Path
 
 from django.conf import settings
@@ -26,6 +27,13 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
+    # `django.views.static.serve` deduce el tipo con `mimetypes`, y en
+    # una imagen base de Python sin la tabla del sistema el `.webp` sale
+    # como `application/octet-stream`. El navegador lo renderiza igual
+    # porque olfatea el contenido, pero el encabezado equivocado es el
+    # tipo de detalle que hace perder una tarde cuando algo falla.
+    mimetypes.add_type("image/webp", ".webp")
+
     # Sirve `frontend/dist/` para poder probar `PerfilPublicoShellView`
     # en local sin montar un servidor de estáticos aparte. **No es una
     # solución de despliegue**: en producción esto lo sirve un servidor
@@ -45,6 +53,15 @@ if settings.DEBUG:
             "favicon.svg",
             static_serve,
             {"document_root": _frontend_dist, "path": "favicon.svg"},
+        ),
+        # Portadas de muestra de las plantillas del perfil público. Salen
+        # de `frontend/public/`, que Vite copia tal cual a `dist/`: no son
+        # `/assets/` (esos llevan hash) ni `/media/` (eso lo sube el
+        # negocio), así que necesitan su propia ruta.
+        re_path(
+            r"^plantillas/(?P<path>.*)$",
+            static_serve,
+            {"document_root": _frontend_dist / "plantillas"},
         ),
         # Logos y fotos de los negocios. Mismo criterio que arriba: en
         # producción esto lo sirve nginx o un bucket, no Django.

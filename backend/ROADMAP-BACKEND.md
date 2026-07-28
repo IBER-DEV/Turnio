@@ -1340,3 +1340,40 @@ decisiones de diseño de esta tanda están en `../DECISIONES.md` #12–#18.
   pesada del perfil público. Generar derivados (o al menos un `srcset`)
   es el siguiente paso natural si el perfil se siente lento en móvil.
 - **`Servicio` sigue sin imagen.** Nada lo pide todavía.
+
+## Las plantillas del perfil pasan a nombrarse por rubro (2026-07-28)
+
+> Rama nueva sobre `main` (ya con el PR #5 mergeado). Entra el material
+> de diseño de `stitch_booking_page_ui_system/`.
+
+- **`Negocio.Tema`**: `estandar`/`vitrina` → `barberia`/`spa`/`clinica`,
+  con `spa` por defecto (la más neutra de las tres: clara, suave,
+  redondeada). Migración `0004` **con migración de datos**: sin ella los
+  negocios existentes quedaban con un valor fuera de `choices`, el
+  frontend caería en la plantilla por defecto y el dato muerto no lo
+  notaría nadie. El mapeo va por parecido visual y la marcha atrás está
+  escrita.
+- **`Negocio.FONDO_POR_TEMA`** — la única parte de la paleta que el
+  backend conoce, para emitir `theme-color`. Es un espejo a mano de
+  `frontend/src/tema/plantillas.ts`, anotado como tal en los dos lados,
+  con un test que fija que estén todas las plantillas (no que los valores
+  coincidan: eso no se puede verificar desde acá).
+- **`theme-color` deja de salir de `color_acento`** y sale del fondo de
+  la plantilla. Esa meta tiñe la barra del navegador, que debe acompañar
+  al lienzo de la página: en la plantilla oscura, una barra clara se ve
+  como un error de carga. Corrige la decisión de la sesión anterior.
+- **Ruta `/plantillas/` en desarrollo** (`config/urls.py`) para las
+  portadas de muestra, que salen de `frontend/public/` — no son
+  `/assets/` (llevan hash) ni `/media/` (eso lo sube el negocio). Se
+  agregó `plantillas` a `SLUGS_RESERVADOS`, y `image/webp` a la tabla de
+  `mimetypes`, que en la imagen base de Python no lo trae y hacía que las
+  portadas salieran como `application/octet-stream`.
+
+181 tests en verde. `openapi.yaml` regenerado, `CONTRATO.md` 5.12 y su
+historial actualizados, decisiones en `../DECISIONES.md` #19–#23.
+
+### Pendiente
+El `og:image` **no** usa la portada de muestra a propósito (ver
+`../DECISIONES.md` #21): un negocio sin portada propia se comparte sin
+imagen. Si en el uso real eso pesa más que el riesgo de confundir al
+cliente, es una decisión de producto para reabrir, no un olvido.

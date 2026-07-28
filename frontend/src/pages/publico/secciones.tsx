@@ -1,17 +1,23 @@
-/** Las piezas del perfil público, sueltas de su composición.
+/** Las piezas del perfil público.
  *
- * Existen aparte de `PerfilNegocioPage` desde que hay más de un tema: lo
- * que cambia entre temas es **cómo se ordenan y con qué peso visual**, no
- * qué información hay. Manteniendo las secciones acá, agregar un tema es
- * escribir una composición nueva y no volver a implementar la lista de
- * servicios por segunda vez — que es como los temas se vuelven
- * impagables.
+ * Regla que gobierna este archivo: **nada de tokens de Turnio acá**. Ni
+ * `bg-white`, ni `text-primary`, ni `border-outline-variant`. Todo sale
+ * de los tokens `perfil-*`, que la plantilla del negocio redefine en
+ * tiempo de ejecución (`src/tema/plantillas.ts`). Es lo que permite que
+ * la misma composición funcione en la plantilla oscura de barbería y en
+ * la clara de clínica: si un componente de acá usa un color fijo, en
+ * modo oscuro desaparece o deslumbra, y nadie lo nota hasta que un
+ * cliente abre el enlace.
+ *
+ * La composición es una sola y las plantillas cambian su expresión
+ * visual — es el enfoque "Themed Core" del `DESIGN.md` de origen. Tres
+ * layouts distintos serían tres pantallas que mantener.
  */
 import type { NegocioPublico, ServicioPublico } from "../../api/publico";
-import { Avatar } from "../../ui/Avatar";
+import type { Plantilla } from "../../tema/plantillas";
 import { Button } from "../../ui/Button";
-import { Card, EstadoVacio } from "../../ui/Feedback";
 import { Icon } from "../../ui/Icon";
+import { cn } from "../../ui/cn";
 
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -26,65 +32,161 @@ export function formatearPrecio(precio: string): string {
   return Number.isNaN(numero) ? precio : MONEDA.format(numero);
 }
 
-export function DatosDeContacto({ negocio }: { negocio: NegocioPublico }) {
+/** Una tarjeta del perfil, con el contorno que pide la plantilla. */
+function Tarjeta({
+  plantilla,
+  className,
+  children,
+}: {
+  plantilla: Plantilla;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <>
-      <p className="mt-1.5 flex items-center gap-1.5 font-body-md text-body-md text-on-surface-variant">
+    <div
+      className={cn(
+        "rounded-perfil bg-perfil-superficie",
+        plantilla.tarjeta,
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Título de sección. En barbería sale en serif; en las otras dos, en la
+ * misma fuente del resto (`--font-perfil-titulo` lo resuelve). */
+function TituloSeccion({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <h2
+      id={id}
+      className="mb-4 font-perfil-titulo text-[22px] font-bold text-perfil-primario md:text-[26px]"
+    >
+      {children}
+    </h2>
+  );
+}
+
+export function Encabezado({
+  negocio,
+  plantilla,
+  usaPortadaDeMuestra,
+  onCompartir,
+}: {
+  negocio: NegocioPublico;
+  plantilla: Plantilla;
+  usaPortadaDeMuestra: boolean;
+  onCompartir: () => void;
+}) {
+  const portada = negocio.portada ?? plantilla.portadaMuestra;
+
+  return (
+    <header className="relative isolate flex min-h-[46vh] flex-col justify-end overflow-hidden px-margin-mobile pb-6 md:px-margin-desktop">
+      <img
+        src={portada}
+        alt=""
+        // Decorativa: el nombre del negocio está en el `h1` de encima y
+        // describir la foto otra vez solo lo repetiría en un lector de
+        // pantalla.
+        aria-hidden="true"
+        className="absolute inset-0 -z-20 h-full w-full object-cover"
+      />
+      {/* El degradado es lo que hace legible el texto sobre cualquier
+          foto: sin él, un nombre claro sobre una pared blanca
+          desaparece. Va de opaco abajo (donde está el texto) a
+          transparente arriba, para no tapar la foto entera. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10 bg-linear-to-t from-perfil-fondo via-perfil-fondo/80 to-perfil-fondo/20"
+      />
+
+      <div className="absolute right-4 top-4 flex items-center gap-2 safe-top">
+        {usaPortadaDeMuestra && (
+          // Honestidad con el cliente: esta foto es de la plantilla, no
+          // del local. Sin este aviso, quien reserva puede creer que está
+          // viendo el sitio al que va a ir.
+          <span className="rounded-full bg-perfil-fondo/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-perfil-texto-suave backdrop-blur-xs">
+            Foto de muestra
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={onCompartir}
+          aria-label="Compartir enlace del negocio"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-perfil-fondo/70 text-perfil-texto backdrop-blur-xs transition-colors hover:bg-perfil-fondo"
+        >
+          <Icon name="share" className="text-[20px]" />
+        </button>
+      </div>
+
+      {negocio.logo && (
+        <img
+          src={negocio.logo}
+          alt=""
+          aria-hidden="true"
+          className="mb-4 h-16 w-16 rounded-perfil border border-perfil-borde object-cover"
+        />
+      )}
+      <h1 className="font-perfil-titulo text-[34px] font-bold leading-tight text-perfil-texto md:text-[44px]">
+        {negocio.nombre}
+      </h1>
+      <p className="mt-1.5 flex items-center gap-1.5 font-body-md text-body-md text-perfil-texto-suave">
         <Icon name="location_on" className="text-[18px]" />
         {negocio.ciudad}
         {negocio.direccion ? ` · ${negocio.direccion}` : ""}
       </p>
-      {negocio.telefono && (
-        <a
-          href={`tel:${negocio.telefono}`}
-          className="mt-1 flex items-center gap-1.5 font-body-md text-body-md text-acento hover:underline"
-        >
-          <Icon name="call" className="text-[18px]" />
-          {negocio.telefono}
-        </a>
-      )}
-    </>
+    </header>
   );
 }
 
 export function SeccionServicios({
   negocio,
+  plantilla,
   onReservar,
 }: {
   negocio: NegocioPublico;
+  plantilla: Plantilla;
   onReservar: (servicio: ServicioPublico) => void;
 }) {
   return (
     <section aria-labelledby="servicios-heading" className="mb-10">
-      <h2 id="servicios-heading" className="mb-4 font-headline-md text-headline-md text-primary">
-        Servicios
-      </h2>
+      <TituloSeccion id="servicios-heading">Nuestros servicios</TituloSeccion>
       {negocio.servicios.length === 0 ? (
-        <EstadoVacio
-          icono="content_cut"
-          titulo="Sin servicios publicados"
-          descripcion="Este negocio todavía no agregó su catálogo. Vuelve a intentarlo más tarde."
-        />
+        <Tarjeta plantilla={plantilla} className="px-6 py-10 text-center">
+          <p className="font-body-md text-body-md text-perfil-texto-suave">
+            Este negocio todavía no publicó su catálogo.
+          </p>
+        </Tarjeta>
       ) : (
         <ul className="space-y-3">
           {negocio.servicios.map((servicio) => (
             <li key={servicio.id}>
-              <Card className="flex items-center justify-between gap-4 p-4">
-                <div className="min-w-0">
-                  <p className="font-label-md text-label-md text-on-surface">{servicio.nombre}</p>
-                  {servicio.descripcion && (
-                    <p className="mt-0.5 truncate font-caption text-caption text-on-surface-variant">
-                      {servicio.descripcion}
+              <Tarjeta plantilla={plantilla} className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-label-md text-label-md text-perfil-texto">
+                      {servicio.nombre}
                     </p>
-                  )}
-                  <p className="mt-1 font-caption text-caption text-on-surface-variant">
-                    {formatearPrecio(servicio.precio)} · {servicio.duracion_minutos} min
-                  </p>
+                    {servicio.descripcion && (
+                      <p className="mt-1 font-caption text-caption text-perfil-texto-suave">
+                        {servicio.descripcion}
+                      </p>
+                    )}
+                    <p className="mt-1.5 font-caption text-caption text-perfil-texto-suave">
+                      {servicio.duracion_minutos} min
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-label-md text-label-md font-bold text-perfil-primario">
+                    {formatearPrecio(servicio.precio)}
+                  </span>
                 </div>
-                <Button variante="negocio" tamano="sm" onClick={() => onReservar(servicio)}>
-                  Reservar
-                </Button>
-              </Card>
+                <div className="mt-3 flex justify-end">
+                  <Button variante="negocio" tamano="sm" onClick={() => onReservar(servicio)}>
+                    Reservar
+                  </Button>
+                </div>
+              </Tarjeta>
             </li>
           ))}
         </ul>
@@ -93,73 +195,83 @@ export function SeccionServicios({
   );
 }
 
-export function SeccionEquipo({ negocio }: { negocio: NegocioPublico }) {
+export function SeccionEquipo({
+  negocio,
+  plantilla,
+}: {
+  negocio: NegocioPublico;
+  plantilla: Plantilla;
+}) {
+  if (negocio.profesionales.length === 0) return null;
+
   return (
     <section aria-labelledby="equipo-heading" className="mb-10">
-      <h2 id="equipo-heading" className="mb-4 font-headline-md text-headline-md text-primary">
-        Quién atiende
-      </h2>
-      {negocio.profesionales.length === 0 ? (
-        <p className="font-body-md text-body-md text-on-surface-variant">
-          Sin profesionales activos por ahora.
-        </p>
-      ) : (
-        <ul className="flex flex-wrap gap-4">
-          {negocio.profesionales.map((profesional) => (
-            <li key={profesional.id} className="flex items-center gap-2">
-              <Avatar nombre={profesional.nombre} tamano="sm" />
-              <div>
-                <p className="font-label-md text-label-md text-on-surface">{profesional.nombre}</p>
+      <TituloSeccion id="equipo-heading">Quién atiende</TituloSeccion>
+      <ul className="grid grid-cols-2 gap-3">
+        {negocio.profesionales.map((profesional) => (
+          <li key={profesional.id}>
+            <Tarjeta plantilla={plantilla} className="flex items-center gap-3 p-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-perfil-superficie-alta font-label-md text-label-md font-bold text-perfil-primario">
+                {profesional.nombre.trim().charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate font-label-md text-label-md text-perfil-texto">
+                  {profesional.nombre}
+                </p>
                 {profesional.especialidad && (
-                  <p className="font-caption text-caption text-on-surface-variant">
+                  <p className="truncate font-caption text-caption uppercase tracking-wider text-perfil-texto-suave">
                     {profesional.especialidad}
                   </p>
                 )}
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+            </Tarjeta>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
 
-export function SeccionHorario({ negocio }: { negocio: NegocioPublico }) {
+export function SeccionHorario({
+  negocio,
+  plantilla,
+}: {
+  negocio: NegocioPublico;
+  plantilla: Plantilla;
+}) {
   const horarioPorDia = new Map<number, NegocioPublico["horario"]>();
   for (const franja of negocio.horario) {
     horarioPorDia.set(franja.dia_semana, [...(horarioPorDia.get(franja.dia_semana) ?? []), franja]);
   }
 
   return (
-    <section aria-labelledby="horario-heading">
-      <h2 id="horario-heading" className="mb-4 font-headline-md text-headline-md text-primary">
-        Horario
-      </h2>
+    <section aria-labelledby="horario-heading" className="mb-10">
+      <TituloSeccion id="horario-heading">Horario</TituloSeccion>
       {negocio.horario.length === 0 ? (
-        <p className="font-body-md text-body-md text-on-surface-variant">
+        <p className="font-body-md text-body-md text-perfil-texto-suave">
           Aún no publicó su horario.
         </p>
       ) : (
-        <ul className="space-y-1">
+        <Tarjeta plantilla={plantilla} className="divide-y divide-perfil-borde px-4">
           {DIAS.map((nombreDia, indice) => {
             const franjas = horarioPorDia.get(indice);
             return (
-              <li
+              <div
                 key={indice}
-                className="flex items-center justify-between gap-4 font-body-md text-body-md"
+                className="flex items-center justify-between gap-4 py-2.5 font-body-md text-body-md"
               >
-                <span className="text-on-surface">{nombreDia}</span>
-                <span className="text-on-surface-variant">
+                <span className="text-perfil-texto">{nombreDia}</span>
+                <span className="text-perfil-texto-suave">
                   {franjas
                     ? franjas
                         .map((f) => `${f.hora_inicio.slice(0, 5)}–${f.hora_fin.slice(0, 5)}`)
                         .join(", ")
                     : "Cerrado"}
                 </span>
-              </li>
+              </div>
             );
           })}
-        </ul>
+        </Tarjeta>
       )}
     </section>
   );
@@ -191,11 +303,25 @@ export function CarruselFotos({ negocio }: { negocio: NegocioPublico }) {
             // `lazy` desde la segunda: la primera es lo que se ve al
             // abrir el enlace y diferirla solo agrega un parpadeo.
             loading={indice === 0 ? "eager" : "lazy"}
-            className="h-48 w-64 shrink-0 snap-start rounded-2xl border border-outline-variant object-cover md:h-56 md:w-80"
+            className="h-44 w-60 shrink-0 snap-start rounded-perfil border border-perfil-borde object-cover md:h-52 md:w-72"
           />
         ))}
       </div>
     </section>
+  );
+}
+
+export function Contacto({ negocio }: { negocio: NegocioPublico }) {
+  if (!negocio.telefono) return null;
+
+  return (
+    <a
+      href={`tel:${negocio.telefono}`}
+      className="mb-10 flex items-center justify-center gap-1.5 font-body-md text-body-md text-perfil-primario hover:underline"
+    >
+      <Icon name="call" className="text-[18px]" />
+      {negocio.telefono}
+    </a>
   );
 }
 
@@ -207,10 +333,10 @@ export function CarruselFotos({ negocio }: { negocio: NegocioPublico }) {
  */
 export function FirmaTurnio() {
   return (
-    <footer className="mt-12 border-t border-outline-variant pt-6 text-center">
+    <footer className="border-t border-perfil-borde pt-6 text-center">
       <a
         href="/"
-        className="font-caption text-caption text-on-surface-variant transition-colors hover:text-primary"
+        className="font-caption text-caption text-perfil-texto-suave transition-colors hover:text-perfil-primario"
       >
         Agenda en línea con <strong className="font-semibold">Turnio</strong>
       </a>

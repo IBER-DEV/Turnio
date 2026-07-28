@@ -98,23 +98,6 @@ export function avisoDeContraste(acento: string): string | null {
   return null;
 }
 
-/** Las variables CSS que pinta el contenedor del perfil público.
- *
- * Redeclara los mismos nombres que `design/tokens.css` define por
- * defecto —no unos intermedios— porque una custom property se resuelve
- * en el elemento donde se declara: los descendientes heredarían el
- * fallback ya resuelto. El detalle está comentado en `tokens.css`.
- */
-export function variablesDeTema(acento: string | null | undefined): Record<string, string> {
-  if (!acento || componentes(acento) === null) return {};
-  return {
-    "--color-acento": acento,
-    "--color-acento-fuerte": `color-mix(in oklch, ${acento}, black 14%)`,
-    "--color-acento-suave": `color-mix(in oklch, ${acento}, white 88%)`,
-    "--color-sobre-acento": textoSobre(acento),
-  };
-}
-
 /** Colores de arranque, elegidos para que cualquiera de ellos se vea
  * bien: todos pasan AA como texto sobre blanco (≥ 4.5), así que quien
  * elige de acá nunca ve un aviso. Hay un test que lo verifica, para que
