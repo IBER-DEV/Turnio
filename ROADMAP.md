@@ -200,6 +200,17 @@ NO hacer todavía.
      tanto un carrusel de fotos en el perfil como la vista previa con
      imagen al compartir el enlace (`og:image`). Es de backend
      (modelo + storage) cuando se priorice.
+     🚧 **En curso** (2026-07-28, rama `feature/backend-fase2-imagenes-negocio`,
+     sobre `feature/frontend-sistema-diseno`): sesión cortada a
+     propósito en el primer paso — se agregó la capacidad
+     `puede_editar_negocio` (modelo + migración, 147 tests sin romperse)
+     que va a proteger el endpoint de edición del negocio y de fotos.
+     **`openapi.yaml` regenerado; `frontend/src/api/schema.ts`
+     deliberadamente no** (romper el frontend antes de traducir la
+     capacidad no tenía sentido). Plan completo, paso a paso, en
+     `backend/ROADMAP-BACKEND.md` sección "Imágenes del negocio: sesión
+     cortada en la capacidad" — nadie debe reconstruir este plan desde
+     cero, ya está escrito ahí.
    - **El SPA no tenía forma de generar un preview real al compartir el
      enlace**: los crawlers de WhatsApp/Instagram no ejecutan
      JavaScript, así que `index.html` genérico mostraba "Turnio" igual

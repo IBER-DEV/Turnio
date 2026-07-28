@@ -716,3 +716,33 @@ ahí** o un negocio podrá tomarla.
   escribir. Regla práctica que queda: **un `SerializerMethodField` sin
   `@extend_schema_field` es un campo mal documentado**, aunque el código
   funcione.
+- **2026-07-28** — **Octava capacidad: `puede_editar_negocio`** (ver 5.10).
+  `Cargo` gana un campo booleano más, agregado a `CAPACIDADES` en
+  `apps.usuarios.models`. Controla editar la identidad pública del
+  negocio (nombre, dirección, teléfono, logo, fotos) — separada a
+  propósito de `puede_gestionar_empleados`, porque quien administra el
+  equipo no necesariamente decide cómo se ve el negocio hacia afuera.
+
+  **`openapi.yaml` regenerado y refleja la capacidad real** (aparece en
+  `Cargo` y `PatchedCargo`). **`frontend/src/api/schema.ts` NO se
+  regeneró todavía, a propósito**: `catalogo.ts` deriva `Capacidad` del
+  schema y tiene un `Record<Capacidad, …>` que deja de compilar si
+  aparece una capacidad sin traducir — es el comportamiento buscado,
+  pero implica que regenerar el schema del frontend sin traducirla
+  rompe el build a propósito. Sesión cortada antes de llegar a esa
+  traducción; detalle completo del plan pendiente en
+  `backend/ROADMAP-BACKEND.md` y `frontend/ROADMAP-FRONTEND.md`.
+
+  **Consecuencia para quien retome esto**: el CI de frontend verifica
+  que `schema.ts` esté regenerado contra `openapi.yaml` — con el
+  schema.ts actual (sin la capacidad), esa verificación **fallará** en
+  cuanto se ejecute contra este branch, porque ahora mismo hay drift
+  real entre los dos. No es un bug: es la señal de que la migración ya
+  se aplicó pero la traducción del lado frontend sigue sin hacerse. La
+  rama no se mergea hasta cerrar ese ciclo completo (regenerar
+  `schema.ts` + `DEFINICIONES`/`GRUPOS` en `catalogo.ts` a la vez, en
+  el mismo commit).
+- Aún no hay entrada porque el endpoint de edición del negocio, el
+  campo de logo/fotos y su exposición pública **no se construyeron
+  todavía** — solo la capacidad que los va a proteger. Se agregará una
+  entrada aparte cuando exista esa forma.

@@ -1066,3 +1066,130 @@ sigue vivo y con throttling propio. ¿Se deja tal cual hasta entonces, o
 se retira del menú de navegación pública para no ofrecer un flujo que
 el producto ya no prioriza? No se tocó nada del lado de rutas/UI de
 búsqueda en esta sesión — es pregunta para quien lleve frontend.
+
+## Imágenes del negocio: sesión cortada en la capacidad (2026-07-28)
+
+> Rama nueva `feature/backend-fase2-imagenes-negocio`, creada sobre
+> `feature/frontend-sistema-diseno` (que ya tiene PR propio abierto a
+> `main` — ver ese roadmap). Se abre rama aparte para no seguir
+> agregando commits a un PR que ya está en revisión.
+
+### Por qué existe esta sesión
+Cerrando Fase 2 quedaron dos huecos anotados en `../ROADMAP.md` decisión
+#8: el enlace compartido no tiene `og:image` (el preview de WhatsApp/
+Instagram va sin imagen) y no hay forma de mostrar fotos del negocio en
+el perfil público. Los dos dependen de lo mismo: **no existe ningún
+campo de imagen en `Negocio` ni `Servicio`**, y tampoco existe **ningún
+endpoint para editar el negocio** — ni el logo, ni el nombre, ni la
+dirección. Antes de tocar imágenes había que resolver el permiso.
+
+Decisiones tomadas con el humano antes de escribir código:
+1. **Capacidad nueva `puede_editar_negocio`**, no reusar
+   `puede_gestionar_empleados` ni `puede_editar_precios`. Quien decide
+   el nombre/logo del local no es necesariamente quien administra el
+   equipo ni quien pone precios.
+2. **Alcance: logo + galería de fotos** (no solo logo). Implica un
+   modelo `FotoNegocio` aparte (varias fotos, con orden), no un segundo
+   `ImageField` en `Negocio`.
+
+### Lo único que se hizo (deliberadamente poco)
+La sesión se cortó a propósito en el primer paso, con instrucción
+explícita de dejar todo documentado para retomar:
+
+- `apps.usuarios.models.CAPACIDADES`: se agregó `"puede_editar_negocio"`
+  a la tupla.
+- `Cargo.puede_editar_negocio` (`BooleanField(default=False)`), con
+  comentario explicando por qué está separada de
+  `puede_gestionar_empleados`.
+- Migración generada: `apps/usuarios/migrations/0005_cargo_puede_editar_negocio.py`.
+- **No hizo falta tocar nada más del lado de permisos**: `CargoSerializer`
+  (`fields = [..., *CAMPOS_CAPACIDADES]`), `sembrar_cargos_iniciales`
+  (usa `list(CAMPOS_CAPACIDADES)` para Administración), y las dos
+  funciones anti-escalada (`validar_cambio_de_capacidades`,
+  `validar_asignacion_de_cargo`) son todas genéricas sobre
+  `CAMPOS_CAPACIDADES` — agregar el campo a la tupla y al modelo alcanzó
+  para que todo el resto del sistema de capacidades lo reconociera solo.
+  Verificado corriendo la suite completa: **147 passed, sin tocar ningún
+  test** (el que fija que el dueño recibe todas las capacidades del
+  registro, `test_registrar_negocio_otorga_todas_las_capacidades_al_dueno`,
+  itera `CAMPOS_CAPACIDADES` genéricamente y ya lo cubrió).
+- `openapi.yaml` **regenerado**: `puede_editar_negocio` ya aparece en
+  `Cargo` y `PatchedCargo`. Es lo correcto del lado backend — el schema
+  debe reflejar lo que el backend realmente devuelve.
+- `frontend/src/api/schema.ts` **NO se regeneró, a propósito**. Ver
+  advertencia abajo.
+- `CONTRATO.md`: entrada agregada al historial (sección 6) con esta
+  misma explicación.
+
+### Advertencia para quien retome: hay drift de contrato intencional
+`catalogo.ts` (frontend) deriva `Capacidad` del schema y tiene
+`DEFINICIONES: Record<Capacidad, …>` — el comentario del propio archivo
+dice que si el backend agrega una capacidad, **eso debe dejar de
+compilar** hasta traducirla. Es el comportamiento correcto, pero
+significa que:
+
+- El CI de frontend (que verifica que `schema.ts` esté regenerado
+  contra `openapi.yaml`) **fallará** contra esta rama tal como está,
+  porque `openapi.yaml` ya tiene la capacidad y `schema.ts` no.
+- **No regenerar `schema.ts` todavía es la decisión correcta**: hacerlo
+  ahora rompería la compilación de todo el frontend (no solo de la
+  pantalla nueva) hasta escribir la traducción, y esta sesión no llega
+  a esa parte.
+- **La rama no se mergea así.** El siguiente paso obligatorio es
+  regenerar `schema.ts` y traducir la capacidad en `catalogo.ts` **en el
+  mismo commit** — nunca por separado, o queda un commit intermedio con
+  el frontend roto.
+
+### Lo que falta para que esto sirva de algo (plan completo, en orden)
+
+**Backend:**
+1. `pip install Pillow` (`requirements.txt`) — Django no puede validar
+   `ImageField` sin él.
+2. `MEDIA_ROOT` / `MEDIA_URL` en `settings.py`. Servir `/media/` en
+   `DEBUG` (mismo patrón que se usó para `frontend/dist/` en
+   `config/urls.py` — ver la vista `PerfilPublicoShellView` de esta
+   misma fase para el precedente de "solo en DEBUG, producción queda
+   pendiente"). `.gitignore` ya tiene `/backend/media/` reservado desde
+   antes.
+3. `Negocio.logo = models.ImageField(upload_to=..., blank=True, null=True)`.
+4. Modelo nuevo `FotoNegocio` (`negocio` FK, `imagen`, `orden` — mínimo
+   viable; evaluar límite de fotos por negocio para no dejar subir
+   cientos).
+5. Migraciones de `apps.negocios`.
+6. `PATCH /api/negocios/mi-negocio/` — no existe ningún endpoint de
+   edición del negocio hoy, hay que crearlo desde cero (nombre,
+   dirección, teléfono, ciudad, logo). Gate: `puede_editar_negocio`.
+   Usar `parser_classes` con `MultiPartParser` para el logo.
+7. Endpoints de fotos: subir, borrar, reordenar. Mismo gate.
+8. Serializers públicos (`apps/publico/serializers.py`): agregar `logo`
+   y `fotos` a `NegocioPublicoSerializer`. Ojo con URLs absolutas — un
+   `ImageField.url` es relativo, y el perfil público lo consume un
+   crawler que no tiene contexto de dominio; hay que construirlo con
+   `request.build_absolute_uri()` igual que ya hace
+   `PerfilPublicoShellView` con `og:url`.
+9. `views_shell.py`: agregar `og:image` con la URL absoluta del logo
+   (si existe) — ese es el objetivo final de todo esto.
+10. Tests: capacidad, permisos del PATCH, subida/borrado/reorden de
+    fotos, `og:image` presente cuando hay logo y ausente cuando no.
+11. Regenerar `openapi.yaml` otra vez (esta ronda si va a tener forma
+    real de request/response) y actualizar `CONTRATO.md`.
+
+**Frontend (bloqueado hasta que el backend tenga los endpoints):**
+1. Regenerar `schema.ts` + traducir `puede_editar_negocio` en
+   `catalogo.ts` (`DEFINICIONES`, `GRUPOS` — probablemente un área nueva
+   "Perfil del negocio" o sumarla a un área existente) **en el mismo
+   commit**.
+2. Nav: agregar entrada en `permisos/shell.ts` gateada por la capacidad
+   (ver patrón de `EQUIPO`/`CARGOS` en ese archivo), ruta sugerida
+   `/configuracion/negocio`.
+3. Pantalla nueva: editar nombre/dirección/teléfono, subir logo,
+   gestionar fotos (subir, borrar, reordenar).
+4. Perfil público (`PerfilNegocioPage`): mostrar el logo en vez de
+   `Avatar` con iniciales cuando exista, y el carrusel de fotos
+   (Blossom, evaluado y compatible con React 19 — ver entrada anterior
+   de `../frontend/ROADMAP-FRONTEND.md`).
+
+### Duda abierta para el humano
+¿Límite de fotos por negocio y peso máximo por imagen? No se decidió
+todavía — afecta el modelo `FotoNegocio` y la validación del endpoint de
+subida, así que hay que resolverlo antes del paso 4 del plan de backend.

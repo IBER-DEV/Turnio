@@ -1521,6 +1521,8 @@ components:
           type: boolean
         puede_ver_agenda_completa:
           type: boolean
+        puede_editar_negocio:
+          type: boolean
       required:
       - id
       - miembros
@@ -2069,6 +2071,8 @@ components:
         puede_configurar_horarios:
           type: boolean
         puede_ver_agenda_completa:
+          type: boolean
+        puede_editar_negocio:
           type: boolean
     PatchedCita:
       type: object
