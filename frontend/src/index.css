@@ -57,6 +57,16 @@
   /* Barbería usa serif en los titulares; las otras dos, la fuente del
      sistema de diseño. Ver `plantillas.ts`. */
   --font-perfil-titulo: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* El ancho de columna del perfil público (encabezado y contenido),
+     tomado del `DESIGN.md` de origen: "content containers are capped at
+     1200px wide for readability". Una sola variable y no un literal
+     repetido en cada componente: el encabezado (`Encabezado`) y el
+     cuerpo (`PerfilNegocioPage`) tienen que alinear el mismo borde
+     izquierdo/derecho exactamente, o el título queda pegado a la
+     pantalla mientras el resto se centra en una caja angosta — el bug
+     que tenía esta pantalla en escritorio antes de este token. */
+  --width-perfil-contenido: 1200px;
 }
 
 /*

@@ -106,16 +106,29 @@ export function PerfilNegocioPage() {
         onCompartir={() => compartir(negocio)}
       />
 
-      <div className="mx-auto max-w-2xl px-margin-mobile pb-16 pt-8 md:px-margin-desktop">
-        <CarruselFotos negocio={negocio} />
-        <SeccionServicios
-          negocio={negocio}
-          plantilla={plantilla}
-          onReservar={setServicioReserva}
-        />
-        <SeccionEquipo negocio={negocio} plantilla={plantilla} />
-        <SeccionHorario negocio={negocio} plantilla={plantilla} />
-        <Contacto negocio={negocio} />
+      {/* Mismo `--width-perfil-contenido` que el encabezado, para que
+          los dos bordes coincidan (ver `Encabezado`). En `lg`+ se abre
+          en dos columnas — servicios a la izquierda (más ancha, es lo
+          que la mayoría vino a ver), equipo/horario/contacto en una
+          columna fija a la derecha — en vez de una sola lista angosta
+          perdida en medio de una pantalla grande. En mobile son dos
+          `div` que simplemente se apilan en el mismo orden de siempre. */}
+      <div className="mx-auto max-w-(--width-perfil-contenido) px-margin-mobile pb-16 pt-8 md:px-margin-desktop">
+        <div className="lg:grid lg:grid-cols-3 lg:items-start lg:gap-10">
+          <div className="lg:col-span-2">
+            <CarruselFotos negocio={negocio} />
+            <SeccionServicios
+              negocio={negocio}
+              plantilla={plantilla}
+              onReservar={setServicioReserva}
+            />
+          </div>
+          <div className="lg:sticky lg:top-8">
+            <SeccionEquipo negocio={negocio} plantilla={plantilla} />
+            <SeccionHorario negocio={negocio} plantilla={plantilla} />
+            <Contacto negocio={negocio} />
+          </div>
+        </div>
         <FirmaTurnio />
       </div>
 
