@@ -220,13 +220,13 @@ def test_el_dueno_elige_tema_y_color_de_acento(cliente_dueno, negocio_y_dueno):
 
     respuesta = cliente_dueno.patch(
         "/api/negocios/mi-negocio/",
-        {"tema": "vitrina", "color_acento": "#ff5733"},
+        {"tema": "barberia", "color_acento": "#ff5733"},
         format="json",
     )
 
     assert respuesta.status_code == 200
     negocio.refresh_from_db()
-    assert negocio.tema == "vitrina"
+    assert negocio.tema == "barberia"
     assert negocio.color_acento == "#ff5733"
 
 

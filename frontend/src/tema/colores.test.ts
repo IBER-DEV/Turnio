@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  PRESETS,
-  avisoDeContraste,
-  contraste,
-  sirveComoTexto,
-  textoSobre,
-  variablesDeTema,
-} from "./colores";
+import { PRESETS, avisoDeContraste, contraste, sirveComoTexto, textoSobre } from "./colores";
 
 describe("contraste", () => {
   it("da los extremos conocidos de la escala WCAG", () => {
@@ -65,27 +58,5 @@ describe("presets", () => {
       expect(sirveComoTexto(hex), nombre).toBe(true);
       expect(avisoDeContraste(hex), nombre).toBeNull();
     }
-  });
-});
-
-describe("variablesDeTema", () => {
-  it("sin color propio no pisa nada, y el default de Turnio queda en pie", () => {
-    expect(variablesDeTema(null)).toEqual({});
-    expect(variablesDeTema("")).toEqual({});
-  });
-
-  it("ignora un valor corrupto en vez de inyectarlo en el CSS", () => {
-    // El backend ya valida el formato, pero esto es lo que se mete en un
-    // atributo `style` de una página pública: no se confía y punto.
-    expect(variablesDeTema("red; background: url(x)")).toEqual({});
-  });
-
-  it("redeclara los cuatro tokens que usan las utilidades de Tailwind", () => {
-    const variables = variablesDeTema("#4f46e5");
-
-    expect(variables["--color-acento"]).toBe("#4f46e5");
-    expect(variables["--color-sobre-acento"]).toBe("#ffffff");
-    expect(variables["--color-acento-fuerte"]).toContain("color-mix");
-    expect(variables["--color-acento-suave"]).toContain("color-mix");
   });
 });

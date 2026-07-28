@@ -15,9 +15,11 @@ const VARIANTES: Record<Variante, string> = {
   ghost: "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface",
   // El color de marca **del negocio**, no el de Turnio: se resuelve en
   // tiempo de ejecución contra las variables que pinta el contenedor del
-  // perfil público (ver `src/tema/`). Fuera de ese contenedor cae en el
-  // default del sistema, así que usarla por error no rompe nada.
-  negocio: "bg-acento text-sobre-acento hover:bg-acento-fuerte shadow-suave",
+  // perfil público (ver `src/tema/plantillas.ts`, tokens `--color-perfil-*`).
+  // Fuera de ese contenedor cae en el default declarado en `index.css`
+  // (la plantilla de spa), así que usarla por error no rompe nada.
+  negocio:
+    "bg-perfil-primario text-perfil-sobre-primario hover:brightness-95 shadow-suave",
 };
 
 const TAMANOS: Record<Tamano, string> = {

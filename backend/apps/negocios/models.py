@@ -56,6 +56,7 @@ def ruta_portada(instancia, nombre_archivo):
 def ruta_foto(instancia, nombre_archivo):
     return _ruta_imagen(f"negocios/{instancia.negocio_id}/fotos", nombre_archivo)
 
+
 #: Slugs que ningún negocio puede tomar.
 #:
 #: El perfil público vive en la raíz del dominio (`turnio.app/mi-barberia`),
@@ -88,6 +89,7 @@ SLUGS_RESERVADOS = frozenset(
         "static",
         "media",
         "assets",
+        "plantillas",
         "health",
         # Institucionales, casi seguros a futuro
         "ayuda",
@@ -106,21 +108,45 @@ SLUGS_RESERVADOS = frozenset(
 
 class Negocio(TenantScopedModel):
     class Tema(models.TextChoices):
-        """Cómo se compone el perfil público.
+        """La plantilla visual del perfil público, nombrada por rubro.
 
-        Es un **catálogo cerrado**, al revés que los cargos: un tema no es
-        configuración del negocio sino una plantilla que este equipo
-        diseña, prueba y mantiene. Cada valor nuevo acá es una variante
-        real del perfil que hay que sostener en el tiempo, así que la
-        lista crece a propósito despacio.
+        Es un **catálogo cerrado**, al revés que los cargos: una plantilla
+        no es configuración del negocio sino un diseño que este equipo
+        hace, prueba y mantiene. Cada valor nuevo acá es una variante real
+        que hay que sostener, así que la lista crece a propósito despacio.
 
-        El frontend elige el layout con esto; si recibe un tema que no
-        conoce (backend adelantado a una versión vieja de la app), cae en
-        `ESTANDAR` en vez de romperse.
+        Cada una trae paleta completa (fondo, superficie, texto, primario),
+        radios y tipografía — no solo un color. El detalle vive en el
+        frontend (`frontend/src/tema/plantillas.ts`): el backend solo
+        guarda cuál eligió el negocio.
+
+        Van nombradas por rubro y no por estilo ("oscuro", "claro")
+        porque es como las elige el dueño: se reconoce en "barbería"
+        antes que en "alto contraste". Nada impide que un salón use la
+        de clínica si le gusta más.
+
+        Si el frontend recibe un valor que no conoce (backend desplegado
+        por delante de la app instalada en un teléfono), cae en la
+        plantilla por defecto en vez de romperse.
         """
 
-        ESTANDAR = "estandar", "Estándar"
-        VITRINA = "vitrina", "Vitrina"
+        BARBERIA = "barberia", "Barbería"
+        SPA = "spa", "Spa y estética"
+        CLINICA = "clinica", "Clínica y salud"
+
+    #: El color de fondo de cada plantilla, para la meta `theme-color`.
+    #:
+    #: **Es un espejo de `frontend/src/tema/plantillas.ts`** y la única
+    #: parte de la paleta que el backend necesita conocer: `theme-color`
+    #: tiñe la barra del navegador, y lo correcto es que coincida con el
+    #: fondo real de la página — en la plantilla oscura, una barra clara
+    #: se ve como un error de carga. Si cambia una paleta allá, cambia
+    #: acá; hay un test que fija que estén todas las plantillas.
+    FONDO_POR_TEMA = {
+        "barberia": "#121212",
+        "spa": "#fafafa",
+        "clinica": "#f8fafc",
+    }
 
     nombre = models.CharField(max_length=150)
     slug = models.SlugField(max_length=170, unique=True, blank=True)
@@ -134,14 +160,19 @@ class Negocio(TenantScopedModel):
     logo = models.ImageField(upload_to=ruta_logo, blank=True)
     # La imagen ancha del encabezado del perfil. Distinta del logo (que es
     # la identidad, cuadrada) y de la galería (que son trabajos): es el
-    # fondo del saludo, y en el tema Vitrina ocupa la primera pantalla.
+    # fondo del saludo y ocupa la primera pantalla del perfil. Si el
+    # negocio no sube una, el frontend usa la de muestra de su plantilla.
     portada = models.ImageField(upload_to=ruta_portada, blank=True)
     #: Vacío significa "el color de Turnio", no un color guardado. Así, si
     #: algún día cambia la paleta del producto, los negocios que nunca
     #: eligieron color acompañan el cambio en vez de quedarse con un
     #: verde que ya nadie usa.
     color_acento = models.CharField(max_length=7, blank=True, validators=[validar_color_hex])
-    tema = models.CharField(max_length=20, choices=Tema.choices, default=Tema.ESTANDAR)
+    # `spa` por defecto y no `barberia`: es la plantilla más neutra de las
+    # tres (clara, suave, redondeada). Una barbería que entra con la de
+    # spa ve algo correcto y la cambia en dos toques; un salón de estética
+    # que entrara con la oscura vería algo que no es su negocio.
+    tema = models.CharField(max_length=20, choices=Tema.choices, default=Tema.SPA)
     activo = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)

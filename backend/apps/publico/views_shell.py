@@ -136,19 +136,21 @@ class PerfilPublicoShellView(View):
             )
         else:
             og_tags += '    <meta name="twitter:card" content="summary">\n'
-        if negocio.color_acento:
-            # Tiñe la barra del navegador en Android y el fondo de la
-            # tarjeta al agregar a inicio. El valor ya viene validado como
-            # `#rrggbb` desde el modelo (`validar_color_hex`), así que no
-            # puede colarse otra cosa; el `escape` es cinturón y tirantes.
-            og_tags += (
-                f'    <meta name="theme-color" content="{escape(negocio.color_acento)}">\n'
-            )
+        # `theme-color` tiñe la barra del navegador en Android y el fondo
+        # de la tarjeta al agregar a inicio, así que lo correcto es que
+        # coincida con el **fondo de la página**, no con el color de
+        # marca: en la plantilla oscura, una barra clara encima de un
+        # perfil negro se ve como un error de carga. Por eso sale del
+        # tema y no de `color_acento` — el acento pinta botones, no el
+        # lienzo. Valor de una constante propia, nunca de entrada del
+        # usuario; el `escape` es cinturón y tirantes.
+        fondo = Negocio.FONDO_POR_TEMA.get(negocio.tema)
+        if fondo:
+            og_tags += f'    <meta name="theme-color" content="{escape(fondo)}">\n'
         og_tags += f'    <meta name="description" content="{escape(descripcion)}">'
 
         html = _shell_html()
-        if negocio.color_acento:
-            html = _META_THEME_COLOR.sub("", html, count=1)
+        html = _META_THEME_COLOR.sub("", html, count=1)
         # El shell genérico siempre tiene exactamente un `<title>Turnio</title>`
         # (viene de `frontend/index.html`, que no cambia entre builds). Si
         # ese literal deja de existir el reemplazo no aplica y se sirve el

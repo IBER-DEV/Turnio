@@ -3,12 +3,19 @@ import { useParams } from "react-router-dom";
 
 import { apiPublico } from "../../api/publico";
 import type { NegocioPublico, ServicioPublico } from "../../api/publico";
-import { variablesDeTema } from "../../tema/colores";
+import { cargarFuenteDe, plantillaDe, variablesDePlantilla } from "../../tema/plantillas";
 import { EstadoError, Skeleton, SkeletonLista } from "../../ui/Feedback";
 import { useToast } from "../../ui/Toast";
 import { ReservaHoja } from "./ReservaHoja";
-import { FirmaTurnio } from "./secciones";
-import { composicionDe } from "./temas";
+import {
+  CarruselFotos,
+  Contacto,
+  Encabezado,
+  FirmaTurnio,
+  SeccionEquipo,
+  SeccionHorario,
+  SeccionServicios,
+} from "./secciones";
 
 type Estado = { tipo: "cargando" } | { tipo: "error" } | { tipo: "listo"; negocio: NegocioPublico };
 
@@ -34,6 +41,13 @@ export function PerfilNegocioPage() {
       cancelado = true;
     };
   }, [slug]);
+
+  const tema = estado.tipo === "listo" ? estado.negocio.tema : undefined;
+  useEffect(() => {
+    // La serif de barbería se descarga solo si esta plantilla la usa:
+    // quien abre el perfil de un spa no paga por una fuente que no ve.
+    if (tema) cargarFuenteDe(plantillaDe(tema));
+  }, [tema]);
 
   async function compartir(negocio: NegocioPublico) {
     const url = window.location.href;
@@ -73,21 +87,48 @@ export function PerfilNegocioPage() {
   }
 
   const { negocio } = estado;
-  const Composicion = composicionDe(negocio.tema);
+  const plantilla = plantillaDe(negocio.tema);
 
   return (
-    // El color del negocio se aplica **acá**, no en `:root`: es el mismo
-    // bundle que sirve el panel del staff, y teñir la raíz dejaría la app
-    // entera con el color de la última barbería que alguien visitó. Todo
-    // lo que use `bg-acento`, `text-acento`, etc. dentro de este árbol se
-    // repinta solo; fuera, sigue el color de Turnio.
-    <div style={variablesDeTema(negocio.color_acento)}>
-      <Composicion
+    // La plantilla se aplica **acá**, no en `:root`: es el mismo bundle
+    // que sirve el panel del staff, y pintar la raíz dejaría la app
+    // entera con la paleta de la última barbería que alguien visitó.
+    // Todo lo que use tokens `perfil-*` dentro de este árbol se repinta
+    // solo; fuera, siguen los colores de Turnio.
+    <div
+      style={variablesDePlantilla(negocio.tema, negocio.color_acento)}
+      className="min-h-dvh bg-perfil-fondo"
+    >
+      <Encabezado
         negocio={negocio}
-        onReservar={setServicioReserva}
+        plantilla={plantilla}
+        usaPortadaDeMuestra={!negocio.portada}
         onCompartir={() => compartir(negocio)}
       />
-      <div className="mx-auto max-w-2xl px-margin-mobile md:px-margin-desktop">
+
+      {/* Mismo `--width-perfil-contenido` que el encabezado, para que
+          los dos bordes coincidan (ver `Encabezado`). En `lg`+ se abre
+          en dos columnas — servicios a la izquierda (más ancha, es lo
+          que la mayoría vino a ver), equipo/horario/contacto en una
+          columna fija a la derecha — en vez de una sola lista angosta
+          perdida en medio de una pantalla grande. En mobile son dos
+          `div` que simplemente se apilan en el mismo orden de siempre. */}
+      <div className="mx-auto max-w-(--width-perfil-contenido) px-margin-mobile pb-16 pt-8 md:px-margin-desktop">
+        <div className="lg:grid lg:grid-cols-3 lg:items-start lg:gap-10">
+          <div className="lg:col-span-2">
+            <CarruselFotos negocio={negocio} />
+            <SeccionServicios
+              negocio={negocio}
+              plantilla={plantilla}
+              onReservar={setServicioReserva}
+            />
+          </div>
+          <div className="lg:sticky lg:top-8">
+            <SeccionEquipo negocio={negocio} plantilla={plantilla} />
+            <SeccionHorario negocio={negocio} plantilla={plantilla} />
+            <Contacto negocio={negocio} />
+          </div>
+        </div>
         <FirmaTurnio />
       </div>
 

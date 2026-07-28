@@ -17,6 +17,58 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* --- Tokens del perfil público (plantillas por rubro) ----------------
+   El perfil de cada negocio se pinta con **su** plantilla: barbería
+   (oscura), spa (clara y suave) o clínica (clara y sobria). Estos son
+   los nombres semánticos que usan sus componentes; los valores reales
+   los inyecta `src/tema/plantillas.ts` en el contenedor del perfil.
+
+   Viven acá y **no** en `design/tokens.css` a propósito: ese archivo lo
+   comparte la landing, y estos tokens solo tienen sentido dentro del
+   perfil público. Meterlos ahí obligaría a la landing a cargar
+   vocabulario que nunca usa.
+
+   Los valores de abajo son el fallback (la plantilla de spa, que es la
+   de por defecto en el backend): lo que se ve si alguien usa una de
+   estas utilidades fuera del contenedor del perfil. Nunca deberían
+   verse — si aparecen, es que un componente del perfil se está
+   renderizando donde no va.
+
+   `static` por la misma razón que en `tokens.css`: sin él, Tailwind
+   omite del CSS los tokens que ninguna utilidad usa directamente. */
+@theme static {
+  --color-perfil-fondo: #fafafa;
+  --color-perfil-superficie: #ffffff;
+  --color-perfil-superficie-alta: #f3f4f6;
+  --color-perfil-texto: #2b2b2b;
+  --color-perfil-texto-suave: #6b7280;
+  --color-perfil-borde: #e5e7eb;
+  --color-perfil-primario: #7a8b7b;
+  --color-perfil-sobre-primario: #ffffff;
+
+  /* El radio es el rasgo que más distingue una plantilla de otra:
+     6px en barbería (precisión), 16px en spa (calidez), 8px en
+     clínica (neutro). Botones y campos heredan el mismo. */
+  --radius-perfil: 1rem;
+  /* Las esquinas superiores de la hoja de reserva, que van más
+     redondeadas que una tarjeta en las tres plantillas. */
+  --radius-perfil-hoja: 2rem;
+
+  /* Barbería usa serif en los titulares; las otras dos, la fuente del
+     sistema de diseño. Ver `plantillas.ts`. */
+  --font-perfil-titulo: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* El ancho de columna del perfil público (encabezado y contenido),
+     tomado del `DESIGN.md` de origen: "content containers are capped at
+     1200px wide for readability". Una sola variable y no un literal
+     repetido en cada componente: el encabezado (`Encabezado`) y el
+     cuerpo (`PerfilNegocioPage`) tienen que alinear el mismo borde
+     izquierdo/derecho exactamente, o el título queda pegado a la
+     pantalla mientras el resto se centra en una caja angosta — el bug
+     que tenía esta pantalla en escritorio antes de este token. */
+  --width-perfil-contenido: 1200px;
+}
+
 /*
   El color de borde por defecto pasó a ser `currentcolor` en Tailwind v4.
   Estos estilos preservan el comportamiento de v3 (gris claro) para no

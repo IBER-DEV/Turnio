@@ -24,7 +24,7 @@ const NEGOCIO = {
   logo: null,
   portada: null,
   color_acento: "",
-  tema: "estandar",
+  tema: "spa",
   fotos: [],
   servicios: [
     {
@@ -130,10 +130,23 @@ describe("PerfilNegocioPage", () => {
     ]);
   });
 
-  it("el tema Vitrina muestra la portada y el llamado a reservar", async () => {
+  it("sin portada propia usa la de muestra, y lo dice", async () => {
+    // Que un cliente vea la foto de OTRO local creyendo que es al que va
+    // a ir es el riesgo de traer portadas de muestra: el aviso es lo que
+    // lo hace honesto.
+    mockearGet({ "/api/publico/negocios/{slug}/": { data: NEGOCIO, error: undefined } });
+
+    renderPerfil();
+
+    await screen.findByRole("heading", { name: "Barbería Castro" });
+    expect(screen.getByText(/Foto de muestra/i)).toBeInTheDocument();
+    expect(document.querySelector('img[src="/plantillas/spa.webp"]')).not.toBeNull();
+  });
+
+  it("con portada propia no aparece el aviso de muestra", async () => {
     mockearGet({
       "/api/publico/negocios/{slug}/": {
-        data: { ...NEGOCIO, tema: "vitrina", portada: "http://api.test/media/portada.png" },
+        data: { ...NEGOCIO, portada: "http://api.test/media/portada.png" },
         error: undefined,
       },
     });
@@ -141,12 +154,31 @@ describe("PerfilNegocioPage", () => {
     renderPerfil();
 
     await screen.findByRole("heading", { name: "Barbería Castro" });
-    expect(await screen.findByRole("button", { name: "Reservar ahora" })).toBeInTheDocument();
-    const portada = document.querySelector('img[src="http://api.test/media/portada.png"]');
-    expect(portada).not.toBeNull();
+    expect(screen.queryByText(/Foto de muestra/i)).toBeNull();
+    expect(
+      document.querySelector('img[src="http://api.test/media/portada.png"]'),
+    ).not.toBeNull();
   });
 
-  it("un tema que esta versión de la app no conoce cae en el estándar", async () => {
+  it("la plantilla de barbería pinta el perfil con su paleta oscura", async () => {
+    mockearGet({
+      "/api/publico/negocios/{slug}/": {
+        data: { ...NEGOCIO, tema: "barberia" },
+        error: undefined,
+      },
+    });
+
+    const { container } = renderPerfil();
+
+    await screen.findByRole("heading", { name: "Barbería Castro" });
+    const contenedor = container.firstElementChild as HTMLElement;
+    expect(contenedor.style.getPropertyValue("--color-perfil-fondo")).toBe("#121212");
+    expect(contenedor.style.getPropertyValue("--color-perfil-primario")).toBe("#d4af37");
+    // El radio es el otro rasgo que distingue una plantilla de otra.
+    expect(contenedor.style.getPropertyValue("--radius-perfil")).toBe("0.375rem");
+  });
+
+  it("un tema que esta versión de la app no conoce cae en la plantilla por defecto", async () => {
     // El backend puede ir por delante de la app instalada en un
     // teléfono: recibir un tema nuevo no puede dejar la página en blanco.
     mockearGet({
@@ -162,10 +194,11 @@ describe("PerfilNegocioPage", () => {
     expect(screen.getByText("Corte clásico")).toBeInTheDocument();
   });
 
-  it("el color del negocio se aplica al perfil, no a la app entera", async () => {
+  it("el color del negocio sustituye el primario de la plantilla, no su fondo", async () => {
+    // Un negocio elige su color de marca; no rediseña la plantilla.
     mockearGet({
       "/api/publico/negocios/{slug}/": {
-        data: { ...NEGOCIO, color_acento: "#be123c" },
+        data: { ...NEGOCIO, tema: "barberia", color_acento: "#be123c" },
         error: undefined,
       },
     });
@@ -174,11 +207,12 @@ describe("PerfilNegocioPage", () => {
 
     await screen.findByRole("heading", { name: "Barbería Castro" });
     const contenedor = container.firstElementChild as HTMLElement;
-    expect(contenedor.style.getPropertyValue("--color-acento")).toBe("#be123c");
+    expect(contenedor.style.getPropertyValue("--color-perfil-primario")).toBe("#be123c");
+    expect(contenedor.style.getPropertyValue("--color-perfil-fondo")).toBe("#121212");
     // La raíz del documento queda intacta: el mismo bundle sirve el panel
-    // del staff, y teñir `:root` dejaría la app con el color de la última
+    // del staff, y pintarla dejaría la app con la paleta de la última
     // barbería visitada.
-    expect(document.documentElement.style.getPropertyValue("--color-acento")).toBe("");
+    expect(document.documentElement.style.getPropertyValue("--color-perfil-fondo")).toBe("");
   });
 
   it("catálogo vacío ofrece el estado vacío, no una lista en blanco", async () => {
@@ -191,7 +225,9 @@ describe("PerfilNegocioPage", () => {
 
     renderPerfil();
 
-    expect(await screen.findByText("Sin servicios publicados")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/todavía no publicó su catálogo/i),
+    ).toBeInTheDocument();
   });
 
   it("reservar: elegir hora, completar datos y confirmar", async () => {

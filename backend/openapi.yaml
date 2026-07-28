@@ -2773,12 +2773,14 @@ components:
       - precio
     TemaEnum:
       enum:
-      - estandar
-      - vitrina
+      - barberia
+      - spa
+      - clinica
       type: string
       description: |-
-        * `estandar` - Estándar
-        * `vitrina` - Vitrina
+        * `barberia` - Barbería
+        * `spa` - Spa y estética
+        * `clinica` - Clínica y salud
     TipoEnum:
       enum:
       - administracion

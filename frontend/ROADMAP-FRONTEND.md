@@ -1090,3 +1090,81 @@ módulo de `vite.config.ts` — antes de que Node arranque los workers y
 cachee la zona, que es por lo que no sirve ponerlo en `test.env`. Es
 además la zona del backend (`TIME_ZONE`), así que la suite corre en la
 misma que el producto. Verificado con `TZ=UTC npx vitest run`.
+
+## Plantillas por rubro: barbería, spa y clínica (2026-07-28)
+
+> A partir del material de `stitch_booking_page_ui_system/` (tres
+> plantillas de Stitch con su `DESIGN.md`).
+
+### Qué cambió, y por qué fue más que "tres paletas"
+Las plantillas anteriores (`estandar`/`vitrina`) eran composiciones con
+la paleta de Turnio. Estas tres son **diseños completos**, y la de
+barbería es **modo oscuro** — con lo cual todo componente del perfil que
+usara un token fijo (`bg-white`, `text-primary`) ahí desaparecía o
+deslumbraba.
+
+Eso obligó a lo que era el trabajo real de esta tanda: una capa de tokens
+semánticos propios del perfil (`--color-perfil-*`, `--radius-perfil`,
+`--font-perfil-titulo`, declarados en `src/index.css`) y la reescritura de
+`secciones.tsx` contra ellos. La regla queda escrita en la cabecera de ese
+archivo: **ningún color de Turnio dentro del perfil público**.
+
+- **`src/tema/plantillas.ts`** — el catálogo: paleta, radios, tipografía,
+  portada de muestra y estilo de tarjeta por plantilla, más el degradado
+  ante un tema desconocido.
+- **Una sola composición** para las tres (enfoque "Themed Core" del
+  `DESIGN.md`). Se borró `publico/temas.tsx`.
+- **La hoja de reserva** adopta la plantilla: superficie, radio superior
+  y chips de hora con el primario del negocio. Como vive en un portal
+  fuera del árbol del perfil, hay que volver a declararle las variables.
+- **Portadas de muestra** en `public/plantillas/*.webp` (1,7 MB → 42–85
+  KB al convertir a WebP), con aviso visible "Foto de muestra".
+- **Serif de barbería** con `import()` dinámico: quien abre un spa no la
+  descarga.
+- **Selector del panel** rehecho: cada opción se pinta con las variables
+  reales de su plantilla, así que no puede desincronizarse del perfil.
+- Se borró `variablesDeTema()` de `colores.ts`, que quedó sin uso.
+- 50 tests en verde.
+
+### Pendientes que deja
+- **Solo tres plantillas, y una composición.** Si algún rubro pide otra
+  disposición (y no solo otra paleta), hay que decidir si se vuelve a
+  separar el eje layout — ver `../DECISIONES.md` #16, que esta tanda
+  revierte en parte.
+- **Las portadas de muestra son fotos genéricas.** Están marcadas como
+  tales en la página, pero un negocio que nunca sube la suya se ve igual
+  que otro del mismo rubro.
+- **`FONDO_POR_TEMA` en el backend duplica un color de acá.** Ningún test
+  puede verificar que coincidan; está anotado en los dos archivos.
+
+## Arreglo de layout: el perfil público en pantallas grandes (2026-07-28)
+
+> Reportado por el humano viendo la plantilla de barbería en desktop:
+> "el carrusel no se ve bien en pantallas más grandes".
+
+Diagnóstico confirmado con capturas (Chrome headless contra el dev
+server + backend real, no solo mirando el código): el encabezado usaba
+ancho completo con `padding`, pero el contenido de abajo vivía en una
+caja `max-w-2xl` **centrada**. En cualquier pantalla más ancha que
+~800px eso desalineaba el título del resto del perfil y dejaba el
+carrusel —angosto, con la barra de scroll nativa visible— flotando en
+medio de un vacío enorme.
+
+- Encabezado y contenido comparten `--width-perfil-contenido` (1200px,
+  tomado del propio `DESIGN.md` de origen), un solo token para que sus
+  bordes coincidan siempre.
+- El carrusel es una grilla real desde `md` (no una tira de scroll
+  angosta); en mobile sigue con `scroll-snap`, ahora con `hide-
+  scrollbar`.
+- Desde `lg`, servicios queda en una columna ancha y equipo/horario/
+  contacto en una columna fija a la derecha, sticky.
+
+**Bug encontrado al verificar visualmente, no al leer el código**: el
+botón "Reservar" salía siempre verde sin importar la plantilla —
+`Button`'s variante `negocio` seguía leyendo `--color-acento` (el token
+de la tanda de "color único" anterior a las plantillas), que ya no
+pinta nadie. Corregido a `--color-perfil-primario`. Ver
+`../DECISIONES.md` #24.
+
+Confirmado con capturas en barbería (1920/1280/834/390px) y en clínica
+(el negocio de prueba estaba en ese tema al momento de verificar).

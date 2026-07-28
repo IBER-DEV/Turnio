@@ -27,6 +27,105 @@
 
 ---
 
+## 2026-07-28 — Plantillas por rubro (Fase 2)
+
+Del material de diseño en `stitch_booking_page_ui_system/` (tres
+plantillas de Stitch con su `DESIGN.md`). Reemplaza el eje de "temas como
+composición" que había durado unas horas — ver #16, que queda revertida
+en parte.
+
+### 19. Una plantilla = paleta completa, y las tres comparten composición
+
+**Decisión.** `tema` deja de ser un layout (`estandar`/`vitrina`) y pasa a
+ser un diseño por rubro: `barberia` (oscura, dorada, radio 6px), `spa`
+(clara, salvia, 16px), `clinica` (clara, azul médico, 8px). La
+composición del perfil es **una sola**.
+
+**Por qué así y no dos ejes (layout × paleta).** Es el enfoque "Themed
+Core" del `DESIGN.md`: mismo núcleo funcional, distinta expresión visual.
+Dos ejes daban seis combinaciones que diseñar y probar, y el selector del
+panel pasaba a hacer dos preguntas donde el dueño solo quiere elegir "el
+que se parece a mi negocio".
+
+**Lo que esto obligó a cambiar, y es la parte cara.** La plantilla de
+barbería es **modo oscuro**. Todo componente del perfil que usara un
+token fijo de Turnio (`bg-white`, `text-primary`, `border-outline-variant`)
+ahí desaparece o deslumbra. Hubo que introducir una capa de tokens
+semánticos propios del perfil (`--color-perfil-*`, `--radius-perfil`,
+`--font-perfil-titulo`) y reescribir las secciones contra ellos. La regla
+queda escrita en `secciones.tsx`: **ningún color de Turnio dentro del
+perfil público**.
+
+**Dónde viven.** En `frontend/src/index.css` y no en `design/tokens.css`,
+que lo comparte la landing: son tokens que solo tienen sentido dentro del
+perfil, y meterlos en el archivo compartido obligaría a la landing a
+cargar vocabulario que nunca usa.
+
+**Precio pagado.** `estandar` y `vitrina` desaparecen; la migración mapea
+por parecido visual (`vitrina`→`barberia`, `estandar`→`spa`). Sin la
+migración de datos, los negocios existentes quedaban con un valor fuera
+de `choices` y el frontend caería en la plantilla por defecto sin que
+nadie se enterara de que el dato quedó muerto.
+
+### 20. El backend no conoce las paletas (salvo un color)
+
+**Decisión.** El backend guarda **cuál** plantilla eligió el negocio, no
+cómo se ve. La única excepción es `Negocio.FONDO_POR_TEMA`, que duplica
+el color de fondo de cada plantilla.
+
+**Por qué la excepción.** `theme-color` se emite en el HTML del servidor,
+antes de que React monte, y debe coincidir con el fondo real de la
+página. En la plantilla oscura, una barra de navegador clara sobre un
+perfil negro se ve como un error de carga.
+
+**Riesgo aceptado.** Es una duplicación a mano entre dos lenguajes: hay
+un test que fija que estén **todas** las plantillas, pero ninguno puede
+verificar que los valores coincidan. Está anotado en los dos archivos.
+
+**Corolario:** `theme-color` dejó de salir de `color_acento` (decisión
+#18, corregida). El acento pinta botones; la barra del navegador
+acompaña al lienzo.
+
+### 21. Portadas de muestra: sí en la página, no al compartir
+
+**Decisión del humano.** Un negocio sin portada propia se muestra con la
+foto de su plantilla, con un aviso visible "Foto de muestra".
+
+**Dónde se puso el límite, y por qué.** Esa foto **no** se usa como
+`og:image`. Dentro de la página el aviso deja claro que es de muestra; en
+una tarjeta de WhatsApp no hay dónde aclararlo, y quien recibe el enlace
+vería la foto de otro local creyendo que es al que va a ir. Compartir sin
+imagen es peor estéticamente y más honesto.
+
+**Peso.** Las tres imágenes de origen pesaban 1,7 MB cada una (PNG
+1376×768). Convertidas a WebP 1200px quedaron en 42–85 KB. Se sirven
+desde `frontend/public/plantillas/`, con una ruta propia en el Django de
+desarrollo (`/plantillas/`) y un slug reservado del mismo nombre.
+
+### 22. La serif de barbería se carga solo si se usa
+
+**Decisión.** `@fontsource/libre-caslon-text` con `import()` dinámico
+disparado por la plantilla.
+
+**Por qué.** Es lo que le da el aire editorial a la barbería, pero quien
+abre el perfil de un spa no tiene por qué descargarla. Autoalojada y no
+por CDN, como el resto de las fuentes: esto termina en un bundle de
+Capacitor que debe verse igual sin conexión. Si la carga falla, los
+titulares caen en la serif del sistema — un perfil no se rompe por una
+tipografía.
+
+### 23. Las capturas de referencia no eran la fuente de verdad del color
+
+**Observación, no decisión.** Los PNG de spa y clínica venían
+renderizados con el morado `#4f378a` del frontmatter genérico del
+`DESIGN.md`, no con el salvia ni el azul que describen su prosa y el
+pedido escrito. Se siguió la **especificación escrita** y las capturas se
+usaron como referencia de estructura.
+
+Vale como recordatorio: cuando una imagen generada y un texto se
+contradicen, el texto es lo que alguien decidió; la imagen es lo que una
+herramienta produjo.
+
 ## 2026-07-28 — Tematización por negocio (Fase 2)
 
 Salieron de darle a cada negocio un tema, un color de marca y una
@@ -321,3 +420,31 @@ galería; si no hay ninguna, se comparte sin imagen. `twitter:card` sube a
 
 **Por qué el detalle del `twitter:card`.** Con la variante grande y sin
 imagen, la tarjeta queda vacía — peor que la miniatura de `summary`.
+
+### 24. Verificar visualmente encontró un bug que la revisión de código no había visto
+
+**Contexto.** Al confirmar el arreglo de layout en las tres plantillas
+con capturas reales (no solo revisando las clases de Tailwind), el
+botón "Reservar" salía siempre verde — nunca dorado en barbería, nunca
+azul en clínica.
+
+**Causa.** `Button`'s variante `negocio` (`src/ui/Button.tsx`) seguía
+apuntando a `--color-acento`/`--color-sobre-acento`, los tokens de la
+tanda de "color único por negocio" (#12) que las plantillas (#19)
+reemplazaron por `--color-perfil-primario`/`--color-perfil-sobre-
+primario`. Nadie volvió a declarar los tokens viejos en ningún
+contenedor, así que el botón caía siempre en el default fijo de
+`design/tokens.css` (la menta de Turnio) sin que ningún test lo
+atrapara: los tests de `PerfilNegocioPage` verifican las variables CSS
+del contenedor, no qué variable usa cada componente hijo.
+
+**Corregido** a los tokens vigentes.
+
+**Por qué esto importa como regla, no solo como bug puntual.** Ninguna
+suite de tests unitarios lo iba a atrapar: la aserción hubiera sido
+"el contenedor tiene `--color-perfil-primario: #d4af37`", y el botón sí
+lo tenía disponible en el árbol — el problema era que **leía otra
+variable**, indetectable sin mirar el resultado renderizado. Confirma
+la regla del propio `CLAUDE.md`: para cambios de frontend, probar en
+un navegador real antes de dar el trabajo por terminado, no solo correr
+la suite.
