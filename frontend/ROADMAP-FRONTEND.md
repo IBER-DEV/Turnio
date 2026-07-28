@@ -1076,3 +1076,17 @@ marca justamente por esto.
   `AuthContext.tsx` y `Toast.tsx`. Se dejó así a propósito: separar el
   catálogo de la implementación haría que agregar un tema toque dos
   archivos, que es justo lo que la organización actual evita.
+
+### Nota: la suite dependía de la zona horaria de la máquina (2026-07-28)
+El CI del PR #5 destapó dos tests del perfil público en rojo que pasaban
+en local: comparan horas ya formateadas (`"09:00"`) contra un instante
+UTC, así que solo pasaban en una máquina configurada en `America/Bogota`
+y fallaban en el runner, que corre en UTC. Es un bug latente anterior a
+esta tanda; no se había visto porque el CI de frontend venía fallando
+antes de llegar al paso de tests, por el drift de `schema.ts`.
+
+Se arregló fijando `process.env.TZ = "America/Bogota"` en el ámbito de
+módulo de `vite.config.ts` — antes de que Node arranque los workers y
+cachee la zona, que es por lo que no sirve ponerlo en `test.env`. Es
+además la zona del backend (`TIME_ZONE`), así que la suite corre en la
+misma que el producto. Verificado con `TZ=UTC npx vitest run`.
