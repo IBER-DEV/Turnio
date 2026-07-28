@@ -6,7 +6,7 @@ import { Icon } from "./Icon";
 import type { NombreIcono } from "./Icon";
 
 const BASE_CAMPO =
-  "w-full rounded-xl border border-outline-variant bg-white py-3 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-outline focus:border-menta focus:ring-2 focus:ring-menta/20";
+  "w-full rounded-xl border border-outline-variant bg-white py-3 font-body-md text-body-md text-on-surface outline-hidden transition-all placeholder:text-outline focus:border-menta focus:ring-2 focus:ring-menta/20";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;

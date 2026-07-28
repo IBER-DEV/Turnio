@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "apps.usuarios",
     "apps.servicios",
     "apps.agenda",
+    "apps.publico",
 ]
 
 MIDDLEWARE = [
@@ -98,6 +99,20 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Los endpoints públicos (Fase 2) no tienen sesión detrás, así que el
+    # único sujeto al que limitar es la IP. Se aplican por `throttle_scope`
+    # en cada vista, no globalmente: el staff autenticado no debería
+    # toparse con un límite pensado para internet abierto.
+    "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
+    "DEFAULT_THROTTLE_RATES": {
+        # Navegar un perfil y consultar horarios es barato y frecuente:
+        # un cliente indeciso mira varios días seguidos.
+        "publico_lectura": "120/min",
+        # Reservar es caro (escribe) y humanamente lento. Un límite bajo
+        # corta el llenado automático de la agenda de un local sin
+        # estorbarle a nadie real.
+        "publico_reserva": "10/hour",
+    },
 }
 
 SPECTACULAR_SETTINGS = {

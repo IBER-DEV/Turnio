@@ -29,6 +29,9 @@ build/
 .capacitor/
 ios/App/Pods/
 android/.gradle/
+.agents
+agents/
+skills
 
 # Editor / OS
 .vscode/

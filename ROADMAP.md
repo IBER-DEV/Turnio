@@ -93,6 +93,22 @@
 - **Estructura de repo: monorepo** (`backend/` + `frontend/` en este
   mismo repo Git), con dos personas trabajando en paralelo cada una
   con su propio Claude Code (confirmado por el humano, 2026-07-24).
+  Existe además **`landing/`** (sitio de marketing en Astro, con su
+  propio `ROADMAP-LANDING.md`), que no estaba documentado acá hasta el
+  2026-07-28.
+- **Un solo dominio, una ruta por negocio** (confirmado por el humano,
+  2026-07-28): el perfil público de cada negocio vive en
+  `turnio.app/{slug}`, no en subdominios. Sin costo de dominio por
+  negocio y con las páginas públicas cacheables en CDN, que es lo que
+  mantiene barata la infraestructura mientras el tráfico público crece.
+  **Consecuencia técnica**: el slug comparte espacio de nombres con las
+  rutas de la app, así que hay una lista de slugs reservados en el
+  backend (ver `CONTRATO.md` 5.11) que debe crecer con cada ruta nueva
+  en la raíz del frontend.
+- **El cliente reserva sin cuenta** (confirmado por el humano,
+  2026-07-28): nombre y teléfono, nada más. Registrarse es fricción
+  justo en el momento en que el producto compite contra un WhatsApp.
+  El módulo `Cliente` sigue siendo de Fase 4.
 - **Contrato API backend↔frontend: OpenAPI autogenerado**
   (`drf-spectacular` → `backend/openapi.yaml`) + `CONTRATO.md` para
   convenciones que el schema no captura (auth, errores, capacidades).
@@ -124,8 +140,8 @@
 | Fase | Estado | Detalle |
 |---|---|---|
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
-| Fase 1 — Núcleo operativo multi-empleado | 🟡 Backend completo; frontend primera pasada completa en rama `feature/frontend-fase1` (2026-07-24), sin mergear ni revisada por el compañero todavía | Backend: Servicios, Empleados (capacidades + especialidad), Agenda por empleado con máquina de estados de `Cita`. Frontend: login, registro de negocio, dashboard, Servicios, Agenda (horarios+citas), Empleados — ver `frontend/ROADMAP-FRONTEND.md` para pendientes (tests, edición completa de Servicios, storage nativo). La fase no se marca ✅ hasta que se mergee y el compañero la retome/valide. |
-| Fase 2 — Descubrimiento y reserva de clientes | Sin empezar | |
+| Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
+| Fase 2 — Descubrimiento y reserva de clientes | 🟡 Backend público completo (2026-07-28); falta el frontend | Backend: búsqueda de negocios, perfil público, disponibilidad y reserva **sin cuenta**, con throttling y slugs reservados. Ver `CONTRATO.md` 5.11. Frontend: perfil público en `turnio.app/{slug}`, búsqueda y flujo de reserva — sin empezar. |
 | Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |

@@ -851,3 +851,103 @@ el negocio que nace configurado hasta las dos puertas de escalada.
   frontend necesita conocerlos para montar shells— pero significa que un
   negocio no puede inventarse una experiencia nueva, solo un cargo nuevo
   dentro de una de las tres.
+
+---
+
+## Fase 2 — Descubrimiento y reserva — backend público COMPLETADO (2026-07-28)
+
+> Primera superficie del proyecto **sin autenticación**. Todo lo que sigue
+> está escrito con esa premisa: no es "unos endpoints más", es exponer el
+> negocio a internet abierto.
+
+### Qué se completó
+- **`apps.publico`**, app nueva con cuatro endpoints bajo `/api/publico/`:
+  búsqueda de negocios, perfil público, disponibilidad y reserva. Sin
+  modelos propios — es una capa de presentación sobre lo que ya existe.
+- **`agenda.services.huecos_disponibles()`**: las horas libres de un día
+  para un servicio.
+- **`SLUGS_RESERVADOS`** en `apps.negocios.models` + `_slug_ocupado()`.
+- **Throttling por IP** (`ScopedRateThrottle`), el primero del proyecto.
+
+### Decisiones y su justificación
+- **Serializers públicos escritos a mano, sin reutilizar los internos.**
+  Es la decisión más importante del módulo y la más fácil de erosionar.
+  Reusar `ServicioSerializer` habría publicado `porcentaje_comision`;
+  reusar `MiembroEquipoSerializer` habría publicado `activo`. Con
+  serializers propios, un campo nuevo en un modelo **no aparece solo** en
+  la web pública: alguien tiene que decidir agregarlo. Hay tests que
+  afirman el set exacto de claves, no solo la ausencia de una.
+- **`huecos_disponibles` carga todo de una y cruza en memoria.** Es el
+  único endpoint público que no se puede cachear —cambia con cada
+  reserva—, así que la versión ingenua (llamar a `empleado_disponible`
+  por cada hueco y empleado) serían ~360 consultas por request en un día
+  de 9 horas con 5 empleados. Se cargan horarios y citas del día en tres
+  queries y se cruza en Python.
+- **La disponibilidad no dice con quién.** Devuelve solo horas. Nombrar
+  al empleado sería una promesa que otra reserva simultánea puede romper
+  entre que se muestra y se confirma; además delataría la ocupación
+  individual de cada persona.
+- **Reservar un hueco tomado responde `400` con mensaje genérico.** No
+  distingue "se acaba de ocupar" de "nunca estuvo disponible". La
+  diferencia convertiría el endpoint en un oráculo: con suficientes
+  intentos se reconstruye la agenda completa del local.
+- **La respuesta de reserva no lleva el `id` de la cita.** Hoy el cliente
+  no puede hacer nada con él —cancelar sin cuenta necesitaría un token de
+  acceso, que es una decisión aparte— y un id expuesto sin uso solo
+  invita a probar los vecinos.
+- **Un negocio inactivo responde `404` en todo**, no solo desaparece del
+  listado. Darlo de baja tiene que sacarlo de internet, no dejarlo
+  accesible por URL directa.
+- **Dos ritmos de throttling.** Leer es barato y frecuente (un cliente
+  indeciso mira varios días): 120/min. Escribir es caro y humanamente
+  lento: 10/hora, que corta el llenado automático de una agenda sin
+  estorbarle a nadie real. Se aplican por `throttle_scope` y no
+  globalmente, para que el staff autenticado no se tope con límites
+  pensados para internet abierto.
+- **Slugs reservados, no validación al vuelo.** El perfil público vivirá
+  en `turnio.app/{slug}`, así que el slug comparte espacio de nombres con
+  las rutas de la app. Se incluyeron nombres que todavía no se usan
+  (`ayuda`, `precios`, `blog`): liberarlos después es trivial, recuperar
+  uno que ya tomó un negocio real significa cambiarle una URL que quizá
+  ya repartió. También se cubrió el nombre de puros símbolos, que dejaba
+  el slug vacío y el perfil en la raíz del sitio.
+
+### Tests
+24 nuevos (140 en total, antes 116). Más de la mitad son negativos, que
+es lo que corresponde en una superficie sin auth: que la comisión no se
+filtre, que el email y el cargo del equipo no se filtren, que las citas
+existentes tapen huecos **sin aparecer**, que un negocio inactivo dé 404,
+que reservar dos veces el mismo hueco no delate al primero, que no se
+pueda consultar el servicio de otro negocio.
+
+Los dos de throttling **se verificó que miden lo real**: quitando el
+`throttle_scope` de la vista de reserva, el test falla con `400 == 429`.
+
+Detalle que costó: `override_settings(REST_FRAMEWORK=…)` **no** cambia
+los límites, porque DRF lee `SimpleRateThrottle.THROTTLE_RATES` una sola
+vez al importar. El síntoma fue un test que pasaba aislado y fallaba con
+la suite completa. Se resolvió parcheando el diccionario de la clase con
+`monkeypatch.setitem`, y queda explicado en el docstring del fixture.
+
+### Pendiente / a medio hacer
+- **La búsqueda no pagina** y `GET /api/publico/negocios/` sin filtros
+  devuelve todos los negocios activos. A la escala actual está bien; a
+  mil negocios no. Es el primer endpoint que va a necesitar paginación de
+  verdad, y `CONTRATO.md` sección 4 exige documentarla antes de activarla.
+- **La búsqueda es `icontains` sobre el nombre.** No hay búsqueda por
+  servicio ("quién hace barba"), ni por cercanía, ni tolerancia a errores
+  de tipeo. Las tres son esperables en cuanto haya volumen real.
+- **El throttling usa el caché por defecto**, que es `LocMemCache`: los
+  contadores son por proceso. Con más de un worker, el límite efectivo se
+  multiplica por el número de procesos. Antes de exponer esto a internet
+  hay que poner Redis detrás del caché — es el primer consumidor real que
+  justifica agregarlo (hasta ahora se había evitado a propósito).
+- **No hay confirmación por ningún canal.** El cliente reserva y no
+  recibe nada; el negocio se entera al mirar su agenda. Es el hueco más
+  visible del flujo para un uso real, y depende de decidir el canal
+  (email, WhatsApp, SMS) — que toca el punto de Fase 6 sobre WhatsApp.
+- **`Cita` sigue sin validar que la fecha no esté en el pasado** a nivel
+  de modelo. `huecos_disponibles` no ofrece horas pasadas, pero un POST
+  directo con una fecha vieja pasa si el empleado tenía horario ese día
+  de la semana. Estaba anotado desde Fase 1 y ahora importa más, porque
+  el endpoint es público.

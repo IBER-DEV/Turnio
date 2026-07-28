@@ -170,8 +170,8 @@ export function DashboardPage() {
           onClick={() => navigate("/agenda")}
           className="tactile group relative flex w-full items-center gap-5 overflow-hidden rounded-2xl bg-primary p-6 text-left text-white shadow-card transition-shadow hover:shadow-elevada"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-container/60 to-primary opacity-90" />
-          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-linear-to-br from-primary via-primary-container/60 to-primary opacity-90" />
+          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-xs">
             <Icon name="calendar_today" className="text-[24px] text-white" />
           </div>
           <div className="relative z-10 min-w-0 flex-1">

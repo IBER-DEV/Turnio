@@ -15,6 +15,7 @@ import { Switch } from "../ui/Switch";
 import { useToast } from "../ui/Toast";
 import { Tooltip } from "../ui/Tooltip";
 import {
+  CAPACIDADES,
   DEFINICIONES,
   GRUPOS,
   TIPOS,
@@ -57,6 +58,9 @@ export function ConfiguracionCargosPage() {
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
+  // Uno abierto a la vez: con varias tarjetas abiertas hay que hacer
+  // scroll para comparar, que es lo contrario de lo que sirve acá.
+  const [expandido, setExpandido] = useState<number | null>(null);
 
   const [formularioAbierto, setFormularioAbierto] = useState(false);
   const [nuevo, setNuevo] = useState(NUEVO);
@@ -191,15 +195,19 @@ export function ConfiguracionCargosPage() {
       ) : error ? (
         <EstadoError mensaje="No pudimos cargar los cargos." onReintentar={cargar} />
       ) : (
-        <div className="grid gap-md lg:grid-cols-2">
+        <div className="grid items-start gap-md lg:grid-cols-2">
           {cargos.map((cargo) => {
             const esElMio = cargo.id === membresia?.cargo?.id;
+            const abierto = expandido === cargo.id;
+            const concedidas = CAPACIDADES.filter((capacidad) => cargo[capacidad]);
+            const panelId = `permisos-cargo-${cargo.id}`;
+
             return (
               <section
                 key={cargo.id}
-                className="animate-slide-in-bottom rounded-2xl border border-outline-variant/60 bg-white p-5"
+                className="animate-slide-in-bottom overflow-hidden rounded-2xl border border-outline-variant/60 bg-white"
               >
-                <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-2 p-5 pb-0">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-label-md text-label-md font-bold text-on-surface">
@@ -234,51 +242,100 @@ export function ConfiguracionCargosPage() {
                   )}
                 </div>
 
-                {cargo.miembros > 0 && puedoGestionar && (
-                  <p className="mb-4 flex items-start gap-xs rounded-lg bg-surface-container-low p-2.5 text-[11px] text-on-surface-variant">
-                    <Icon name="info" className="shrink-0 text-[16px] text-menta" />
-                    Lo que cambies acá aplica a las {cargo.miembros}{" "}
-                    {cargo.miembros === 1 ? "persona" : "personas"} con este cargo.
-                  </p>
-                )}
+                {/* Resumen de lo que concede: lo que se ve sin abrir. Con
+                    siete interruptores por cargo, mostrarlos todos de
+                    entrada convierte la pantalla en un muro. */}
+                <div className="px-5 pt-3">
+                  {concedidas.length === 0 ? (
+                    <p className="text-[12px] text-on-surface-variant">
+                      Solo atiende y maneja sus propias citas.
+                    </p>
+                  ) : (
+                    <ul className="flex flex-wrap gap-1.5">
+                      {concedidas.map((capacidad) => (
+                        <li
+                          key={capacidad}
+                          className="rounded-full bg-menta/8 px-2 py-0.5 text-[11px] text-menta"
+                        >
+                          {DEFINICIONES[capacidad].corto}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
 
-                {GRUPOS.map(({ area, capacidades }) => (
-                  <div key={area} className="mb-4 last:mb-0">
-                    <h3 className="mb-2.5 border-b border-outline-variant/60 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                      {area}
-                    </h3>
-                    <div className="space-y-3.5">
-                      {capacidades.map((capacidad) => {
-                        const motivo = motivoBloqueo(cargo, capacidad);
-                        const control = (
-                          <Switch
-                            label={DEFINICIONES[capacidad].etiqueta}
-                            descripcion={DEFINICIONES[capacidad].consecuencia}
-                            checked={Boolean(cargo[capacidad])}
-                            disabled={motivo !== null}
-                            onChange={(valor) => guardar(cargo, { [capacidad]: valor })}
-                          />
-                        );
-                        return (
-                          <div key={capacidad} className="flex items-start gap-2">
-                            <div className="min-w-0 flex-1">
-                              {motivo === null ? (
-                                control
-                              ) : (
-                                <Tooltip contenido={motivo}>
-                                  <span className="inline-flex w-full cursor-not-allowed">
-                                    {control}
-                                  </span>
-                                </Tooltip>
-                              )}
-                            </div>
-                            {DEFINICIONES[capacidad].proximamente && <ChipPronto />}
-                          </div>
-                        );
-                      })}
-                    </div>
+                <button
+                  type="button"
+                  onClick={() => setExpandido(abierto ? null : cargo.id)}
+                  aria-expanded={abierto}
+                  aria-controls={panelId}
+                  className="tactile mt-3 flex w-full items-center justify-between gap-2 border-t border-outline-variant/50 px-5 py-3 text-left transition-colors hover:bg-surface-container-low"
+                >
+                  <span className="font-caption text-caption text-menta">
+                    {abierto
+                      ? "Ocultar permisos"
+                      : puedoGestionar
+                        ? "Ver y cambiar permisos"
+                        : "Ver permisos"}
+                  </span>
+                  <Icon
+                    name="keyboard_arrow_down"
+                    className={cn(
+                      "shrink-0 text-[20px] text-menta transition-transform",
+                      abierto && "rotate-180",
+                    )}
+                  />
+                </button>
+
+                {abierto && (
+                  <div id={panelId} className="animate-fade-in px-5 pb-5">
+                    {cargo.miembros > 0 && puedoGestionar && (
+                      <p className="mb-4 flex items-start gap-xs rounded-lg bg-surface-container-low p-2.5 text-[11px] text-on-surface-variant">
+                        <Icon name="info" className="shrink-0 text-[16px] text-menta" />
+                        Lo que cambies acá aplica a las {cargo.miembros}{" "}
+                        {cargo.miembros === 1 ? "persona" : "personas"} con este cargo.
+                      </p>
+                    )}
+
+                    {GRUPOS.map(({ area, capacidades }) => (
+                      <div key={area} className="mb-4 last:mb-0">
+                        <h3 className="mb-2.5 border-b border-outline-variant/60 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                          {area}
+                        </h3>
+                        <div className="space-y-3.5">
+                          {capacidades.map((capacidad) => {
+                            const motivo = motivoBloqueo(cargo, capacidad);
+                            const control = (
+                              <Switch
+                                label={DEFINICIONES[capacidad].etiqueta}
+                                descripcion={DEFINICIONES[capacidad].consecuencia}
+                                checked={Boolean(cargo[capacidad])}
+                                disabled={motivo !== null}
+                                onChange={(valor) => guardar(cargo, { [capacidad]: valor })}
+                              />
+                            );
+                            return (
+                              <div key={capacidad} className="flex items-start gap-2">
+                                <div className="min-w-0 flex-1">
+                                  {motivo === null ? (
+                                    control
+                                  ) : (
+                                    <Tooltip contenido={motivo}>
+                                      <span className="inline-flex w-full cursor-not-allowed">
+                                        {control}
+                                      </span>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                                {DEFINICIONES[capacidad].proximamente && <ChipPronto />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </section>
             );
           })}

@@ -1143,6 +1143,139 @@ paths:
               schema:
                 $ref: '#/components/schemas/RegistroNegocioRespuesta'
           description: ''
+  /api/publico/negocios/:
+    get:
+      operationId: publico_negocios_list
+      description: |-
+        Busca negocios para reservar. Público, sin autenticación.
+
+        Devuelve solo negocios activos. Sin parámetros lista todos, que hoy es razonable por el volumen; cuando crezca habrá que paginar.
+      parameters:
+      - in: query
+        name: ciudad
+        schema:
+          type: string
+        description: Filtra por ciudad.
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Busca en el nombre del negocio.
+      tags:
+      - publico
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NegocioPublicoResumen'
+          description: ''
+  /api/publico/negocios/{slug}/:
+    get:
+      operationId: publico_negocios_retrieve
+      description: |-
+        El perfil público de un negocio: sus servicios, quién atiende y su horario. Público, sin autenticación.
+
+        Esta respuesta es **cacheable**: cambia solo cuando el negocio edita su catálogo, su equipo o su horario. La disponibilidad, que cambia con cada reserva, vive en un endpoint aparte a propósito.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - publico
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NegocioPublico'
+          description: ''
+  /api/publico/negocios/{slug}/disponibilidad/:
+    get:
+      operationId: publico_negocios_disponibilidad_list
+      description: |-
+        Las horas libres para un servicio en un día. Público, sin autenticación.
+
+        **No cachear**: cambia con cada reserva. Devuelve solo horas futuras, y nunca revela quién está ocupado ni con quién — las citas existentes se usan para descartar huecos y nada más.
+      parameters:
+      - in: query
+        name: fecha
+        schema:
+          type: string
+        description: Día a consultar (YYYY-MM-DD).
+        required: true
+      - in: query
+        name: servicio
+        schema:
+          type: integer
+        description: Id del servicio.
+        required: true
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - publico
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Hueco'
+          description: ''
+  /api/publico/negocios/{slug}/reservar/:
+    post:
+      operationId: publico_negocios_reservar_create
+      description: |-
+        Reserva una cita sin necesidad de cuenta: basta nombre y teléfono. Es el reemplazo directo de llamar o escribir por WhatsApp.
+
+        `empleado` es opcional: si se omite, se asigna quien esté disponible. Si el hueco se ocupó entre que se mostró y se confirmó —dos clientes reservando a la vez— responde `400`, no una cita encima de otra.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - publico
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Reserva'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Reserva'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Reserva'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaConfirmada'
+          description: ''
   /api/servicios/:
     get:
       operationId: servicios_list
@@ -1650,6 +1783,20 @@ components:
       - hora_inicio
       - id
       - miembro
+    Hueco:
+      type: object
+      description: |-
+        Una hora a la que se puede reservar.
+
+        Solo la hora: con quién lo resuelve el backend al confirmar. Decir de
+        antemano qué empleado la tomaría sería una promesa que otra reserva
+        simultánea puede romper entre que se muestra y se confirma.
+      properties:
+        inicio:
+          type: string
+          format: date-time
+      required:
+      - inicio
     MiMembresia:
       type: object
       description: |-
@@ -1808,6 +1955,62 @@ components:
       - nombre
       - slug
       - telefono
+    NegocioPublico:
+      type: object
+      description: El perfil público completo de un negocio.
+      properties:
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        nombre:
+          type: string
+          readOnly: true
+        ciudad:
+          type: string
+          readOnly: true
+        direccion:
+          type: string
+          readOnly: true
+        telefono:
+          type: string
+          readOnly: true
+        servicios:
+          type: string
+          readOnly: true
+        profesionales:
+          type: string
+          readOnly: true
+        horario:
+          type: string
+          readOnly: true
+      required:
+      - ciudad
+      - direccion
+      - horario
+      - nombre
+      - profesionales
+      - servicios
+      - slug
+      - telefono
+    NegocioPublicoResumen:
+      type: object
+      description: Un negocio en la lista de resultados de búsqueda.
+      properties:
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        nombre:
+          type: string
+          readOnly: true
+        ciudad:
+          type: string
+          readOnly: true
+      required:
+      - ciudad
+      - nombre
+      - slug
     PatchedCargo:
       type: object
       description: |-
@@ -2003,6 +2206,68 @@ components:
       - access
       - negocio
       - refresh
+    Reserva:
+      type: object
+      description: |-
+        Lo que manda un cliente para reservar. Sin cuenta: nombre y teléfono.
+
+        `empleado` es opcional — si el cliente eligió a alguien, se respeta; si
+        no, se le asigna quien esté libre.
+      properties:
+        servicio:
+          type: integer
+        fecha_hora_inicio:
+          type: string
+          format: date-time
+        nombre_cliente:
+          type: string
+          maxLength: 150
+        telefono_cliente:
+          type: string
+          maxLength: 30
+        empleado:
+          type: integer
+          nullable: true
+        notas:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - fecha_hora_inicio
+      - nombre_cliente
+      - servicio
+      - telefono_cliente
+    ReservaConfirmada:
+      type: object
+      description: |-
+        Lo que se le devuelve al cliente tras reservar.
+
+        Deliberadamente magro: confirma lo suyo y nada del negocio. No lleva el
+        `id` de la cita porque hoy no hay nada que el cliente pueda hacer con
+        él —cancelar sin cuenta requeriría un token de acceso, que es una
+        decisión aparte— y un id expuesto sin uso solo invita a probar otros.
+      properties:
+        negocio:
+          type: string
+        servicio:
+          type: string
+        profesional:
+          type: string
+        fecha_hora_inicio:
+          type: string
+          format: date-time
+        fecha_hora_fin:
+          type: string
+          format: date-time
+        nombre_cliente:
+          type: string
+      required:
+      - fecha_hora_fin
+      - fecha_hora_inicio
+      - negocio
+      - nombre_cliente
+      - profesional
+      - servicio
     Servicio:
       type: object
       properties:

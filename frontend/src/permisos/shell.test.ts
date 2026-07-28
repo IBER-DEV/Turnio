@@ -28,6 +28,16 @@ describe("catálogo", () => {
       expect(TIPOS[tipo]?.etiqueta).toBeTruthy();
     }
   });
+
+  it("cada permiso tiene forma corta y cabe en un chip", () => {
+    // El resumen de la tarjeta de cargo se arma con `corto`. Una cadena
+    // vacía dejaría un chip fantasma y una larga rompería la fila.
+    for (const capacidad of CAPACIDADES) {
+      const { corto } = DEFINICIONES[capacidad];
+      expect(corto.trim()).not.toBe("");
+      expect(corto.length).toBeLessThanOrEqual(16);
+    }
+  });
 });
 
 describe("shellDe", () => {

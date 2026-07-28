@@ -1,14 +1,64 @@
 /* Plus Jakarta Sans: la misma fuente de la landing page.
    Autoalojada (no CDN): la app final es un bundle Capacitor y debe
    verse igual sin conexión. Solo subset `latin` (cubre español). */
-@import "@fontsource/plus-jakarta-sans/latin-400.css";
-@import "@fontsource/plus-jakarta-sans/latin-500.css";
-@import "@fontsource/plus-jakarta-sans/latin-700.css";
-@import "@fontsource/plus-jakarta-sans/latin-800.css";
+@import '@fontsource/plus-jakarta-sans/latin-400.css' layer(base);
+@import '@fontsource/plus-jakarta-sans/latin-500.css' layer(base);
+@import '@fontsource/plus-jakarta-sans/latin-700.css' layer(base);
+@import '@fontsource/plus-jakarta-sans/latin-800.css' layer(base);
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* Los tokens viven en la raíz del repo y los comparte con `landing/`.
+   Antes estaban acá y la landing los copiaba a mano — y se
+   desincronizaron. Ver `design/tokens.css`. */
+@import '../../design/tokens.css';
+
+@plugin 'tailwindcss-animate';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  El color de borde por defecto pasó a ser `currentcolor` en Tailwind v4.
+  Estos estilos preservan el comportamiento de v3 (gris claro) para no
+  tener que auditar cada `border` del proyecto en la migración.
+
+  Para quitarlos hay que darle un color de borde explícito a todo
+  elemento que hoy dependa de este default.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility skeleton-pulse {
+  @apply animate-pulse rounded bg-surface-container;
+}
+
+@utility tactile {
+  @apply transition-transform duration-150 active:scale-[0.98];
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
 
 @layer base {
   html {
@@ -20,7 +70,7 @@
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-secondary/40 ring-offset-2 ring-offset-background;
+    @apply outline-hidden ring-2 ring-secondary/40 ring-offset-2 ring-offset-background;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -32,32 +82,5 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
-  }
-}
-
-@layer components {
-  .skeleton-pulse {
-    @apply animate-pulse rounded bg-surface-container;
-  }
-
-  .tactile {
-    @apply transition-transform duration-150 active:scale-[0.98];
-  }
-
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  .safe-top {
-    padding-top: env(safe-area-inset-top);
-  }
-
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
   }
 }

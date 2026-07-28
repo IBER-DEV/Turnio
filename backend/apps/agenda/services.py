@@ -1,6 +1,7 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.db import transaction
+from django.utils import timezone
 
 from apps.agenda.models import Cita, HorarioNegocio, HorarioTrabajo
 
@@ -194,6 +195,86 @@ def empleado_disponible(*, empleado, inicio, fin):
         .exists()
     )
     return not hay_cruce
+
+
+#: Cada cuántos minutos se ofrece un hueco al cliente. 15 es el paso con
+#: que la gente piensa las citas ("y cuarto", "y media"); ofrecer cada 5
+#: llenaría la pantalla de opciones que dicen lo mismo.
+PASO_HUECOS_MINUTOS = 15
+
+
+def huecos_disponibles(*, negocio, servicio, fecha, ahora=None):
+    """Las horas a las que un cliente puede reservar `servicio` ese día.
+
+    Devuelve datetimes de inicio, sin decir con quién: el cliente elige la
+    hora y `agendar_cita` resuelve el empleado. Un hueco existe si **al
+    menos un** empleado activo puede atenderlo completo.
+
+    Está escrito para no hacer N+1. Es el único endpoint público que no se
+    puede cachear —cambia cada vez que alguien reserva— así que carga los
+    horarios y las citas del día de una vez y cruza en memoria, en lugar
+    de llamar a `empleado_disponible` por cada combinación de hueco y
+    empleado (que para un día de 9 horas y 5 empleados serían ~360
+    consultas por request).
+
+    `ahora` se inyecta para poder testear el filtrado de horas pasadas sin
+    depender del reloj.
+    """
+    duracion = timedelta(minutes=servicio.duracion_minutos)
+    dia_semana = fecha.weekday()
+    ahora = ahora or timezone.now()
+
+    miembros = list(negocio.miembros.filter(activo=True))
+    if not miembros:
+        return []
+
+    # Un solo query por cosa, en vez de uno por empleado.
+    propias = {}
+    for horario in HorarioTrabajo.objects.filter(miembro__in=miembros):
+        propias.setdefault(horario.miembro_id, []).append(horario)
+
+    del_negocio = [
+        horario
+        for horario in HorarioNegocio.objects.filter(negocio=negocio)
+        if horario.dia_semana == dia_semana
+    ]
+
+    inicio_dia = timezone.make_aware(datetime.combine(fecha, time.min))
+    fin_dia = inicio_dia + timedelta(days=1)
+    ocupacion = {}
+    for cita in (
+        Cita.objects.filter(negocio=negocio)
+        .exclude(estado=Cita.Estado.CANCELADA)
+        .filter(fecha_hora_inicio__lt=fin_dia, fecha_hora_fin__gt=inicio_dia)
+    ):
+        ocupacion.setdefault(cita.empleado_id, []).append(cita)
+
+    huecos = set()
+    for miembro in miembros:
+        # Misma regla de herencia que `_franjas_vigentes`, resuelta acá
+        # sobre los datos ya cargados: tener horario propio en cualquier
+        # día del mes hace que el del negocio no aplique.
+        vigentes = (
+            [h for h in propias[miembro.id] if h.dia_semana == dia_semana]
+            if miembro.id in propias
+            else del_negocio
+        )
+        citas = ocupacion.get(miembro.id, [])
+
+        for franja in vigentes:
+            momento = timezone.make_aware(datetime.combine(fecha, franja.hora_inicio))
+            cierre = timezone.make_aware(datetime.combine(fecha, franja.hora_fin))
+            while momento + duracion <= cierre:
+                fin = momento + duracion
+                libre = not any(
+                    cita.fecha_hora_inicio < fin and cita.fecha_hora_fin > momento
+                    for cita in citas
+                )
+                if libre and momento > ahora:
+                    huecos.add(momento)
+                momento += timedelta(minutes=PASO_HUECOS_MINUTOS)
+
+    return sorted(huecos)
 
 
 @transaction.atomic

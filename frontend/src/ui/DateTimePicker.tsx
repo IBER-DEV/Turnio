@@ -129,7 +129,7 @@ export function DateTimePicker({
           <button
             type="button"
             className={cn(
-              "inline-flex w-full items-center justify-between rounded-xl border bg-white py-3 pl-4 pr-3 font-body-md text-body-md outline-none transition-all",
+              "inline-flex w-full items-center justify-between rounded-xl border bg-white py-3 pl-4 pr-3 font-body-md text-body-md outline-hidden transition-all",
               "focus:border-menta focus:ring-2 focus:ring-menta/20",
               error ? "border-error" : "border-outline-variant",
               !valor && "text-outline",
@@ -145,7 +145,7 @@ export function DateTimePicker({
             sideOffset={6}
             align="start"
             className={cn(
-              "z-[70] w-[340px] rounded-xl border border-outline-variant bg-white p-4 shadow-elevada",
+              "z-70 w-[340px] rounded-xl border border-outline-variant bg-white p-4 shadow-elevada",
               "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
             )}
           >

@@ -41,7 +41,7 @@ export function ToggleGroupItem({
     <ToggleGroupPrimitive.Item
       value={value}
       className={cn(
-        "tactile shrink-0 rounded-full px-5 py-2.5 font-label-md text-label-md outline-none transition-colors",
+        "tactile shrink-0 rounded-full px-5 py-2.5 font-label-md text-label-md outline-hidden transition-colors",
         "data-[state=on]:bg-menta data-[state=on]:text-white data-[state=on]:shadow-suave",
         "data-[state=off]:bg-surface-container-low data-[state=off]:text-on-surface-variant",
         "focus-visible:ring-2 focus-visible:ring-menta/40 focus-visible:ring-offset-2",

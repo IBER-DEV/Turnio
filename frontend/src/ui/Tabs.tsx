@@ -65,7 +65,7 @@ export function TabsTrigger({
     <TabsPrimitive.Trigger
       value={value}
       className={cn(
-        "inline-flex items-center justify-center font-label-md text-label-md transition-all outline-none",
+        "inline-flex items-center justify-center font-label-md text-label-md transition-all outline-hidden",
         variante === "pill" && [
           "rounded-lg px-4 py-1.5",
           "data-[state=active]:bg-menta data-[state=active]:text-white data-[state=active]:shadow-suave",
@@ -94,7 +94,7 @@ export function TabsContent({
   className?: string;
 }) {
   return (
-    <TabsPrimitive.Content value={value} className={cn("outline-none", className)}>
+    <TabsPrimitive.Content value={value} className={cn("outline-hidden", className)}>
       {children}
     </TabsPrimitive.Content>
   );

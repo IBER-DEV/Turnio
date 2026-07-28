@@ -652,3 +652,31 @@ por cada uno. Es lo que permite el routing eficiente, pero significa que
 un negocio puede inventar cargos, no experiencias. Si aparece un caso
 real que no encaja en administración/recepción/operativo, hay que
 agregarlo en los dos lados a la vez.
+
+### Ajuste posterior: las tarjetas de cargo se pliegan (2026-07-26)
+
+Al ver la pantalla funcionando, el humano notó que siete interruptores
+por cargo, todos abiertos, "asusta" de entrada. Tenía razón: con tres
+cargos eran veintiún controles antes de haber decidido nada.
+
+Ahora la tarjeta muestra plegada lo que se necesita para **reconocer** el
+cargo —nombre, tipo, cuánta gente lo tiene y **chips con lo que
+concede**— y se despliega para verlo y cambiarlo. Los chips usan un campo
+`corto` nuevo en `DEFINICIONES` ("Cobrar", "Precios", "Agenda completa"):
+la etiqueta completa no cabe en una fila y ahí no hace falta. Un cargo
+sin capacidades dice "Solo atiende y maneja sus propias citas" en vez de
+no mostrar nada, que se leería como un error de carga.
+
+Detalles que no son obvios:
+- **Una tarjeta abierta a la vez.** Con varias abiertas hay que hacer
+  scroll para comparar cargos, que es justo lo que uno viene a hacer.
+- Es un disclosure de verdad (`aria-expanded` + `aria-controls`), no un
+  div que aparece: quien navega con lector de pantalla necesita saber que
+  el botón abre algo y qué.
+- El texto del botón cambia según se pueda editar o no ("Ver y cambiar
+  permisos" vs "Ver permisos"), para no prometer lo que la capacidad no
+  da.
+
+Un test nuevo (27 en total) fija que todo permiso tenga `corto` no vacío
+y de ≤16 caracteres: una cadena vacía dejaría un chip fantasma y una
+larga rompería la fila.

@@ -25,7 +25,7 @@ export function Modal({
       <Dialog.Portal>
         <Dialog.Overlay
           className={cn(
-            "fixed inset-0 z-[60] bg-pizarra/50 backdrop-blur-sm",
+            "fixed inset-0 z-60 bg-pizarra/50 backdrop-blur-xs",
             "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
           )}
         />
@@ -35,9 +35,9 @@ export function Modal({
             (evento.currentTarget as HTMLElement).focus();
           }}
           className={cn(
-            "fixed bottom-0 left-1/2 z-[60] max-h-[90dvh] w-full max-w-[480px] -translate-x-1/2",
+            "fixed bottom-0 left-1/2 z-60 max-h-[90dvh] w-full max-w-[480px] -translate-x-1/2",
             "overflow-y-auto rounded-t-3xl bg-white p-md shadow-elevada safe-bottom",
-            "focus:outline-none",
+            "focus:outline-hidden",
             "sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl",
             "data-[state=open]:animate-slide-up data-[state=closed]:animate-slide-down",
             "sm:data-[state=open]:animate-zoom-in sm:data-[state=closed]:animate-zoom-out",
