@@ -32,19 +32,31 @@
   combinación una y otra vez. Si el dolor es lo tedioso del alta, la
   salida barata son presets de UI sobre las capacidades existentes, sin
   tocar el modelo. Con las dos capacidades agregadas ese día vamos en 7.
-- **Tipos de empleado como plantilla de UI, no como rol persistido**
-  (confirmado por el humano, 2026-07-26). Cierra la discusión anterior:
-  el humano quiere que el dueño **escoja un tipo de empleado** y que
-  después pueda mover permiso por permiso — *"su negocio, sus reglas"*.
-  Los cuatro tipos (Barbero o estilista, Recepción, Encargado,
-  Administrador) viven **solo en el frontend** y no se guardan: precargan
-  capacidades y dejan de aplicar. El tipo que se muestra después se
-  **deduce** comparando capacidades ("Recepción · 2 cambios"). No
-  contradice la decisión de arriba: lo prohibido es un enum cerrado que
-  gobierne los permisos, y acá la fuente de verdad sigue siendo la
-  membresía. Si el rol se guardara, habría que resolver qué pasa con los
-  empleados ya asignados al cambiar la plantilla. Detalle en
-  `frontend/ROADMAP-FRONTEND.md`.
+- ~~**Tipos de empleado como plantilla de UI, no como rol persistido**
+  (2026-07-26).~~ **Revertido el mismo día**: el humano lo consideró
+  precipitado. Los tipos vivían solo en el frontend y se deducían
+  comparando capacidades. Reemplazado por el punto siguiente.
+- **Cargos por negocio en el backend + discriminador de dominio**
+  (confirmado por el humano, 2026-07-26). Es la forma definitiva del
+  modelo de permisos:
+  - **`Cargo`** (tabla por negocio, editable por el dueño) **posee** las
+    capacidades. `MiembroNegocio` apunta a uno y no tiene permisos
+    propios: sin excepciones por persona, que es lo que mantiene la
+    "cero complejidad" pedida. Si alguien necesita algo distinto, se le
+    crea un cargo. El negocio nace con tres cargos sembrados y editables.
+  - **`Cargo.tipo`** (`administracion` / `recepcion` / `operativo`) es un
+    **discriminador de dominio**: el frontend lo usa para decidir qué
+    shell montar y dónde aterriza cada quien, sin encadenar condicionales
+    por capacidad. **No es una barrera de seguridad** — el backend sigue
+    exigiendo la capacidad concreta en cada endpoint.
+  - Dos niveles de gating: **`tipo` decide la forma de la app**, **las
+    capacidades deciden las acciones**. Eso es lo que da la arquitectura
+    PBAC y la UI state-driven que pidió el humano.
+
+  Tampoco contradice "capacidades, no roles fijos": lo prohibido es un
+  enum cerrado de roles en el código, y acá los cargos los define cada
+  negocio. Se actualizaron ambos `CLAUDE.md`. Reglas completas en
+  `CONTRATO.md` 5.10.
 - Agenda por empleado desde el inicio (Fase 1), no operador único como
   caso central. **Matizado el 2026-07-26** (ver siguiente punto): sigue
   siendo por empleado, pero el horario se hereda del negocio en vez de

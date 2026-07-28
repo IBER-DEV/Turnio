@@ -1,5 +1,6 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
+from rest_framework import serializers as drf_serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,6 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.common.permissions import TieneMembresiaActiva, requiere_capacidad
 from apps.negocios import services
 from apps.negocios.serializers import (
+    CargoSerializer,
     EmpleadoAltaSerializer,
     MiembroEquipoSerializer,
     MiembroNegocioSerializer,
@@ -16,11 +18,16 @@ from apps.negocios.serializers import (
     RegistroNegocioRespuestaSerializer,
     RegistroNegocioSerializer,
 )
+from apps.usuarios.models import Cargo
 
 
 class RegistroNegocioView(APIView):
-    """Alta de un negocio nuevo, con su dueño (todas las capacidades) y,
-    opcionalmente, empleados adicionales desde el mismo registro."""
+    """Alta de un negocio nuevo, sus cargos de arranque y su dueño.
+
+    El negocio nace con tres cargos editables (Administración, Recepción,
+    Barbero o estilista) y el dueño entra en el de Administración. Los
+    empleados que vengan en el mismo request entran al cargo operativo;
+    cambiarles el cargo es un paso posterior ya autenticado."""
 
     permission_classes = [AllowAny]
 
@@ -43,6 +50,9 @@ class RegistroNegocioView(APIView):
             password_dueno=datos["password_dueno"],
         )
 
+        # Sin cargo explícito: entran al operativo sembrado. Asignarles
+        # otro es un paso posterior, ya autenticado (ver
+        # `EmpleadoAltaRegistroSerializer`).
         for empleado in datos.get("empleados", []):
             services.agregar_empleado(
                 negocio=negocio,
@@ -50,10 +60,6 @@ class RegistroNegocioView(APIView):
                 password=empleado["password"],
                 nombre=empleado["nombre"],
                 especialidad=empleado.get("especialidad", ""),
-                capacidades={
-                    campo: empleado.get(campo, False)
-                    for campo in services.CAMPOS_CAPACIDADES
-                },
             )
 
         refresh = RefreshToken.for_user(dueno)
@@ -105,10 +111,11 @@ class EmpleadoListCreateView(generics.ListCreateAPIView):
             password=datos["password"],
             nombre=datos["nombre"],
             especialidad=datos.get("especialidad", ""),
-            capacidades={campo: datos.get(campo, False) for campo in services.CAMPOS_CAPACIDADES},
+            cargo=datos.get("cargo"),
         )
         return Response(
-            MiembroNegocioSerializer(membresia).data, status=status.HTTP_201_CREATED
+            MiembroNegocioSerializer(membresia, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -142,6 +149,51 @@ class EmpleadoDetailView(generics.RetrieveUpdateAPIView):
 
     def get_queryset(self):
         return self.request.membresia.negocio.miembros.select_related("usuario").all()
+
+
+class CargoViewSet(viewsets.ModelViewSet):
+    """Los cargos que define **este** negocio.
+
+    No hay catálogo global: cada negocio nace con tres cargos de arranque
+    (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+    otros o borra los que no usa.
+
+    Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+    qué cargo está cada quien— pero escribir exige
+    `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+    que puede hacer un cargo **es** dar permisos.
+    """
+
+    serializer_class = CargoSerializer
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [TieneMembresiaActiva()]
+        return [requiere_capacidad("puede_gestionar_empleados")()]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Cargo.objects.none()
+        return self.request.membresia.negocio.cargos.all()
+
+    def perform_create(self, serializer):
+        serializer.save(
+            tenant=self.request.membresia.tenant, negocio=self.request.membresia.negocio
+        )
+
+    def perform_destroy(self, instance):
+        # `on_delete=PROTECT` ya lo impediría, pero como `IntegrityError`
+        # crudo (500). Acá se explica qué hacer.
+        if instance.miembros.exists():
+            raise drf_serializers.ValidationError(
+                {
+                    "non_field_errors": [
+                        "Ese cargo lo tiene alguien del equipo. Cámbiale el cargo a esas "
+                        "personas antes de borrarlo."
+                    ]
+                }
+            )
+        instance.delete()
 
 
 class EquipoListView(generics.ListAPIView):

@@ -7,31 +7,14 @@ import { cn } from "../ui/cn";
 import { Icon } from "../ui/Icon";
 import { MenuAcciones, MenuAccionesItem } from "../ui/MenuAcciones";
 import { Separator } from "../ui/Separator";
-
-const NAVEGACION = [
-  { to: "/", etiqueta: "Inicio", icono: "dashboard" },
-  { to: "/agenda", etiqueta: "Agenda", icono: "calendar_today" },
-  { to: "/servicios", etiqueta: "Servicios", icono: "content_cut" },
-  {
-    to: "/empleados",
-    etiqueta: "Equipo",
-    icono: "group",
-    capacidad: "puede_gestionar_empleados",
-  },
-  {
-    to: "/configuracion/permisos",
-    etiqueta: "Permisos",
-    icono: "settings",
-    capacidad: "puede_gestionar_empleados",
-  },
-] as const;
+import { usePermisos } from "../permisos/usePermisos";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { membresia, logout } = useAuth();
-
-  const navegacion = NAVEGACION.filter(
-    (item) => !("capacidad" in item) || Boolean(membresia?.[item.capacidad]),
-  );
+  // La navegación ya no se arma acá: sale del shell del tipo de usuario
+  // (ver permisos/shell.ts). El Layout solo la dibuja.
+  const { shell } = usePermisos();
+  const navegacion = shell.navegacion;
   const navigate = useNavigate();
 
   function handleLogout() {

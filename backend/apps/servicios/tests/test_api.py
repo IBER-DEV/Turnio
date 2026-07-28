@@ -29,25 +29,14 @@ def test_listar_servicios_no_expone_los_de_otro_negocio(cliente_autenticado_duen
     assert nombres == {"Corte propio"}
 
 
-def test_crear_servicio_requiere_puede_editar_precios(negocio_con_dueno):
-    from rest_framework.test import APIClient
-
+def test_crear_servicio_requiere_puede_editar_precios(negocio_con_dueno, empleado_con):
     negocio, _dueno, _membresia = negocio_con_dueno
-    negocios_services.agregar_empleado(
+    _m, client = empleado_con(
         negocio=negocio,
         email="empleado@test.com",
-        password="claveSegura123",
         nombre="Empleado",
-        capacidades={"puede_gestionar_agenda": True},
+        capacidades=["puede_gestionar_agenda"],
     )
-
-    client = APIClient()
-    login = client.post(
-        "/api/auth/login/",
-        {"email": "empleado@test.com", "password": "claveSegura123"},
-        format="json",
-    )
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
 
     respuesta = client.post(
         "/api/servicios/",
@@ -106,25 +95,14 @@ def test_lote_no_crea_nada_si_un_servicio_es_invalido(cliente_autenticado_dueno)
     assert listado.data == []
 
 
-def test_lote_requiere_capacidad_de_editar_precios(negocio_con_dueno):
-    from rest_framework.test import APIClient
-
+def test_lote_requiere_capacidad_de_editar_precios(negocio_con_dueno, empleado_con):
     negocio, _dueno, _membresia = negocio_con_dueno
-    negocios_services.agregar_empleado(
+    _m, client = empleado_con(
         negocio=negocio,
         email="empleado@test.com",
-        password="claveSegura123",
         nombre="Empleado",
-        capacidades={"puede_gestionar_agenda": True},
+        capacidades=["puede_gestionar_agenda"],
     )
-
-    client = APIClient()
-    login = client.post(
-        "/api/auth/login/",
-        {"email": "empleado@test.com", "password": "claveSegura123"},
-        format="json",
-    )
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
 
     respuesta = client.post(
         "/api/servicios/lote/",

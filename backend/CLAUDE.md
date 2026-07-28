@@ -30,13 +30,27 @@ un cambio tuyo lo afecta), pasa por `../CONTRATO.md` y anótalo en
   transición de estado) va en un módulo `services.py` por app de
   Django. Las vistas y serializers quedan delgados: solo orquestan
   entrada/salida HTTP y llaman a los servicios.
-- **Permisos por capacidades, no por roles fijos**: no crees un enum
-  cerrado de roles (Dueño/Empleado/Recepcionista). Usa capacidades
-  granulares en `MiembroNegocio` (`puede_cobrar`, `puede_ver_reportes`,
-  `puede_editar_precios`, `puede_gestionar_empleados`,
-  `puede_gestionar_agenda`, y las que se agreguen). Al crear un negocio
-  en modo "operador único", otorga automáticamente todas las
-  capacidades a ese usuario (ver `apps.negocios.services.registrar_negocio`).
+- **Permisos por capacidades, agrupadas en cargos que define cada
+  negocio** (revisado 2026-07-26): sigue prohibido un enum cerrado de
+  roles en el código. Las capacidades granulares
+  (`puede_cobrar`, `puede_ver_reportes`, `puede_editar_precios`,
+  `puede_gestionar_empleados`, `puede_gestionar_agenda`,
+  `puede_configurar_horarios`, `puede_ver_agenda_completa`) viven en
+  **`apps.usuarios.Cargo`**, y `MiembroNegocio` apunta a uno. Los cargos
+  son **por negocio y editables por el dueño**, no un catálogo global —
+  por eso esto no es "roles fijos". Nunca leas `membresia.puede_x`: usa
+  `membresia.tiene("puede_x")`, que atraviesa el cargo. Al registrar un
+  negocio se siembran tres cargos y el dueño entra en el de
+  administración (ver `apps.negocios.services.sembrar_cargos_iniciales`).
+- **`Cargo.tipo` es un discriminador de dominio para el frontend**, no
+  una capacidad ni una barrera de seguridad. Nunca filtres datos por
+  `tipo`: cada endpoint sigue exigiendo la capacidad concreta. Ver
+  `CONTRATO.md` 5.10.
+- **Quien pueda gestionar el equipo no puede auto-ascenderse**: al tocar
+  capacidades o asignar cargos, pasa por
+  `apps.negocios.services.validar_cambio_de_capacidades` /
+  `validar_asignacion_de_cargo`. Son dos puertas (editar el cargo propio
+  y mudarse a otro) y las dos tienen que quedar cerradas.
 - **Auditoría desde el MVP**: cualquier mutación sobre modelos de Caja
   o Comisiones (Fase 3) debe quedar registrada (quién, qué, cuándo,
   tenant). Usa un modelo de log simple o `django-simple-history`; no

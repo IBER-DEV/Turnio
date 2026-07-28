@@ -746,3 +746,108 @@ de clientes y los seis casos de escalada.
   reglas anti-escalada porque no hay solicitante todavía. Es correcto —el
   dueño se crea con todo en ese request— pero conviene recordarlo si
   alguna vez ese endpoint deja de ser el registro inicial.
+
+## Las capacidades se mudan a `Cargo`, y nace el discriminador de dominio (2026-07-26)
+
+> Decisión del humano, corrigiendo el enfoque del mismo día: los roles en
+> el frontend fueron "muy precipitado". Quiere una tabla de cargos en el
+> backend que **el dueño gestione él mismo**, manteniendo cero
+> complejidad, y que el backend le mande al frontend el **tipo de
+> usuario** para decidir qué pantalla cargar sin encadenar condicionales
+> por permiso — arquitectura PBAC y UI state-driven desde el principio.
+
+### Sobre la decisión de arquitectura registrada
+`CLAUDE.md` prohíbe "un enum cerrado de roles (Dueño/Empleado/
+Recepcionista)". Se señaló explícitamente antes de proceder y **no hay
+contradicción**: `Cargo` es por tenant y editable por el dueño, no un
+catálogo global en el código. Lo que se prohibía era fijar los roles;
+acá los fija cada negocio. Se actualizó `CLAUDE.md` (backend y frontend)
+para que la regla diga lo que ahora es cierto.
+
+### El modelo
+- **`apps.usuarios.Cargo`**: `negocio`, `nombre`, `tipo` y las siete
+  capacidades. Único por `(negocio, nombre)`.
+- **`MiembroNegocio` pierde los siete flags** y gana `cargo`
+  (`on_delete=PROTECT`). Es la **única fuente de verdad**: no hay
+  excepciones por persona. Se descartó el modelo mixto (cargo que siembra
+  + override individual) porque obliga a responder qué pasa al editar un
+  cargo que alguien ya tenía modificado, y esa pregunta no tiene
+  respuesta buena.
+- **`MiembroNegocio.tiene(capacidad)`**: el único camino para preguntar
+  por un permiso. Evita que cada llamador se acuerde de atravesar el
+  cargo y de que puede ser nulo.
+- **`Cargo.tipo`** (`administracion` / `recepcion` / `operativo`): el
+  discriminador de dominio, expuesto en `mi-membresia.tipo`.
+
+### Decisiones y su justificación
+- **El discriminador es explícito, no derivado de las capacidades.**
+  Derivarlo habría evitado un campo, pero entonces darle "ver agenda
+  completa" a un barbero le cambiaría toda la pantalla inicial sin que
+  nadie lo pidiera. Con un campo, la decisión es del dueño y es estable.
+- **`tipo` nunca filtra datos.** Está escrito en el docstring del modelo
+  y en `CONTRATO.md` 5.10: si el tipo fuera la barrera, bastaría pedir
+  otra ruta. Sirve para dibujar, no para proteger.
+- **`tipo` se serializa con `ChoiceField`, no `CharField`**, para que
+  drf-spectacular emita el enum y el frontend reciba una unión de
+  literales. Un `string` suelto habría dejado el routing sin tipar, que
+  es justo lo que este cambio venía a resolver.
+- **La escalada de privilegios ahora tiene dos puertas.** Editar el cargo
+  propio y mudarse a otro cargo son la misma escalada; cerrar solo una no
+  sirve de nada. `validar_cambio_de_capacidades` cubre la primera,
+  `validar_asignacion_de_cargo` la segunda. **Recortar y renombrar el
+  cargo propio sí se permite** — la regla es contra ampliarse.
+- **El alta dentro del registro usa un serializer aparte**
+  (`EmpleadoAltaRegistro`, sin `cargo`). En ese request los cargos del
+  negocio todavía no existen, así que aceptar un id habría permitido
+  colar el de **otro** negocio: el endpoint es `AllowAny` y no hay
+  solicitante contra el cual validar tenant.
+- **Borrar un cargo ocupado responde 400 con explicación**, no el
+  `IntegrityError` crudo que daría `PROTECT` (un 500 sin decir qué hacer).
+- **El default al dar de alta sin cargo es el operativo**, el más
+  acotado: alguien recién llegado no debería arrancar pudiendo de más.
+
+### Migración de datos
+`0004_cargos` reordena lo que Django autogeneró: el autogenerado ponía
+los `RemoveField` **antes** de crear `Cargo`, con lo cual los permisos de
+todo el mundo se perdían. El orden correcto es crear el modelo, agregar
+el FK, repartir la gente y recién entonces borrar las columnas.
+
+Cada negocio recibe un cargo por cada combinación distinta de capacidades
+que tuviera su gente. Las combinaciones reconocibles se bautizan
+(Administración, Recepción, Barbero o estilista); las arbitrarias quedan
+como "Cargo 1", "Cargo 2" — feo pero honesto: inventarle un nombre bonito
+a una combinación arbitraria sería peor que dejar que el dueño la
+renombre. **Nadie gana ni pierde permisos.**
+
+Verificado contra la base de desarrollo, que tenía datos reales de las
+pruebas anteriores: 0 miembros sin cargo, 9 cargos creados en 3 negocios,
+con los nombres esperados.
+
+### Tests
+116 en total (antes 104). Los que existían se adaptaron con una fixture
+nueva, `empleado_con`, que arma "un empleado que solo puede X" creando el
+cargo y metiéndolo ahí — para que los tests sigan leyéndose como
+capacidades y no como plomería de cargos.
+
+Nuevos, sobre lo que el modelo cambia de verdad: que editar un cargo
+alcanza a todos los que lo ocupan, que el negocio nace con sus tres
+cargos y el dueño en administración, que `mi-membresia` trae `tipo` y
+`cargo`, aislamiento por tenant en cargos, borrado protegido, nombre
+único, y las cinco variantes de escalada por las dos puertas.
+
+Verificado además de punta a punta contra el contenedor: 13 casos, desde
+el negocio que nace configurado hasta las dos puertas de escalada.
+
+### Pendiente / a medio hacer
+- **Sigue vigente el bloqueante de Fase 3**: `porcentaje_comision` está
+  en `Servicio` y lo controla `puede_editar_precios`. Separar antes de
+  conectar el cálculo real de comisiones.
+- No hay forma de **duplicar un cargo** ("como Recepción pero sin caja").
+  Con tres cargos no molesta; con diez sí.
+- Un cargo borrado no deja rastro de quién lo tenía. No hay auditoría de
+  cambios de permisos — `CLAUDE.md` la exige desde el MVP solo para Caja
+  y Comisiones (Fase 3), pero cambiar permisos es igual de sensible.
+- `Cargo.tipo` tiene tres valores fijos en el código. Es a propósito —el
+  frontend necesita conocerlos para montar shells— pero significa que un
+  negocio no puede inventarse una experiencia nueva, solo un cargo nuevo
+  dentro de una de las tres.

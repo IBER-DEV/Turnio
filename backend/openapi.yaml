@@ -691,6 +691,213 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenRefresh'
           description: ''
+  /api/negocios/cargos/:
+    get:
+      operationId: negocios_cargos_list
+      description: |-
+        Los cargos que define **este** negocio.
+
+        No hay catálogo global: cada negocio nace con tres cargos de arranque
+        (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+        otros o borra los que no usa.
+
+        Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+        qué cargo está cada quien— pero escribir exige
+        `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+        que puede hacer un cargo **es** dar permisos.
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cargo'
+          description: ''
+    post:
+      operationId: negocios_cargos_create
+      description: |-
+        Los cargos que define **este** negocio.
+
+        No hay catálogo global: cada negocio nace con tres cargos de arranque
+        (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+        otros o borra los que no usa.
+
+        Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+        qué cargo está cada quien— pero escribir exige
+        `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+        que puede hacer un cargo **es** dar permisos.
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cargo'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cargo'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cargo'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cargo'
+          description: ''
+  /api/negocios/cargos/{id}/:
+    get:
+      operationId: negocios_cargos_retrieve
+      description: |-
+        Los cargos que define **este** negocio.
+
+        No hay catálogo global: cada negocio nace con tres cargos de arranque
+        (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+        otros o borra los que no usa.
+
+        Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+        qué cargo está cada quien— pero escribir exige
+        `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+        que puede hacer un cargo **es** dar permisos.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cargo.
+        required: true
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cargo'
+          description: ''
+    put:
+      operationId: negocios_cargos_update
+      description: |-
+        Los cargos que define **este** negocio.
+
+        No hay catálogo global: cada negocio nace con tres cargos de arranque
+        (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+        otros o borra los que no usa.
+
+        Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+        qué cargo está cada quien— pero escribir exige
+        `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+        que puede hacer un cargo **es** dar permisos.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cargo.
+        required: true
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cargo'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cargo'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cargo'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cargo'
+          description: ''
+    patch:
+      operationId: negocios_cargos_partial_update
+      description: |-
+        Los cargos que define **este** negocio.
+
+        No hay catálogo global: cada negocio nace con tres cargos de arranque
+        (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+        otros o borra los que no usa.
+
+        Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+        qué cargo está cada quien— pero escribir exige
+        `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+        que puede hacer un cargo **es** dar permisos.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cargo.
+        required: true
+      tags:
+      - negocios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCargo'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCargo'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCargo'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cargo'
+          description: ''
+    delete:
+      operationId: negocios_cargos_destroy
+      description: |-
+        Los cargos que define **este** negocio.
+
+        No hay catálogo global: cada negocio nace con tres cargos de arranque
+        (`sembrar_cargos_iniciales`) y desde ahí los renombra, los edita, crea
+        otros o borra los que no usa.
+
+        Leer solo requiere pertenecer al negocio —la UI necesita mostrar en
+        qué cargo está cada quien— pero escribir exige
+        `puede_gestionar_empleados`, igual que tocar a un empleado: definir lo
+        que puede hacer un cargo **es** dar permisos.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cargo.
+        required: true
+      tags:
+      - negocios
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/negocios/empleados/:
     get:
       operationId: negocios_empleados_list
@@ -906,8 +1113,12 @@ paths:
     post:
       operationId: negocios_registro_create
       description: |-
-        Alta de un negocio nuevo, con su dueño (todas las capacidades) y,
-        opcionalmente, empleados adicionales desde el mismo registro.
+        Alta de un negocio nuevo, sus cargos de arranque y su dueño.
+
+        El negocio nace con tres cargos editables (Administración, Recepción,
+        Barbero o estilista) y el dueño entra en el de Administración. Los
+        empleados que vengan en el mismo request entran al cargo operativo;
+        cambiarles el cargo es un paso posterior ya autenticado.
       tags:
       - negocios
       requestBody:
@@ -1143,6 +1354,44 @@ paths:
           description: ''
 components:
   schemas:
+    Cargo:
+      type: object
+      description: |-
+        Un cargo del negocio: nombre, tipo y qué concede.
+
+        `miembros` sirve para que la UI avise antes de borrar y para explicar
+        a cuánta gente afecta editarlo — que es la contrapartida de que el
+        cargo sea la única fuente de verdad.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 80
+        tipo:
+          $ref: '#/components/schemas/TipoEnum'
+        miembros:
+          type: integer
+          readOnly: true
+        puede_cobrar:
+          type: boolean
+        puede_ver_reportes:
+          type: boolean
+        puede_editar_precios:
+          type: boolean
+        puede_gestionar_empleados:
+          type: boolean
+        puede_gestionar_agenda:
+          type: boolean
+        puede_configurar_horarios:
+          type: boolean
+        puede_ver_agenda_completa:
+          type: boolean
+      required:
+      - id
+      - miembros
+      - nombre
     Cita:
       type: object
       properties:
@@ -1236,7 +1485,7 @@ components:
         * `6` - Domingo
     EmpleadoAlta:
       type: object
-      description: Empleado adicional dado de alta junto con el registro del negocio.
+      description: 'Empleado adicional: sus datos de acceso y en qué cargo entra.'
       properties:
         email:
           type: string
@@ -1251,27 +1500,36 @@ components:
           type: string
           default: ''
           maxLength: 150
-        puede_cobrar:
-          type: boolean
-          default: false
-        puede_ver_reportes:
-          type: boolean
-          default: false
-        puede_editar_precios:
-          type: boolean
-          default: false
-        puede_gestionar_empleados:
-          type: boolean
-          default: false
-        puede_gestionar_agenda:
-          type: boolean
-          default: false
-        puede_configurar_horarios:
-          type: boolean
-          default: false
-        puede_ver_agenda_completa:
-          type: boolean
-          default: false
+        cargo:
+          type: integer
+          nullable: true
+      required:
+      - email
+      - nombre
+      - password
+    EmpleadoAltaRegistro:
+      type: object
+      description: |-
+        Empleado dado de alta **dentro del registro del negocio**.
+
+        Sin `cargo` a propósito: en ese request los cargos del negocio todavía
+        no existen, así que un id solo podría apuntar a otro negocio. Estos
+        empleados entran al cargo operativo sembrado y el dueño les cambia el
+        cargo después, ya autenticado.
+      properties:
+        email:
+          type: string
+          format: email
+        nombre:
+          type: string
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+        especialidad:
+          type: string
+          default: ''
+          maxLength: 150
       required:
       - email
       - nombre
@@ -1397,9 +1655,19 @@ components:
       description: |-
         Forma de la respuesta de GET /api/negocios/mi-membresia/.
 
-        Pensado para que el frontend, justo después de loguearse, resuelva
-        en un solo request "quién soy, en qué negocio y qué puedo hacer"
-        sin tener que listar empleados y buscarse a sí mismo por email.
+        Resuelve de un solo request "quién soy, en qué negocio, **qué
+        experiencia de la app me toca** y qué puedo hacer":
+
+        - `tipo` es el **discriminador de dominio** (viene del cargo). El
+          frontend lo usa para decidir qué shell montar —qué navegación, qué
+          pantalla inicial— sin encadenar condicionales por capacidad.
+        - `cargo` trae el detalle con las capacidades, que es lo que gatea
+          cada acción concreta dentro de ese shell.
+
+        Los dos niveles son a propósito (ver `CONTRATO.md` 5.10): el tipo
+        decide la forma de la app, las capacidades deciden los botones. Y
+        ninguno de los dos es la barrera de seguridad — el backend exige la
+        capacidad en cada endpoint.
       properties:
         id:
           type: integer
@@ -1418,44 +1686,26 @@ components:
           allOf:
           - $ref: '#/components/schemas/Negocio'
           readOnly: true
-        puede_cobrar:
-          type: boolean
+        tipo:
+          allOf:
+          - $ref: '#/components/schemas/TipoEnum'
           readOnly: true
-        puede_ver_reportes:
-          type: boolean
-          readOnly: true
-        puede_editar_precios:
-          type: boolean
-          readOnly: true
-        puede_gestionar_empleados:
-          type: boolean
-          readOnly: true
-        puede_gestionar_agenda:
-          type: boolean
-          readOnly: true
-        puede_configurar_horarios:
-          type: boolean
-          readOnly: true
-        puede_ver_agenda_completa:
-          type: boolean
+        cargo:
+          allOf:
+          - $ref: '#/components/schemas/Cargo'
           readOnly: true
         activo:
           type: boolean
           readOnly: true
       required:
       - activo
+      - cargo
       - email
       - especialidad
       - id
       - negocio
       - nombre
-      - puede_cobrar
-      - puede_configurar_horarios
-      - puede_editar_precios
-      - puede_gestionar_agenda
-      - puede_gestionar_empleados
-      - puede_ver_agenda_completa
-      - puede_ver_reportes
+      - tipo
     MiembroEquipo:
       type: object
       description: |-
@@ -1490,6 +1740,13 @@ components:
       - nombre
     MiembroNegocio:
       type: object
+      description: |-
+        Un miembro visto desde la gestión del equipo.
+
+        Ya no lleva flags `puede_*`: las capacidades viven en el cargo. Se
+        envía `cargo` (el id, que es lo editable) y `cargo_detalle` anidado
+        para que la UI muestre el nombre y lo que concede sin un segundo
+        request.
       properties:
         id:
           type: integer
@@ -1504,23 +1761,17 @@ components:
         especialidad:
           type: string
           maxLength: 150
-        puede_cobrar:
-          type: boolean
-        puede_ver_reportes:
-          type: boolean
-        puede_editar_precios:
-          type: boolean
-        puede_gestionar_empleados:
-          type: boolean
-        puede_gestionar_agenda:
-          type: boolean
-        puede_configurar_horarios:
-          type: boolean
-        puede_ver_agenda_completa:
-          type: boolean
+        cargo:
+          type: integer
+          nullable: true
+        cargo_detalle:
+          allOf:
+          - $ref: '#/components/schemas/Cargo'
+          readOnly: true
         activo:
           type: boolean
       required:
+      - cargo_detalle
       - email
       - id
       - nombre
@@ -1557,6 +1808,40 @@ components:
       - nombre
       - slug
       - telefono
+    PatchedCargo:
+      type: object
+      description: |-
+        Un cargo del negocio: nombre, tipo y qué concede.
+
+        `miembros` sirve para que la UI avise antes de borrar y para explicar
+        a cuánta gente afecta editarlo — que es la contrapartida de que el
+        cargo sea la única fuente de verdad.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 80
+        tipo:
+          $ref: '#/components/schemas/TipoEnum'
+        miembros:
+          type: integer
+          readOnly: true
+        puede_cobrar:
+          type: boolean
+        puede_ver_reportes:
+          type: boolean
+        puede_editar_precios:
+          type: boolean
+        puede_gestionar_empleados:
+          type: boolean
+        puede_gestionar_agenda:
+          type: boolean
+        puede_configurar_horarios:
+          type: boolean
+        puede_ver_agenda_completa:
+          type: boolean
     PatchedCita:
       type: object
       properties:
@@ -1613,6 +1898,13 @@ components:
           format: time
     PatchedMiembroNegocio:
       type: object
+      description: |-
+        Un miembro visto desde la gestión del equipo.
+
+        Ya no lleva flags `puede_*`: las capacidades viven en el cargo. Se
+        envía `cargo` (el id, que es lo editable) y `cargo_detalle` anidado
+        para que la UI muestre el nombre y lo que concede sin un segundo
+        request.
       properties:
         id:
           type: integer
@@ -1627,20 +1919,13 @@ components:
         especialidad:
           type: string
           maxLength: 150
-        puede_cobrar:
-          type: boolean
-        puede_ver_reportes:
-          type: boolean
-        puede_editar_precios:
-          type: boolean
-        puede_gestionar_empleados:
-          type: boolean
-        puede_gestionar_agenda:
-          type: boolean
-        puede_configurar_horarios:
-          type: boolean
-        puede_ver_agenda_completa:
-          type: boolean
+        cargo:
+          type: integer
+          nullable: true
+        cargo_detalle:
+          allOf:
+          - $ref: '#/components/schemas/Cargo'
+          readOnly: true
         activo:
           type: boolean
     PatchedServicio:
@@ -1698,7 +1983,7 @@ components:
         empleados:
           type: array
           items:
-            $ref: '#/components/schemas/EmpleadoAlta'
+            $ref: '#/components/schemas/EmpleadoAltaRegistro'
       required:
       - email_dueno
       - nombre_dueno
@@ -1767,6 +2052,16 @@ components:
             $ref: '#/components/schemas/Servicio'
       required:
       - servicios
+    TipoEnum:
+      enum:
+      - administracion
+      - recepcion
+      - operativo
+      type: string
+      description: |-
+        * `administracion` - Administración
+        * `recepcion` - Recepción
+        * `operativo` - Operativo
     TokenObtainPair:
       type: object
       properties:

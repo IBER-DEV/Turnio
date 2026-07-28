@@ -1,12 +1,17 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 
 from apps.negocios.views import (
+    CargoViewSet,
     EmpleadoDetailView,
     EmpleadoListCreateView,
     EquipoListView,
     MiMembresiaView,
     RegistroNegocioView,
 )
+
+router = DefaultRouter()
+router.register("cargos", CargoViewSet, basename="cargo")
 
 urlpatterns = [
     path("registro/", RegistroNegocioView.as_view(), name="negocio-registro"),
@@ -18,4 +23,5 @@ urlpatterns = [
         EmpleadoDetailView.as_view(),
         name="negocio-empleado-detalle",
     ),
+    *router.urls,
 ]

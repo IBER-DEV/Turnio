@@ -46,23 +46,58 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
         return self.email
 
 
-class MiembroNegocio(TenantScopedModel):
-    """Vínculo entre un Usuario y un Negocio, con sus capacidades.
+#: Las capacidades del sistema, en un solo lugar. Agregar una es agregarla
+#: acá y como campo de `Cargo`; el resto (serializers, tests de deriva,
+#: catálogo del frontend) se cuelga de esta lista.
+CAPACIDADES = (
+    "puede_cobrar",
+    "puede_ver_reportes",
+    "puede_editar_precios",
+    "puede_gestionar_empleados",
+    "puede_gestionar_agenda",
+    "puede_configurar_horarios",
+    "puede_ver_agenda_completa",
+)
 
-    Reemplaza un enum fijo de roles (dueño/empleado/recepcionista): cada
-    miembro tiene una combinación granular de capacidades booleanas. El
-    dueño que registra el negocio recibe todas en True; los empleados
-    que se agreguen después reciben solo las que se les asignen.
+
+class Cargo(TenantScopedModel):
+    """Un cargo del negocio: un nombre y lo que esa gente puede hacer.
+
+    **Cada negocio define los suyos.** No hay un catálogo global de roles
+    ni un enum cerrado en el código: al registrar un negocio se siembran
+    tres cargos de arranque y a partir de ahí el dueño los renombra, los
+    edita, crea otros o borra los que no usa.
+
+    El cargo es la **única fuente de verdad** de las capacidades: un
+    `MiembroNegocio` no tiene permisos propios, tiene un cargo. Se
+    descartó permitir excepciones por persona (decisión del humano,
+    2026-07-26) porque dos fuentes obligan a resolver qué pasa al editar
+    un cargo que alguien ya tenía modificado, y esa pregunta no tiene
+    respuesta buena. Si una persona necesita algo distinto, se le crea un
+    cargo.
     """
 
-    usuario = models.ForeignKey(
-        Usuario, on_delete=models.CASCADE, related_name="membresias"
-    )
-    negocio = models.ForeignKey(
-        "negocios.Negocio", on_delete=models.CASCADE, related_name="miembros"
-    )
+    class Tipo(models.TextChoices):
+        """Discriminador de dominio: qué **experiencia** de la app recibe.
 
-    especialidad = models.CharField(max_length=150, blank=True)
+        Lo usa el frontend para decidir qué shell montar sin encadenar
+        condicionales por capacidad (ver `CONTRATO.md` sección 5.10).
+
+        Ojo: es una decisión de **navegación, no de seguridad**. El
+        backend nunca filtra datos por `tipo` — sigue exigiendo la
+        capacidad concreta en cada endpoint. Si el tipo fuera la barrera,
+        bastaría pedir otra ruta para saltársela.
+        """
+
+        ADMINISTRACION = "administracion", "Administración"
+        RECEPCION = "recepcion", "Recepción"
+        OPERATIVO = "operativo", "Operativo"
+
+    negocio = models.ForeignKey(
+        "negocios.Negocio", on_delete=models.CASCADE, related_name="cargos"
+    )
+    nombre = models.CharField(max_length=80)
+    tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.OPERATIVO)
 
     puede_cobrar = models.BooleanField(default=False)
     puede_ver_reportes = models.BooleanField(default=False)
@@ -81,6 +116,45 @@ class MiembroNegocio(TenantScopedModel):
     # sea la libreta de clientes del negocio.
     puede_ver_agenda_completa = models.BooleanField(default=False)
 
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["negocio", "nombre"], name="unico_cargo_por_negocio"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} @ {self.negocio.nombre}"
+
+    def capacidades(self):
+        """Las capacidades de este cargo como dict, para comparar y copiar."""
+        return {campo: getattr(self, campo) for campo in CAPACIDADES}
+
+
+class MiembroNegocio(TenantScopedModel):
+    """Vínculo entre un Usuario y un Negocio, a través de un `Cargo`.
+
+    No guarda capacidades propias: lo que puede hacer sale de su cargo
+    (ver `Cargo`). `cargo` es nullable solo para que la migración desde
+    el modelo anterior —donde las capacidades vivían acá— pudiera correr
+    en dos pasos; en la práctica toda membresía tiene uno.
+    """
+
+    usuario = models.ForeignKey(
+        Usuario, on_delete=models.CASCADE, related_name="membresias"
+    )
+    negocio = models.ForeignKey(
+        "negocios.Negocio", on_delete=models.CASCADE, related_name="miembros"
+    )
+    cargo = models.ForeignKey(
+        Cargo, on_delete=models.PROTECT, related_name="miembros", null=True, blank=True
+    )
+
+    especialidad = models.CharField(max_length=150, blank=True)
+
     activo = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
 
@@ -93,3 +167,18 @@ class MiembroNegocio(TenantScopedModel):
 
     def __str__(self):
         return f"{self.usuario.email} @ {self.negocio.nombre}"
+
+    def tiene(self, capacidad):
+        """Si su cargo le concede `capacidad`.
+
+        Único camino para preguntar por un permiso. Antes se leía
+        `membresia.puede_x` directo; ahora las capacidades viven en el
+        cargo y esto evita que cada llamador tenga que acordarse de
+        atravesarlo (y de que el cargo puede ser nulo).
+        """
+        return bool(self.cargo and getattr(self.cargo, capacidad, False))
+
+    @property
+    def tipo(self):
+        """El discriminador de dominio de su cargo, para el frontend."""
+        return self.cargo.tipo if self.cargo else Cargo.Tipo.OPERATIVO

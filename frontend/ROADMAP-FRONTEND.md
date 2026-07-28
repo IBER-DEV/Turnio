@@ -574,3 +574,81 @@ El conjunto de cuatro roles salió de la lectura del dominio
 hablar con barberías. Revisarlo en las visitas pendientes (duda abierta 4
 de `../ROADMAP.md`) — sobre todo si hace falta un tipo específico para el
 barbero que alquila silla y maneja su propia plata.
+
+## Shell por tipo de usuario y UI de cargos (2026-07-26)
+
+> Reemplaza la entrada anterior del mismo día ("Tipos de empleado y
+> permisos en lenguaje de negocio"): el humano decidió que los roles en
+> el frontend habían sido precipitados y que los cargos van en el
+> backend. Ver `../CONTRATO.md` 5.10 y `../backend/ROADMAP-BACKEND.md`.
+
+### Qué sobrevivió y qué se fue
+Sobrevive `catalogo.ts` —el lenguaje de negocio de cada permiso y su
+agrupación en Dinero / Agenda / Equipo—, que era la parte que más costó y
+la que el humano quería. Se fueron `roles.ts` (plantillas hardcodeadas),
+`reglas.ts` (absorbido) y `ConfiguracionPermisosPage.tsx` (la matriz por
+persona). El reemplazo es más chico, no más grande.
+
+### `shell.ts`: el discriminador de dominio en acción
+El backend manda `tipo` y de ahí sale la **forma de la app**: qué
+navegación existe y dónde aterriza la persona al entrar.
+
+| tipo | inicio | navegación |
+|---|---|---|
+| `administracion` | `/` | Inicio, Agenda, Servicios, Equipo, Cargos |
+| `recepcion` | `/agenda` | Inicio, Agenda, Servicios, Equipo, Cargos |
+| `operativo` | `/agenda` | Inicio, Agenda |
+
+La división de trabajo, que es lo que pidió el humano:
+- **`tipo` decide la forma** — se resuelve una vez, no por pantalla.
+- **las capacidades deciden las acciones** — los botones dentro.
+
+`Layout` ya no arma la navegación: la lee de `shell.navegacion`. `Login`
+ya no navega a `/` a mano: redirige a `shell.inicio`, y como el guard de
+la propia página lo hace al llegar la membresía, el destino se calcula en
+un solo lugar. `RutaProtegida` también manda al `shell.inicio` en vez de
+a `/` cuando alguien entra donde no le toca — para un operativo, `/` no
+es su pantalla.
+
+Al operativo se le recorta la navegación a propósito: Servicios y Equipo
+le son de solo lectura o directamente 403, y llenarle la barra inferior
+de secciones ajenas le esconde la que sí usa.
+
+### `usePermisos()`: un solo lugar donde se atraviesa el cargo
+Antes cada pantalla leía `membresia.puede_x`. Con las capacidades en el
+cargo eso serían siete `?.` repartidos por el código. El hook expone
+`puede(capacidad)` y `shell`, y es lo único que las pantallas tocan.
+
+### Pantalla de Cargos
+Reemplaza a la matriz por persona. Una tarjeta por cargo con sus permisos
+agrupados, y **cuánta gente lo tiene** — que es la contrapartida de que
+el cargo sea la única fuente de verdad: editar uno alcanza a todos, y eso
+hay que decirlo antes, no después. Se puede crear (eligiendo con qué
+pantalla arranca su gente), renombrar, y borrar solo si está vacío.
+
+Los interruptores bloqueados explican por qué al pasar el cursor,
+espejando las dos reglas del backend: no ampliar el cargo propio, no dar
+lo que uno no tiene. **Recortar sí se permite**, incluso sobre el propio,
+así que solo se bloquea encender.
+
+### Equipo
+Deja de editar permisos: asigna un **cargo** (un select) y muestra qué
+puede hacer quien lo tenga. El alta pide cargo en vez de siete
+interruptores, con enlace a Cargos si ninguno le queda. El badge "Admin"
+sale de `cargo_detalle.tipo`, no de contar flags.
+
+### Tests
+9 nuevos en `src/permisos/shell.test.ts` (26 en total). Cubren la
+completitud del catálogo, que cada tipo tenga traducción, el inicio y la
+navegación de cada shell, que las capacidades sigan recortando dentro del
+shell, y dos invariantes que son fáciles de romper en un refactor: sin
+`tipo` se cae al shell **más acotado** (mostrar de menos es la falla
+segura) y **todo shell arranca en una ruta que él mismo tiene** — un
+inicio fuera de la navegación deja al usuario donde no puede volver.
+
+### Duda abierta
+Los tres `tipo` están fijos en el backend y el frontend tiene un shell
+por cada uno. Es lo que permite el routing eficiente, pero significa que
+un negocio puede inventar cargos, no experiencias. Si aparece un caso
+real que no encaja en administración/recepción/operativo, hay que
+agregarlo en los dos lados a la vez.

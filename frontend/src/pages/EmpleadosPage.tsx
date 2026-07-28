@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 
@@ -14,31 +14,28 @@ import { Icon } from "../ui/Icon";
 import { Input } from "../ui/Input";
 import { MenuAcciones, MenuAccionesItem } from "../ui/MenuAcciones";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
+import { SelectCustom, SelectItem } from "../ui/SelectCustom";
 import { useToast } from "../ui/Toast";
-import { CAPACIDADES, DEFINICIONES } from "../permisos/catalogo";
-import { ROLES, capacidadesDe, etiquetaDeRol } from "../permisos/roles";
+import { usePermisos } from "../permisos/usePermisos";
+import { CAPACIDADES, DEFINICIONES, TIPOS } from "../permisos/catalogo";
 
 type MiembroNegocio = components["schemas"]["MiembroNegocio"];
 type EmpleadoAlta = components["schemas"]["EmpleadoAlta"];
+type Cargo = components["schemas"]["Cargo"];
 
 const NUEVO_VACIO: EmpleadoAlta = {
   email: "",
   nombre: "",
   password: "",
   especialidad: "",
-  puede_cobrar: false,
-  puede_ver_reportes: false,
-  puede_editar_precios: false,
-  puede_gestionar_empleados: false,
-  puede_gestionar_agenda: false,
-  puede_configurar_horarios: false,
-  puede_ver_agenda_completa: false,
+  cargo: null,
 };
 
 export function EmpleadosPage() {
   const { membresia, refrescarMembresia } = useAuth();
   const { mostrar } = useToast();
-  const puedeGestionar = membresia?.puede_gestionar_empleados ?? false;
+  const { puede } = usePermisos();
+  const puedeGestionar = puede("puede_gestionar_empleados");
 
   const [empleados, setEmpleados] = useState<MiembroNegocio[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -47,9 +44,7 @@ export function EmpleadosPage() {
 
   const [formularioAbierto, setFormularioAbierto] = useState(false);
   const [nuevo, setNuevo] = useState<EmpleadoAlta>(NUEVO_VACIO);
-  // El tipo elegido en el alta no se guarda en ningún lado: solo decide
-  // con qué capacidades arranca la persona (ver permisos/roles.ts).
-  const [rolElegido, setRolElegido] = useState<string>(ROLES[0].id);
+  const [cargos, setCargos] = useState<Cargo[]>([]);
   const [errorFormulario, setErrorFormulario] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [porDesactivar, setPorDesactivar] = useState<MiembroNegocio | null>(null);
@@ -57,14 +52,16 @@ export function EmpleadosPage() {
   async function cargar() {
     setCargando(true);
     setError(false);
-    const { data, error: errorRespuesta } = await conReintentoDeAuth(() =>
-      apiClient.GET("/api/negocios/empleados/"),
-    );
-    if (errorRespuesta || !data) {
+    const [empleadosResp, cargosResp] = await Promise.all([
+      conReintentoDeAuth(() => apiClient.GET("/api/negocios/empleados/")),
+      conReintentoDeAuth(() => apiClient.GET("/api/negocios/cargos/")),
+    ]);
+    if (empleadosResp.error || !empleadosResp.data) {
       setError(true);
     } else {
-      setEmpleados(data);
-      setSeleccionadoId((actual) => actual ?? data[0]?.id ?? null);
+      setEmpleados(empleadosResp.data);
+      setSeleccionadoId((actual) => actual ?? empleadosResp.data[0]?.id ?? null);
+      setCargos(cargosResp.data ?? []);
     }
     setCargando(false);
   }
@@ -165,9 +162,7 @@ export function EmpleadosPage() {
           <ul className="flex-1 space-y-2">
             {empleados.map((empleado) => {
               const activo = empleado.id === seleccionadoId;
-              // Derivado de la lista, no de flags escritos a mano: agregar
-              // una capacidad no debe dejar el badge mintiendo.
-              const esAdmin = CAPACIDADES.every((capacidad) => empleado[capacidad]);
+              const esAdmin = empleado.cargo_detalle?.tipo === "administracion";
 
               return (
                 <li key={empleado.id} className="animate-slide-in-bottom">
@@ -257,28 +252,46 @@ export function EmpleadosPage() {
                 )}
               </div>
 
-              {/* Resumen, no editor: los permisos se cambian en un solo
-                  lugar (Configuración › Permisos) para no tener dos
-                  pantallas que hacen lo mismo y se contradicen. */}
+              {/* Se asigna un cargo, no permisos sueltos: lo que puede
+                  hacer sale del cargo (ver CONTRATO.md 5.10). Los
+                  permisos de cada cargo se editan en Cargos. */}
               <h3 className="mb-3 border-b border-outline-variant/60 pb-2 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Qué puede hacer
+                Cargo
               </h3>
 
-              <p className="mb-3 font-label-md text-label-md text-menta">
-                {etiquetaDeRol(seleccionado)}
-              </p>
-
-              <ul className="space-y-1.5">
-                {CAPACIDADES.filter((capacidad) => seleccionado[capacidad]).map((capacidad) => (
-                  <li
-                    key={capacidad}
-                    className="flex items-start gap-1.5 text-[12px] text-on-surface"
-                  >
-                    <Icon name="check" className="shrink-0 text-[16px] text-menta" />
-                    {DEFINICIONES[capacidad].etiqueta}
-                  </li>
+              <SelectCustom
+                label="Cargo"
+                etiquetaOculta
+                valor={String(seleccionado.cargo ?? "")}
+                onChange={(valor) => actualizarEmpleado(seleccionado, { cargo: Number(valor) })}
+                disabled={!puedeGestionar || seleccionado.id === membresia?.id}
+              >
+                {cargos.map((cargo) => (
+                  <SelectItem key={cargo.id} value={String(cargo.id)}>
+                    {cargo.nombre}
+                  </SelectItem>
                 ))}
-                {CAPACIDADES.every((capacidad) => !seleccionado[capacidad]) && (
+              </SelectCustom>
+
+              {seleccionado.id === membresia?.id && puedeGestionar && (
+                <p className="mt-2 text-[11px] text-on-surface-variant">
+                  No puedes cambiarte el cargo a ti mismo. Pídeselo a alguien más del equipo.
+                </p>
+              )}
+
+              <ul className="mt-4 space-y-1.5">
+                {CAPACIDADES.filter((capacidad) => seleccionado.cargo_detalle?.[capacidad]).map(
+                  (capacidad) => (
+                    <li
+                      key={capacidad}
+                      className="flex items-start gap-1.5 text-[12px] text-on-surface"
+                    >
+                      <Icon name="check" className="shrink-0 text-[16px] text-menta" />
+                      {DEFINICIONES[capacidad].etiqueta}
+                    </li>
+                  ),
+                )}
+                {CAPACIDADES.every((capacidad) => !seleccionado.cargo_detalle?.[capacidad]) && (
                   <li className="text-[12px] text-on-surface-variant">
                     Solo atiende y maneja sus propias citas.
                   </li>
@@ -287,11 +300,11 @@ export function EmpleadosPage() {
 
               {puedeGestionar && (
                 <Link
-                  to="/configuracion/permisos"
+                  to="/configuracion/cargos"
                   className="mt-4 flex items-center gap-1 font-caption text-caption text-menta hover:underline"
                 >
                   <Icon name="settings" className="text-[16px]" />
-                  Cambiar permisos
+                  Editar los permisos de los cargos
                 </Link>
               )}
             </Card>
@@ -342,14 +355,14 @@ export function EmpleadosPage() {
 
           <div>
             <h3 className="mb-3 border-b border-outline-variant pb-2 font-label-md text-label-md text-on-surface-variant">
-              ¿Qué va a hacer en el negocio?
+              ¿Qué cargo va a tener?
             </h3>
             <div className="grid gap-2 sm:grid-cols-2">
-              {ROLES.map((rol) => {
-                const elegido = rol.id === rolElegido;
+              {cargos.map((cargo) => {
+                const elegido = cargo.id === nuevo.cargo;
                 return (
                   <label
-                    key={rol.id}
+                    key={cargo.id}
                     className={cn(
                       "tactile cursor-pointer rounded-xl border p-3 transition-colors",
                       elegido
@@ -359,13 +372,10 @@ export function EmpleadosPage() {
                   >
                     <input
                       type="radio"
-                      name="tipo-de-empleado"
+                      name="cargo-del-empleado"
                       className="sr-only"
                       checked={elegido}
-                      onChange={() => {
-                        setRolElegido(rol.id);
-                        setNuevo({ ...nuevo, ...capacidadesDe(rol) });
-                      }}
+                      onChange={() => setNuevo({ ...nuevo, cargo: cargo.id })}
                     />
                     <span className="flex items-center gap-1.5">
                       <Icon
@@ -373,11 +383,11 @@ export function EmpleadosPage() {
                         className={cn("text-[18px]", elegido ? "text-menta" : "text-outline")}
                       />
                       <span className="font-label-md text-label-md text-on-surface">
-                        {rol.nombre}
+                        {cargo.nombre}
                       </span>
                     </span>
                     <span className="mt-1 block text-[11px] text-on-surface-variant">
-                      {rol.descripcion}
+                      {TIPOS[cargo.tipo ?? "operativo"].descripcion}
                     </span>
                   </label>
                 );
@@ -385,9 +395,9 @@ export function EmpleadosPage() {
             </div>
             <p className="mt-3 flex items-start gap-xs font-caption text-caption text-on-surface-variant">
               <Icon name="info" className="shrink-0 text-[16px] text-menta" />
-              Es solo un punto de partida. Después puedes ajustarle los permisos uno por uno desde{" "}
-              <Link to="/configuracion/permisos" className="font-semibold text-menta underline">
-                Permisos
+              ¿Ninguno le queda? Crea uno nuevo en{" "}
+              <Link to="/configuracion/cargos" className="font-semibold text-menta underline">
+                Cargos
               </Link>
               .
             </p>

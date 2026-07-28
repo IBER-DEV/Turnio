@@ -4,7 +4,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
 import { RutaProtegida } from "./components/RutaProtegida";
 import { AgendaPage } from "./pages/AgendaPage";
-import { ConfiguracionPermisosPage } from "./pages/ConfiguracionPermisosPage";
+import { ConfiguracionCargosPage } from "./pages/ConfiguracionCargosPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EmpleadosPage } from "./pages/EmpleadosPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -63,11 +63,11 @@ function App() {
               }
             />
             <Route
-              path="/configuracion/permisos"
+              path="/configuracion/cargos"
               element={
                 <RutaProtegida capacidad="puede_gestionar_empleados">
                   <Layout>
-                    <ConfiguracionPermisosPage />
+                    <ConfiguracionCargosPage />
                   </Layout>
                 </RutaProtegida>
               }

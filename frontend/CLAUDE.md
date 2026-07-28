@@ -31,14 +31,24 @@ nunca de leer o adivinar el código Django directamente.
   sospechas que algo cambió del lado backend.
 
 ## Principios de producto que afectan la UI
-- **Capacidades, no roles fijos**: `MiembroNegocio` no tiene un campo
-  "rol". Tiene un conjunto de flags booleanos (`puede_cobrar`,
-  `puede_ver_reportes`, etc. — lista completa y actualizada en el
-  schema). La UI debe mostrar/ocultar acciones según esos flags
-  individuales, no mapearlos a una etiqueta de rol fija tipo
-  "Dueño"/"Empleado". Un negocio de un solo operador es simplemente un
-  negocio cuya única membresía tiene todos los flags en `true`: no
-  necesita una UI distinta.
+- **Cargos que define cada negocio, y dos niveles de gating**
+  (revisado 2026-07-26). `MiembroNegocio` no tiene flags: tiene un
+  **cargo**, y de ahí salen las capacidades. `mi-membresia` devuelve
+  `tipo` (discriminador de dominio) y `cargo` (capacidades). La regla:
+  - **`tipo` decide la forma de la app** — qué navegación existe y dónde
+    aterriza la persona. Vive en `src/permisos/shell.ts`.
+  - **las capacidades deciden las acciones** — qué botones se pintan.
+  - Todo se lee con el hook `usePermisos()` (`puede(...)` y `shell`).
+    **Nunca leas `membresia.cargo.puede_x` a mano** en una pantalla.
+
+  Los nombres de los cargos los pone el dueño, así que **no los
+  hardcodees ni los uses para decidir nada**: para eso está `tipo`. Un
+  negocio de un solo operador es el caso n=1 del mismo modelo.
+- **El lenguaje de los permisos vive en `src/permisos/catalogo.ts`**, en
+  términos de lo que la persona hace en el local ("Poner los precios"),
+  no del nombre del campo. Es un `Record<Capacidad, …>` derivado del
+  schema: si el backend agrega una capacidad, el frontend **deja de
+  compilar** hasta que se decida cómo se le explica al usuario.
 - **Multi-empleado desde el inicio**: cualquier pantalla de agenda debe
   pensarse por empleado (selector de empleado, "cualquiera
   disponible"), no como agenda única del negocio. Ver `../CLAUDE.md`.

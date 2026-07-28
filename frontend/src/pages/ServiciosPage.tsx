@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
 import { apiClient } from "../api/client";
 import type { components } from "../api/schema";
 import type { ServicioInput } from "../api/types";
 import { conReintentoDeAuth } from "../auth/refresh";
-import { useAuth } from "../auth/AuthContext";
 import { Button } from "../ui/Button";
 import { EstadoError, EstadoVacio, SkeletonLista } from "../ui/Feedback";
 import { Icon } from "../ui/Icon";
@@ -13,6 +12,7 @@ import { Input } from "../ui/Input";
 import { MenuAcciones, MenuAccionesItem, MenuAccionesSeparator } from "../ui/MenuAcciones";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
 import { useToast } from "../ui/Toast";
+import { usePermisos } from "../permisos/usePermisos";
 import { cn } from "../ui/cn";
 import { ModalCatalogo } from "./servicios/ModalCatalogo";
 
@@ -40,9 +40,9 @@ function formatearPrecio(precio: string): string {
 }
 
 export function ServiciosPage() {
-  const { membresia } = useAuth();
   const { mostrar } = useToast();
-  const puedeEditar = membresia?.puede_editar_precios ?? false;
+  const { puede } = usePermisos();
+  const puedeEditar = puede("puede_editar_precios");
 
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [cargando, setCargando] = useState(true);

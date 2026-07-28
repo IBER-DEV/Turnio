@@ -93,8 +93,9 @@ siempre vive en [`backend/openapi.yaml`](backend/openapi.yaml) /
 | POST | `/api/negocios/registro/` | Registra un negocio nuevo + dueño (con todas las capacidades) + empleados opcionales |
 | POST | `/api/auth/login/` | Login JWT (email + password) |
 | POST | `/api/auth/refresh/` | Refresca el access token |
+| GET/POST/PATCH/DELETE | `/api/negocios/cargos/` | Cargos del negocio y qué puede hacer cada uno — leer: cualquier miembro; escribir: `puede_gestionar_empleados` |
 | GET/POST | `/api/negocios/empleados/` | Lista/agrega empleados del negocio (crear requiere `puede_gestionar_empleados`) |
-| GET/PATCH | `/api/negocios/empleados/{id}/` | Detalle/edición de capacidades y especialidad de un empleado |
+| GET/PATCH | `/api/negocios/empleados/{id}/` | Detalle y **cambio de cargo** de un empleado |
 | GET/POST/PATCH/DELETE | `/api/servicios/` | CRUD de servicios (escribir requiere `puede_editar_precios`) |
 | GET/PUT | `/api/agenda/horario-negocio/` | Horario de atención del local — lo hereda todo el equipo (escribir requiere `puede_configurar_horarios`) |
 | GET/POST/PATCH/DELETE | `/api/agenda/horarios/` | Horario **propio** de un empleado, como excepción al del negocio (requiere `puede_configurar_horarios`) |

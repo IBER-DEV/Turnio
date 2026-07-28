@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
 import { apiClient } from "../api/client";
@@ -17,6 +17,7 @@ import { SelectCustom, SelectItem } from "../ui/SelectCustom";
 import { Tabs, TabsLista, TabsTrigger } from "../ui/Tabs";
 import { ToggleGroup, ToggleGroupItem } from "../ui/ToggleGroup";
 import { useToast } from "../ui/Toast";
+import { usePermisos } from "../permisos/usePermisos";
 import { ModalHorarioSemanal } from "./agenda/ModalHorarioSemanal";
 import { franjasDeEmpleado, franjasDelEquipo } from "./agenda/horarioEfectivo";
 import { VistaSemana } from "./agenda/VistaSemana";
@@ -66,11 +67,12 @@ function paraInputFechaHora(dia: Date, horaTexto = "09:00"): string {
 export function AgendaPage() {
   const { membresia } = useAuth();
   const { mostrar } = useToast();
-  const puedeGestionar = membresia?.puede_gestionar_agenda ?? false;
-  const puedeConfigurarHorarios = membresia?.puede_configurar_horarios ?? false;
+  const { puede } = usePermisos();
+  const puedeGestionar = puede("puede_gestionar_agenda");
+  const puedeConfigurarHorarios = puede("puede_configurar_horarios");
   // Sin esto el backend solo devuelve las citas propias, así que filtrar
   // por compañero no tiene nada que filtrar (ver CONTRATO.md 5.8).
-  const veAgendaCompleta = membresia?.puede_ver_agenda_completa ?? false;
+  const veAgendaCompleta = puede("puede_ver_agenda_completa");
 
   const dias = useMemo(() => proximosDias(), []);
   const [diaSeleccionado, setDiaSeleccionado] = useState<Date>(dias[0]);

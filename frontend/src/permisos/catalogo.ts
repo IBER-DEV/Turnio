@@ -1,6 +1,12 @@
-import type { Capacidad } from "../components/RutaProtegida";
+import type { components } from "../api/schema";
 
-export type { Capacidad };
+type Cargo = components["schemas"]["Cargo"];
+
+/** Los flags `puede_*` de un cargo, derivados del schema del backend. */
+export type Capacidad = Extract<keyof Cargo, `puede_${string}`>;
+
+/** El discriminador de dominio que manda el backend (`mi-membresia.tipo`). */
+export type TipoDeUsuario = components["schemas"]["TipoEnum"];
 
 /** Cómo se le explica cada permiso a quien tiene el negocio.
  *
@@ -11,9 +17,9 @@ export type { Capacidad };
  * está apagado.
  *
  * El tipo es `Record<Capacidad, …>` a propósito: `Capacidad` se deriva
- * del schema del backend, así que si allá nace una capacidad nueva esto
- * deja de compilar hasta que alguien decida cómo se le explica al
- * usuario. Una capacidad sin traducir sería un interruptor sin nombre.
+ * del schema, así que si el backend agrega una capacidad esto deja de
+ * compilar hasta que alguien decida cómo se le explica al usuario. Una
+ * capacidad sin traducir sería un interruptor sin nombre.
  */
 export const DEFINICIONES: Record<
   Capacidad,
@@ -49,15 +55,14 @@ export const DEFINICIONES: Record<
   },
   puede_gestionar_empleados: {
     etiqueta: "Agregar gente y dar permisos",
-    consecuencia: "Da de alta compañeros y cambia lo que cada uno puede hacer.",
+    consecuencia: "Da de alta compañeros y define los cargos del negocio.",
   },
 };
 
 /** Los permisos agrupados por área del negocio.
  *
  * Con siete interruptores, la lista plana dejó de escanearse: quien
- * busca "¿puede tocar la plata?" no debería leer los siete. El orden
- * dentro de cada área va de lo más común a lo más delicado.
+ * busca "¿puede tocar la plata?" no debería leer los siete.
  */
 export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
   {
@@ -80,3 +85,19 @@ export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
 
 /** Todas las capacidades, en el orden en que se muestran. */
 export const CAPACIDADES: Capacidad[] = GRUPOS.flatMap((grupo) => grupo.capacidades);
+
+/** Cómo se le presenta al dueño cada tipo de usuario al crear un cargo. */
+export const TIPOS: Record<TipoDeUsuario, { etiqueta: string; descripcion: string }> = {
+  administracion: {
+    etiqueta: "Administración",
+    descripcion: "Entra a la consola completa del negocio.",
+  },
+  recepcion: {
+    etiqueta: "Recepción",
+    descripcion: "Arranca en la agenda del local y la caja del día.",
+  },
+  operativo: {
+    etiqueta: "Operativo",
+    descripcion: "Arranca en su día: sus citas y su horario.",
+  },
+};

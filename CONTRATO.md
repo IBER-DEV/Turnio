@@ -355,6 +355,64 @@ usuario deben ir deshabilitados, y también los de las capacidades que
 quien mira no posee — si no, el formulario ofrece acciones que el backend
 va a rechazar.
 
+### 5.10 Cargos: dónde viven los permisos y qué es el `tipo`
+
+Las capacidades **no viven en la membresía**, viven en un `Cargo` que
+cada negocio define. `MiembroNegocio` apunta a uno y de ahí saca todo lo
+que puede hacer. No hay excepciones por persona: si alguien necesita algo
+distinto, se le crea un cargo.
+
+Cada negocio nace con tres cargos editables —**Administración**,
+**Recepción**, **Barbero o estilista**— y el dueño entra en el primero.
+Son un punto de partida, no un catálogo: se renombran, se editan, se
+crean otros y se borran los que no se usen.
+
+**Consecuencia que la UI debe comunicar**: editar un cargo cambia a
+**todos** los que lo ocupan. Por eso `Cargo` expone `miembros` (cuántas
+personas lo tienen).
+
+#### El discriminador de dominio
+
+`GET /api/negocios/mi-membresia/` devuelve dos cosas para dos usos
+distintos:
+
+| Campo | Para qué | Granularidad |
+|---|---|---|
+| `tipo` | Qué **shell** montar: navegación, pantalla inicial | Gruesa: `administracion` \| `recepcion` \| `operativo` |
+| `cargo` | Qué **acciones** pintar dentro de ese shell | Fina: las 7 capacidades |
+
+`tipo` sale del cargo y el dueño lo elige al crearlo. Existe para que el
+frontend no tenga que deducir la forma de la app encadenando
+condicionales por capacidad, y para que la decisión sea estable: mover un
+permiso no le reordena la app a nadie por sorpresa.
+
+**`tipo` no es una barrera de seguridad y el backend nunca filtra datos
+por él.** Cada endpoint sigue exigiendo la capacidad concreta. Si el tipo
+fuera la barrera, bastaría pedir otra ruta para saltársela — el frontend
+puede confiar en `tipo` para *dibujar*, nunca para *proteger*.
+
+#### Endpoints
+
+- `GET /api/negocios/cargos/` — los cargos del negocio. **Cualquier
+  miembro** puede leerlos: la UI necesita mostrar en qué cargo está cada
+  quien.
+- `POST/PATCH/DELETE /api/negocios/cargos/{id}/` — requiere
+  `puede_gestionar_empleados`; definir lo que puede hacer un cargo **es**
+  dar permisos. Borrar un cargo que alguien ocupa responde `400`.
+- `PATCH /api/negocios/empleados/{id}/` con `cargo` — así se cambia lo
+  que alguien puede hacer. Los flags `puede_*` ya **no** se aceptan acá.
+- `POST /api/negocios/empleados/` acepta `cargo`; si se omite, la persona
+  entra al cargo operativo del negocio.
+- `POST /api/negocios/registro/` **no** acepta `cargo` en sus empleados:
+  en ese request los cargos aún no existen, así que un id solo podría
+  apuntar a otro negocio. Entran al operativo y se les cambia después.
+
+Las reglas anti-escalada de 5.9 siguen valiendo, adaptadas a que ahora
+hay dos puertas: no se puede **ampliar el cargo que uno ocupa**, ni
+**mudarse a otro cargo** (ni poner a alguien en uno con capacidades que
+uno no tiene). Recortar y renombrar sí se permite, también sobre el
+propio.
+
 ## 6. Historial de cambios al contrato
 
 > Quien cambie la forma de la API agrega una entrada acá (fecha,
@@ -506,3 +564,32 @@ va a rechazar.
   `puede_gestionar_agenda`. Para el resto quedan en `false`, que es
   justamente el cambio buscado — un empleado raso deja de ver la agenda
   del negocio entero.
+- **2026-07-26** — **Cambio con ruptura grande**: las capacidades se
+  mudan de `MiembroNegocio` a un modelo `Cargo` que cada negocio define,
+  y `mi-membresia` gana un discriminador de dominio. Ver 5.10. Decisión
+  del humano: quiere que el dueño escoja un cargo en vez de siete
+  interruptores, que pueda editar esos cargos él mismo, y que el
+  frontend sepa **qué pantalla cargar** sin encadenar condicionales por
+  capacidad (arquitectura PBAC + UI state-driven).
+  1. **`MiembroNegocio` pierde los siete flags `puede_*`.** Ahora tiene
+     `cargo`. Quien leía `membresia.puede_x` debe leer el cargo.
+  2. **`GET /api/negocios/mi-membresia/` cambia de forma**: en lugar de
+     los flags sueltos devuelve `tipo` (el discriminador) y `cargo`
+     anidado con las capacidades.
+  3. **`MiembroNegocio` en la API** expone `cargo` (id, editable) y
+     `cargo_detalle` (anidado, solo lectura) en vez de los flags.
+     `PATCH /api/negocios/empleados/{id}/` ya no acepta `puede_*`.
+  4. **`EmpleadoAlta` cambia**: acepta `cargo` en vez de los siete flags.
+     El alta dentro de `POST /api/negocios/registro/` usa un serializer
+     aparte (`EmpleadoAltaRegistro`) **sin** `cargo`, porque en ese
+     request los cargos del negocio todavía no existen y aceptar un id
+     permitiría colar el de otro negocio.
+  5. **Nuevo CRUD `GET/POST/PATCH/DELETE /api/negocios/cargos/`.**
+  6. **Registrar un negocio ahora crea tres cargos** y mete al dueño en
+     Administración.
+
+  Migración de datos: cada negocio recibe un cargo por cada combinación
+  distinta de capacidades que tuviera su gente, y todos quedan asignados.
+  Las combinaciones reconocibles se bautizan (Administración, Recepción,
+  Barbero o estilista); las arbitrarias quedan como "Cargo 1", "Cargo 2"
+  para que el dueño las renombre. **Nadie gana ni pierde permisos.**

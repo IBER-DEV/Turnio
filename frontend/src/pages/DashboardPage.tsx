@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { apiClient } from "../api/client";
@@ -10,6 +10,7 @@ import { ESTILO_ESTADO } from "../ui/EstadoCita";
 import { Icon } from "../ui/Icon";
 import type { NombreIcono } from "../ui/Icon";
 import { cn } from "../ui/cn";
+import { usePermisos } from "../permisos/usePermisos";
 
 type Cita = components["schemas"]["Cita"];
 
@@ -32,6 +33,7 @@ function saludo(): string {
 
 export function DashboardPage() {
   const { membresia } = useAuth();
+  const { puede } = usePermisos();
   const navigate = useNavigate();
   const [citas, setCitas] = useState<Cita[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -72,27 +74,32 @@ export function DashboardPage() {
     to: string;
   }> = [
     {
-      visible: membresia.puede_gestionar_agenda,
+      visible: puede("puede_gestionar_agenda"),
       etiqueta: "Agendar cita",
       descripcion: "Programa un nuevo turno",
       icono: "person_add",
       to: "/agenda",
     },
     {
-      visible: membresia.puede_editar_precios,
+      visible: puede("puede_editar_precios"),
       etiqueta: "Nuevo servicio",
       descripcion: "Amplía tu catálogo",
       icono: "content_cut",
       to: "/servicios",
     },
     {
-      visible: membresia.puede_gestionar_empleados,
+      visible: puede("puede_gestionar_empleados"),
       etiqueta: "Gestionar equipo",
-      // Los horarios ya no se tocan acá: viven en Agenda y dependen de
-      // `puede_configurar_horarios`, que es una capacidad distinta.
-      descripcion: "Permisos y especialidades",
+      descripcion: "Quién trabaja y en qué cargo",
       icono: "group_add",
       to: "/empleados",
+    },
+    {
+      visible: puede("puede_gestionar_empleados"),
+      etiqueta: "Cargos",
+      descripcion: "Qué puede hacer cada cargo",
+      icono: "settings",
+      to: "/configuracion/cargos",
     },
   ];
   const accesos = todosLosAccesos.filter((acceso) => acceso.visible);
