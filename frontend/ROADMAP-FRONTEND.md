@@ -802,3 +802,147 @@ staff. Queda por decidir si el perfil público se construye dentro de
 a un visitante que no la necesita) o en `landing/` (Astro, estático,
 mucho más liviano para algo que se ve una vez). La decisión cambia qué
 librerías tienen sentido.
+
+## Fase 2: perfil público y reserva sin cuenta (2026-07-28)
+
+> Rama `feature/frontend-sistema-diseno`. Retoma Fase 2 tras cerrar el
+> sistema de diseño compartido (entrada anterior). Backend ya tenía los
+> cuatro endpoints públicos construidos; acá se consumen por primera vez.
+
+### Cambio de alcance decidido antes de escribir código
+El texto original de Fase 2 (`../CLAUDE.md`) incluía "búsqueda de
+negocios por parte del cliente" como parte del MVP. El humano lo corrigió:
+el reemplazo real de "llamar o escribir por WhatsApp" es el enlace único
+que el dueño comparte (`turnio.app/{slug}`), no un marketplace donde el
+cliente descubre negocios que no conoce — eso necesita densidad de oferta
+que la plataforma no tiene todavía. Por eso esta sesión no construye
+`/buscar`, aunque el endpoint `GET /api/publico/negocios/` sigue vivo del
+lado backend para cuando llegue Fase 6+. Detalle completo en
+`../ROADMAP.md` (decisión #8) y `../CLAUDE.md`.
+
+### Bug de contrato encontrado antes de poder tipar nada
+`NegocioPublico.servicios/profesionales/horario` estaban declarados
+`type: string` en el schema (faltaba `@extend_schema_field` sobre los
+`SerializerMethodField`). No se pudo asumir la forma real "porque se leyó
+el serializer": se cruzó a backend a pedir el arreglo, se regeneró el
+contrato, y solo entonces se tipó el cliente. Ver
+`../backend/ROADMAP-BACKEND.md` y `../CONTRATO.md` historial.
+
+### `src/api/publico.ts` — cliente aparte, sin cabecera de auth
+No es el mismo `apiClient` de siempre con otra base URL: ese cliente
+adjunta `Authorization` si hay un token en `localStorage`, y DRF
+autentica antes de evaluar permisos. Un token vencido de una sesión de
+staff anterior habría hecho que un endpoint `AllowAny` respondiera `401`
+— justo para la única persona que ya conoce el producto (el dueño
+mirando su propio perfil). El comentario en el archivo explica el porqué.
+
+### `PerfilNegocioPage` (`/:slug`)
+Header (nombre, ciudad, dirección, teléfono con `tel:`, botón compartir
+con `navigator.share` y fallback a copiar el enlace), servicios (con
+precio en COP y botón "Reservar" por servicio), equipo (avatares con
+iniciales — no hay foto: ver pendiente abajo) y horario por día. Estados
+de carga (skeleton), error (negocio inactivo o inexistente, copy propio
+en vez de un 404 genérico) y vacío (catálogo sin servicios) con
+`EstadoVacio`/`EstadoError`/`Skeleton` ya existentes — no hizo falta
+inventar componentes nuevos, solo el copy específico de este flujo.
+
+### `ReservaHoja`: el flujo de reservar, en una hoja de Vaul
+Fecha → horas disponibles (fetch a `disponibilidad` en cada cambio de
+fecha) → profesional opcional ("Cualquiera disponible" por defecto,
+igual que el backend) → datos (nombre, teléfono, notas) → confirmar.
+
+- **Vaul, no `Modal`.** Es la primera vez que se usa: `Modal` (Radix
+  Dialog) ya parece una hoja en móvil por CSS, pero no se puede arrastrar
+  para cerrar. Vaul agrega el gesto real. Encapsulado en `src/ui/Hoja.tsx`,
+  mismo API que `Modal` (`abierta`, `onCerrar`, `titulo`, `descripcion`) a
+  propósito, para que cambiar de uno a otro sea un cambio de una línea si
+  hace falta en el futuro.
+- **El mensaje de "hueco ocupado" es el que ya devuelve el backend**, no
+  uno inventado: `ReservarView` es deliberadamente genérico ("Ese
+  horario ya no está disponible. Elige otro.") para no distinguir "se
+  acaba de ocupar" de "nunca estuvo disponible". Se repite el mismo texto
+  en el frontend en vez de parsear el `400` — con datos ya validados en
+  el cliente, esa es la única causa realista.
+- **Tras un 400, se refresca la disponibilidad** (`cargarHuecos()`): el
+  hueco que se acaba de perder no debe seguir apareciendo como elegible.
+- Distingue error de conexión (mensaje de "revisa tu internet") de error
+  del servidor (mensaje del backend) — son causas distintas y
+  confundirlas hace perder tiempo a quien reintenta el mismo hueco que ya
+  se ocupó.
+
+### Reestructura de rutas + code-splitting
+`/:slug` se agregó como ruta pública (fuera de `RutaProtegida`), al final
+— React Router ya prioriza segmentos literales (`/login`, `/agenda`…)
+sobre uno dinámico, así que el orden no cambia el comportamiento, pero
+refleja que es el catch-all que `SLUGS_RESERVADOS` protege del lado
+backend.
+
+Se aprovechó para partir el bundle: cada pantalla (`DashboardPage`,
+`ServiciosPage`, `AgendaPage`, `EmpleadosPage`, `ConfiguracionCargosPage`,
+`LoginPage`, `RegistroNegocioPage`, `PerfilNegocioPage`) pasó a
+`React.lazy` + un único `<Suspense>` en `App.tsx`. Antes un visitante que
+abría `/{slug}` bajaba el bundle completo del panel del staff (formularios
+de Agenda, calendario, gestión de equipo…) sin usar nada de eso. El chunk
+principal bajó de **519 kB a 297 kB**; `PerfilNegocioPage` quedó en su
+propio chunk de 40 kB (incluye Vaul). `Layout` y `RutaProtegida` se
+dejaron eager a propósito: son la cáscara que comparten todas las
+pantallas de staff, no el peso que había que separar.
+
+### View Transitions API
+`viewTransition` en los `NavLink` de `Layout` (desktop y bottom nav
+móvil) — nativo, sin dependencias nuevas. El cross-fade por defecto del
+navegador (~250ms) ya encaja con la regla del proyecto de no pasarse de
+ese tiempo en interacciones. Único cuidado: los pseudo-elementos
+`::view-transition-*` no son parte del árbol normal del documento, así
+que el bloque global de `prefers-reduced-motion` en `index.css` (que usa
+`*`) no los alcanzaba — se agregó una regla aparte para ellos, comentada
+en el archivo para que no se pierda por qué hace falta un bloque
+"duplicado".
+
+### Verificación: no solo tipos, no solo mocks
+Además de `tsc -b` + `vitest`, se corrió el flujo completo contra un
+backend real (`docker compose up`): se registraron dos negocios, se les
+cargó servicio y horario, se pidió disponibilidad real y se reservó dos
+veces el mismo hueco para confirmar el `400`. Encontró un caso que los
+tests con mocks no podían mostrar — ver "Refinamiento" en
+`../backend/ROADMAP-BACKEND.md` (rutas reservadas del SPA). Los negocios
+de prueba se borraron al terminar.
+
+### Tests
+5 nuevos en `src/pages/publico/PerfilNegocioPage.test.tsx` (32 en el
+proyecto, antes 27): render de los datos reales, estado de error con
+copy propio, estado vacío del catálogo, el flujo completo de reserva
+(botón deshabilitado hasta tener hora + nombre + teléfono, confirmación
+con los datos que devuelve el backend), y el caso de hueco ocupado con
+refetch. Es el primer test del proyecto que mockea el cliente HTTP
+(`vi.mock("../../api/publico")`) — no había precedente porque hasta
+ahora ningún componente probado hacía fetch directo.
+
+### Pendiente / a medio hacer
+- **No hay ningún campo de imagen** en `Negocio` ni `Servicio` (logo,
+  portada, fotos). Bloquea tanto el `og:image` del enlace compartido
+  como cualquier futuro carrusel de fotos en el perfil. Es de backend
+  (modelo + storage), anotado también en `../ROADMAP.md` decisión #8.
+- **`formatearPrecio`/`MONEDA` (COP) se volvió a duplicar** — ya estaba
+  en `ServiciosPage.tsx` y `ModalCatalogo.tsx`, ahora también en
+  `PerfilNegocioPage.tsx`. Candidato claro para extraer a un helper
+  compartido en una pasada de limpieza; no se tocó en esta sesión para
+  no mezclar refactor con feature nueva.
+- **Sin cancelación ni consulta de la cita reservada**: la respuesta de
+  `reservar` es deliberadamente magra (ver `../CONTRATO.md` 5.11) y no
+  lleva `id`. Cuando haga falta, es un token en el enlace de
+  confirmación, no una cuenta — decisión ya tomada, solo falta construirla.
+- **`ReservaHoja` no valida el formato del teléfono** más allá de "no
+  vacío". El backend tampoco lo valida (`CharField` libre). Si en el uso
+  real llegan números mal escritos, hay que decidir el formato esperado
+  en los dos lados a la vez.
+- Quedó pendiente (no bloqueante) evaluar **Vaul con snap points** para
+  la hoja de reserva en pantallas grandes — hoy ocupa el mismo layout
+  fijo en cualquier tamaño; funciona pero no aprovecha el espacio extra
+  en tablet/desktop.
+
+### Pendiente del paquete visual más amplio (fuera de esta sesión)
+Se evaluaron y quedaron fuera a propósito, documentadas también en la
+entrada anterior de este roadmap: NumberFlow (dashboard), Lenis (solo
+landing), y la pasada de estados vacíos/error con ilustración propia
+(hoy siguen siendo genéricos, solo con copy distinto por pantalla).

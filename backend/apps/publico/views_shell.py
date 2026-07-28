@@ -24,6 +24,12 @@ sola: si no existe, esta vista no tiene qué servir. Ver
 `ROADMAP-BACKEND.md` para el estado de cómo se sirve `frontend/dist/`
 fuera de desarrollo — hoy no hay pipeline de despliegue en el repo, así
 que esa parte queda pendiente a propósito.
+
+También cubre las rutas del propio SPA (`/login`, `/agenda`, …): como
+comparten espacio de nombres con los slugs (`SLUGS_RESERVADOS`), esta
+vista responde con el shell genérico para esas en vez de 404 — necesario
+para que refrescar la página en una ruta de React Router no rompa si
+Django termina siendo el único origen.
 """
 
 from pathlib import Path
@@ -33,7 +39,7 @@ from django.http import Http404, HttpResponse
 from django.utils.html import escape
 from django.views import View
 
-from apps.negocios.models import Negocio
+from apps.negocios.models import SLUGS_RESERVADOS, Negocio
 
 _DIST_INDEX = Path(settings.BASE_DIR).parent / "frontend" / "dist" / "index.html"
 
@@ -60,6 +66,17 @@ class PerfilPublicoShellView(View):
     """
 
     def get(self, request, slug):
+        # `login`, `agenda`, etc. son rutas del SPA, no negocios — nunca
+        # podrán existir como slug (`Negocio._slug_ocupado` las bloquea
+        # al crear). Servir acá el shell genérico (sin meta tags) es lo
+        # que permite refrescar `/login` o entrar por URL directa sin
+        # pasar por Vite: sin esto, Django (si termina siendo el único
+        # origen en producción) respondería 404 en cualquier ruta del
+        # SPA que no sea `/`. React Router decide desde ahí si la ruta
+        # existe de verdad.
+        if slug in SLUGS_RESERVADOS:
+            return HttpResponse(_shell_html(), content_type="text/html; charset=utf-8")
+
         negocio = Negocio.objects.filter(slug=slug, activo=True).first()
         if negocio is None:
             raise Http404("Negocio no encontrado.")

@@ -82,5 +82,17 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+
+    /* El bloque de arriba no alcanza a la navegación entre rutas
+       (`View Transitions API`, ver `App.tsx`/`Layout.tsx`): los
+       pseudo-elementos `::view-transition-*` no son parte del árbol
+       normal del documento, así que el selector universal `*` no los
+       toca. Sin esto, quien pidió menos movimiento seguiría viendo el
+       cross-fade entre pantallas. */
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
   }
 }

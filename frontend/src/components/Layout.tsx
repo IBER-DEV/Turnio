@@ -83,6 +83,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 key={to}
                 to={to}
                 end={to === "/"}
+                viewTransition
                 className={({ isActive }) =>
                   cn(
                     "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 font-body-md text-body-md transition-all",
@@ -170,6 +171,7 @@ export function Layout({ children }: { children: ReactNode }) {
             key={to}
             to={to}
             end={to === "/"}
+            viewTransition
             className={({ isActive }) =>
               cn(
                 "tactile relative flex min-w-[56px] flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 transition-colors",

@@ -1012,13 +1012,50 @@ resolver un problema que no se ha planteado. Queda como bloqueo abierto
 (ver `../ROADMAP.md`, decisión #8) para cuando se decida cómo se
 despliega esto de verdad.
 
+### Refinamiento: las rutas del propio SPA también necesitan el shell
+Verificando en vivo (`docker compose up`, curl real) apareció algo que
+los tests con `index.html` de prueba no podían mostrar: `GET /login/`
+contra Django respondía `404`. No es una regresión — nunca existió esa
+ruta en `urls.py`, así que el comportamiento no cambió — pero sí es un
+hueco real para el día en que Django sea el único origen en producción:
+refrescar la página en `/login` o `/agenda` (rutas de React Router, no
+de Django) rompería.
+
+`SLUGS_RESERVADOS` ya existe justo para esto: es la lista de segmentos
+que un negocio nunca puede tomar como slug porque le pertenecen al SPA.
+`PerfilPublicoShellView` ahora la consulta primero — si el segmento es
+una ruta reservada, sirve el shell genérico (sin meta tags de negocio,
+para que un crawler no confunda `/login` con un perfil) y deja que React
+Router decida qué hacer con esa ruta; si no es reservada, sigue el
+camino de siempre (buscar el negocio, 404 si no existe).
+
+### Verificación en vivo (no solo tests con mocks)
+Los tests de `test_shell.py` apuntan `_DIST_INDEX` a un archivo de
+prueba — determinista, pero no prueba que el contrato real (JSON del
+backend) y lo que el frontend espera encajen de punta a punta. Se
+levantó `docker compose up`, se registraron dos negocios reales por la
+API, se les cargó servicio y horario, y se ejecutó el flujo completo:
+
+- `GET /api/publico/negocios/{slug}/` — forma exacta que espera
+  `PerfilNegocioPage` (arreglos, no strings).
+- `GET .../disponibilidad/` — huecos reales generados desde el horario
+  cargado.
+- `POST .../reservar/` — reserva exitosa, y un segundo intento al mismo
+  hueco confirma el `400` con el mensaje genérico documentado.
+- `GET /{slug}/`, `GET /login/`, `GET /agenda/` contra Django directo:
+  meta tags reales en el primero, shell genérico sin meta tags en los
+  otros dos, sin 404.
+
+Los dos negocios y su cita de prueba se borraron de la base al terminar.
+
 ### Tests
-6 nuevos en `apps/publico/tests/test_shell.py` (30 en el módulo, 146 en
+7 nuevos en `apps/publico/tests/test_shell.py` (31 en el módulo, 147 en
 el proyecto): meta tags con los datos reales del negocio, que el resto
 del shell compilado sobrevive intacto (React sigue teniendo `#root`
 donde montar), negocio inactivo → 404, slug inexistente → 404,
-`frontend/dist/` sin construir → 404 en vez de 500, y que el nombre del
-negocio no puede inyectar HTML. Ninguno depende de que `npm run build`
+`frontend/dist/` sin construir → 404 en vez de 500, que el nombre del
+negocio no puede inyectar HTML, y que una ruta reservada del SPA sirve
+el shell genérico en vez de 404. Ninguno depende de que `npm run build`
 se haya corrido de verdad: apuntan `views_shell._DIST_INDEX` a un
 `index.html` de prueba vía `monkeypatch`.
 

@@ -9,6 +9,7 @@ import pytest
 from django.test import Client
 
 from apps.negocios import services as negocios_services
+from apps.negocios.models import SLUGS_RESERVADOS
 from apps.publico import views_shell
 
 pytestmark = pytest.mark.django_db
@@ -97,6 +98,21 @@ def test_slug_inexistente_responde_404(cliente, dist_index):
     respuesta = cliente.get("/este-negocio-no-existe/")
 
     assert respuesta.status_code == 404
+
+
+def test_una_ruta_reservada_del_spa_sirve_el_shell_generico_en_vez_de_404(cliente, dist_index):
+    """`/login/`, `/agenda/`, etc. nunca son un negocio (ver
+    `SLUGS_RESERVADOS`): si Django termina siendo el único origen en
+    producción, refrescar ahí no debe romperse."""
+    assert "login" in SLUGS_RESERVADOS
+
+    respuesta = cliente.get("/login/")
+
+    assert respuesta.status_code == 200
+    html = respuesta.content.decode("utf-8")
+    assert '<div id="root"></div>' in html
+    # Sin meta tags de negocio: es el shell genérico, no un perfil.
+    assert 'property="og:title"' not in html
 
 
 def test_sin_index_html_compilado_responde_404_en_vez_de_reventar(cliente, tmp_path, monkeypatch):
