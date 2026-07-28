@@ -1136,3 +1136,35 @@ archivo: **ningún color de Turnio dentro del perfil público**.
   que otro del mismo rubro.
 - **`FONDO_POR_TEMA` en el backend duplica un color de acá.** Ningún test
   puede verificar que coincidan; está anotado en los dos archivos.
+
+## Arreglo de layout: el perfil público en pantallas grandes (2026-07-28)
+
+> Reportado por el humano viendo la plantilla de barbería en desktop:
+> "el carrusel no se ve bien en pantallas más grandes".
+
+Diagnóstico confirmado con capturas (Chrome headless contra el dev
+server + backend real, no solo mirando el código): el encabezado usaba
+ancho completo con `padding`, pero el contenido de abajo vivía en una
+caja `max-w-2xl` **centrada**. En cualquier pantalla más ancha que
+~800px eso desalineaba el título del resto del perfil y dejaba el
+carrusel —angosto, con la barra de scroll nativa visible— flotando en
+medio de un vacío enorme.
+
+- Encabezado y contenido comparten `--width-perfil-contenido` (1200px,
+  tomado del propio `DESIGN.md` de origen), un solo token para que sus
+  bordes coincidan siempre.
+- El carrusel es una grilla real desde `md` (no una tira de scroll
+  angosta); en mobile sigue con `scroll-snap`, ahora con `hide-
+  scrollbar`.
+- Desde `lg`, servicios queda en una columna ancha y equipo/horario/
+  contacto en una columna fija a la derecha, sticky.
+
+**Bug encontrado al verificar visualmente, no al leer el código**: el
+botón "Reservar" salía siempre verde sin importar la plantilla —
+`Button`'s variante `negocio` seguía leyendo `--color-acento` (el token
+de la tanda de "color único" anterior a las plantillas), que ya no
+pinta nadie. Corregido a `--color-perfil-primario`. Ver
+`../DECISIONES.md` #24.
+
+Confirmado con capturas en barbería (1920/1280/834/390px) y en clínica
+(el negocio de prueba estaba en ese tema al momento de verificar).

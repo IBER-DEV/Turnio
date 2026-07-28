@@ -420,3 +420,31 @@ galería; si no hay ninguna, se comparte sin imagen. `twitter:card` sube a
 
 **Por qué el detalle del `twitter:card`.** Con la variante grande y sin
 imagen, la tarjeta queda vacía — peor que la miniatura de `summary`.
+
+### 24. Verificar visualmente encontró un bug que la revisión de código no había visto
+
+**Contexto.** Al confirmar el arreglo de layout en las tres plantillas
+con capturas reales (no solo revisando las clases de Tailwind), el
+botón "Reservar" salía siempre verde — nunca dorado en barbería, nunca
+azul en clínica.
+
+**Causa.** `Button`'s variante `negocio` (`src/ui/Button.tsx`) seguía
+apuntando a `--color-acento`/`--color-sobre-acento`, los tokens de la
+tanda de "color único por negocio" (#12) que las plantillas (#19)
+reemplazaron por `--color-perfil-primario`/`--color-perfil-sobre-
+primario`. Nadie volvió a declarar los tokens viejos en ningún
+contenedor, así que el botón caía siempre en el default fijo de
+`design/tokens.css` (la menta de Turnio) sin que ningún test lo
+atrapara: los tests de `PerfilNegocioPage` verifican las variables CSS
+del contenedor, no qué variable usa cada componente hijo.
+
+**Corregido** a los tokens vigentes.
+
+**Por qué esto importa como regla, no solo como bug puntual.** Ninguna
+suite de tests unitarios lo iba a atrapar: la aserción hubiera sido
+"el contenedor tiene `--color-perfil-primario: #d4af37`", y el botón sí
+lo tenía disponible en el árbol — el problema era que **leía otra
+variable**, indetectable sin mirar el resultado renderizado. Confirma
+la regla del propio `CLAUDE.md`: para cambios de frontend, probar en
+un navegador real antes de dar el trabajo por terminado, no solo correr
+la suite.
