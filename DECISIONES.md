@@ -27,6 +27,130 @@
 
 ---
 
+## 2026-07-28 — Filtros de consulta y registro a nombre de otro en servicios realizados
+
+Segundo pedido del humano sobre el mismo módulo: filtros por período
+(día/semana/mes), por barbero y por estado para consultar registros, y
+que un administrador pueda registrar un servicio a nombre de un
+barbero concreto (obligándolo a elegir cuál). Ver `CONTRATO.md` 5.13.
+
+### 28. `puede_aprobar_servicios` también gobierna "quién elige el empleado al registrar", en vez de una capacidad nueva
+
+**Decisión.** No se creó una capacidad aparte (ej. `puede_registrar_para_otros`)
+para decidir quién puede elegir `empleado` al crear un `RegistroServicio`.
+Se reutilizó `puede_aprobar_servicios`: quien la tiene, debe elegir
+empleado (obligatorio); quien no la tiene, sigue registrando siempre lo
+suyo, sin poder elegir.
+
+**Por qué no una capacidad nueva.** `backend/CLAUDE.md` señala
+explícitamente "cuando el alta pase de ~8 flags" como disparador para
+reconsiderar el modelo de permisos — ya se estaba en 9 capacidades tras
+`puede_aprobar_servicios` (ver #25 más abajo). Agregar una décima para
+un caso de uso acotado y estrechamente relacionado (ambos son "control
+administrativo sobre el dominio de validación de servicios") habría
+fragmentado sin necesidad un mismo dominio de confianza. Quien ya es de
+confianza para decidir si el trabajo de alguien cuenta, lo es también
+para dejar constancia de ese trabajo en su nombre.
+
+**Consecuencia verificada, no solo asumida.** Como la regla de "nadie
+revisa lo suyo" (#26) sigue aplicando sobre el `empleado` resultante
+—no sobre quien hizo el request—, un administrador que se registra un
+servicio a sí mismo usando esta misma capacidad sigue sin poder
+aprobárselo. Reutilizar la capacidad no reabrió el hueco que #26 cerró.
+
+### 29. "Mis servicios" en el frontend fuerza `?empleado=<propio id>`, no confía en el default del backend
+
+**Decisión.** `MisServiciosPage` manda siempre `?empleado=<id de quien
+mira la pantalla>` al listar, sin importar si tiene
+`puede_aprobar_servicios`. `ValidarServiciosPage` es la única pantalla
+que se apoya en el comportamiento por defecto del backend (ver todo el
+negocio con la capacidad, propios sin ella).
+
+**Por qué, si el backend ya resuelve esto solo.** Sin la capacidad, el
+backend acota el listado a lo propio y no habría diferencia. **Con**
+ella, el backend devuelve *todo* el negocio por diseño —es lo que
+necesita "Validar servicios"—, así que sin este filtro explícito, "Mis
+servicios" de un administrador mostraría literalmente lo mismo que
+"Validar servicios", duplicando la pantalla y volviendo ambiguo qué es
+"mío" para alguien que también valida. El nombre de la pantalla es una
+promesa ("esto es lo que yo hice"), y cumplirla no puede depender de
+qué capacidades tenga quien la mira.
+
+---
+
+## 2026-07-28 — Registro y validación de servicios realizados
+
+Pedido explícito del humano: un barbero no debe poder "hacerse" comisión
+o estadística inventando trabajo que no hizo. Ver `CONTRATO.md` 5.13.
+
+### 25. `RegistroServicio` es independiente de `Cita`, no una extensión de su máquina de estados
+
+**Decisión.** El flujo de aprobación vive en un modelo nuevo
+(`RegistroServicio`, en `apps/servicios`), no en estados adicionales de
+`Cita` (`agendada → confirmada → completada → cancelada`).
+
+**Por qué no extender `Cita`.** El enunciado pide cubrir también al
+cliente que llega sin cita (walk-in) — que en este sistema **nunca pasa
+por `Cita`**, porque agendar es un paso previo y opcional, no un
+prerrequisito para atender. Encadenar `pendiente_aprobacion` después de
+`completada` habría dejado sin cobertura exactamente el caso que más le
+importa a un negocio real: la mayoría del trabajo de una barbería no se
+agenda con antelación.
+
+**Costo aceptado.** Dos maneras de representar "trabajo hecho" en el
+sistema (una `Cita` completada y un `RegistroServicio` aprobado), sin
+relación formal entre ellas todavía. Se decidió no forzar un FK opcional
+de `RegistroServicio` a `Cita` en esta pasada: no había ningún requisito
+de "cerrar la cita cuando se aprueba su registro", y agregar esa relación
+sin un caso de uso concreto detrás era la abstracción prematura que
+`CLAUDE.md` pide evitar. Si aparece la necesidad de enlazarlos, se agrega
+entonces.
+
+**Vive en `apps/servicios`, no en una app nueva.** El modelo referencia
+`Servicio` como catálogo, y `apps/servicios/services.py` ya tenía
+`calcular_comision()` escrita e inerte "para cuando exista Caja" — este
+módulo es ese momento, aunque todavía no invoque esa función. Crear una
+app aparte (`apps/validaciones` o similar) habría significado plomería
+nueva (INSTALLED_APPS, migraciones, admin, tests) sin ninguna ventaja de
+aislamiento real.
+
+### 26. Nadie aprueba su propio registro, ni con la capacidad
+
+**Decisión.** `aprobar_registro`/`rechazar_registro` rechazan la
+operación si `revisor == registro.empleado`, sin excepción — a
+diferencia de cómo `puede_gestionar_agenda` funciona en `Cita`, donde
+tener la capacidad siempre alcanza sin importar de quién es el objeto.
+
+**Por qué la asimetría con `Cita`.** Ahí la capacidad **es**
+administrar; acá la capacidad es **dar fe de un hecho ajeno**. Dejar que
+alguien con `puede_aprobar_servicios` apruebe lo suyo reduce el control
+exactamente al caso que más le preocupa al negocio: un dueño-operador que
+también valida no tiene este problema porque no necesita el permiso para
+que su propio trabajo cuente (ver `CLAUDE.md`, principio de diseño — el
+operador único es el caso n=1, no un modo especial), pero un empleado con
+el permiso de validar sí podría, si no se bloqueara, aprobarse a sí
+mismo. Mismo principio que ya rige el modelo de cargos (`CONTRATO.md`
+5.9): un permiso lo ejerce alguien más, nunca uno mismo sobre lo propio.
+
+### 27. Alcance cortado antes de comisiones reales: una señal sin receptor
+
+**Decisión.** Aprobar un registro dispara `apps.servicios.signals.servicio_aprobado`,
+pero no se conecta ningún receptor. El cálculo de comisión en dinero
+(`calcular_comision`, ya escrita) sigue sin invocarse desde ningún flujo
+automático.
+
+**Por qué no conectarla ya que la señal existe.** `backend/CLAUDE.md`
+pide explícitamente no construir un sistema de eventos formal en el MVP
+si no hay más de un consumidor real. Hoy no hay ninguno: Caja (Fase 3),
+que sería el primer receptor, no existe todavía como módulo (no hay
+noción de pago ni de cierre de caja). Conectar un receptor que solo
+actualiza un campo "contador" sin ningún consumo real habría sido
+trabajo especulativo. La señal en sí (sin receptor) es barata, documenta
+el punto de extensión, y evita tener que volver a tocar
+`aprobar_registro` cuando Caja sí exista.
+
+---
+
 ## 2026-07-28 — Plantillas por rubro (Fase 2)
 
 Del material de diseño en `stitch_booking_page_ui_system/` (tres

@@ -1168,3 +1168,129 @@ pinta nadie. Corregido a `--color-perfil-primario`. Ver
 
 Confirmado con capturas en barbería (1920/1280/834/390px) y en clínica
 (el negocio de prueba estaba en ese tema al momento de verificar).
+
+## Registro y validación de servicios realizados (2026-07-28)
+
+> Pedido explícito del humano, fuera del orden de fases habitual: ver
+> `../CONTRATO.md` 5.13 y `../DECISIONES.md` #25–#27 para el diseño y
+> `../backend/ROADMAP-BACKEND.md` para el lado backend, entregado en la
+> misma sesión.
+
+- **`src/permisos/catalogo.ts`**: nueva capacidad `puede_aprobar_servicios`
+  (grupo propio "Servicios realizados", separado de "Agenda" — operar el
+  calendario no es dar fe de que un trabajo se hizo de verdad).
+- **`src/ui/EstadoRegistroServicio.ts`**: badges de `pendiente`/`aprobado`/
+  `rechazado`, mismo molde que `EstadoCita.ts` pero **reutilizando** los
+  tokens de color ya existentes (`agendada`/`completada`/`cancelada`) en
+  vez de crear unos nuevos en `../design/tokens.css` — evita tocar un
+  archivo que también usa `landing/` para una necesidad que ya tenía
+  color.
+- **`/servicios/mios`** (`MisServiciosPage`, sin `capacidad`: cualquier
+  miembro activo puede haber hecho un servicio, incluido el operador
+  único): formulario para registrar (servicio del catálogo propio,
+  cliente, teléfono opcional, fecha/hora con `<input type="datetime-
+  local">` — **no** el `DateTimePicker` existente, que está acoplado a
+  slots futuros de disponibilidad vía `huecos_disponibles` y no sirve
+  para capturar un momento ya ocurrido — observaciones, evidencia
+  opcional) + lista del propio historial con el motivo de rechazo
+  visible cuando aplica.
+- **`/servicios/validar`** (`ValidarServiciosPage`, `capacidad=
+  "puede_aprobar_servicios"`): cola de pendientes con toggle a "Todos",
+  aprobar por confirmación simple, rechazar por modal con motivo
+  obligatorio (`<textarea required>` + validación propia para el caso
+  de solo-espacios, que el `required` nativo no cubre).
+- **Evidencia fotográfica sin dependencia nueva**: no había picker de
+  fotos reutilizable ni `@capacitor/camera` instalado. Mismo patrón
+  inline que `ConfiguracionNegocioPage` (input oculto + ref + chequeo
+  de 5 MB en cliente + `cuerpoMultipart`), con `capture="environment"`
+  para que el navegador móvil ofrezca la cámara sin plugin nativo.
+- **Navegación** (`src/permisos/shell.ts`): dos ítems nuevos,
+  declarados en las tres listas de `SHELLS` para que aparezcan sin
+  importar el `tipo` del cargo (igual que `NEGOCIO`) — la capacidad
+  decide, no el tipo. `MIS_SERVICIOS` tiene **dos variantes**: principal
+  para `operativo` (es su pantalla más usada) y secundaria para
+  `administracion`/`recepcion` (ahí la barra inferior de móvil ya tenía
+  sus cinco entradas principales llenas — ver el comentario de
+  `secundaria` en `shell.ts` — y cortar pelo no es el trabajo diario de
+  quien administra). `VALIDAR_SERVICIOS` es secundaria en las tres:
+  gateada por capacidad, no por tipo.
+- Actualizados `shell.test.ts` (dos aserciones que asumían la lista
+  exacta de rutas del shell operativo) y `permisos/catalogo.ts`; 50
+  tests de Vitest en verde, `tsc -b` limpio.
+- **Wart de contrato encontrado al regenerar tipos**: agregar un segundo
+  campo `estado` (choices) en el schema —el de `RegistroServicio`, junto
+  al ya existente de `Cita`— hizo que drf-spectacular renombrara el
+  enum genérico `EstadoEnum` a `CitaEstadoEnum` (y el nuevo pasó a
+  llamarse `RegistroServicioEstadoEnum`). Rompió `EstadoCita.ts` en
+  build, no en tests — corregido ahí. Queda como recordatorio: agregar
+  un segundo choices-enum en el backend puede renombrar un tipo
+  generado que ya se estaba usando en otra pantalla, y solo `tsc -b`
+  lo atrapa.
+- **Verificado en vivo** (Chromium vía Playwright contra el dev server +
+  backend real, dos sesiones de navegador con cuentas distintas — un
+  barbero registrando, un dueño con la capacidad validando, para
+  respetar la regla de no-autoaprobación del backend): registrar dos
+  servicios, aprobar uno, rechazar el otro (primero sin motivo —
+  bloqueado por validación nativa del navegador —, luego con motivo),
+  confirmar que el barbero ve el estado y el motivo en su propio
+  historial, y que "Validar servicios" no aparece en la navegación de
+  un cargo sin la capacidad. Cero errores de consola.
+
+### Pendiente
+Ningún picker de fotos compartido todavía: si un tercer flujo necesita
+subir una imagen, vale la pena extraer el patrón inline (ya se repite
+tres veces: logo/portada del negocio, fotos de galería, evidencia de
+servicio) a un componente de `src/ui/`.
+
+## Filtros de consulta y registro a nombre de otro en servicios realizados (2026-07-28)
+
+> Segundo pedido del humano sobre el mismo módulo, misma sesión. Ver
+> `../CONTRATO.md` 5.13 y `../DECISIONES.md` #28–#29.
+
+- **`src/pages/servicios/filtrosPeriodo.ts`**: cálculo de rango
+  (día/semana/mes, semana empieza en lunes — mismo criterio que
+  `DiaSemana.LUNES = 0` del backend y que `DIAS_CORTOS` en
+  `AgendaPage`), navegación (`moverPeriodo`) y formato (`YYYY-MM-DD`
+  para la API, etiqueta legible para la UI). Con tests propios
+  (`filtrosPeriodo.test.ts`, 9 casos: límites de semana/mes, años
+  bisiestos, cruce de año) — es justo el tipo de lógica "fácil de
+  romper sin darse cuenta" que el criterio de testing del proyecto pide
+  cubrir.
+- **`src/pages/servicios/FiltroPeriodo.tsx`**: el control de UI (toggle
+  Día/Semana/Mes + navegación con flechas + atajo "Hoy"), compartido
+  entre `MisServiciosPage` y `ValidarServiciosPage` — ambas necesitan
+  exactamente el mismo cálculo, así que vive una sola vez.
+- **Filtro de estado pasa de 2 a 3 vías** en ambas pantallas:
+  Pendientes / **Completados** / Todos. "Completados" es la etiqueta
+  que pidió el humano — el valor que viaja a la API sigue siendo
+  `aprobado` (ver `CONTRATO.md` 5.13); no valía la pena renombrar el
+  enum del backend, ya usado en rutas (`.../aprobar/`) y tests, por una
+  preferencia de copy en una sola pantalla.
+- **`ValidarServiciosPage`** suma un filtro por barbero
+  (`SelectCustom`, con "Todo el equipo" como opción para no filtrar),
+  poblado desde `GET /api/negocios/equipo/` — mismo endpoint mínimo que
+  ya usa `AgendaPage` para su selector de empleado, sin exponer email
+  ni capacidades.
+- **`MisServiciosPage`** gana dos cosas ligadas a la misma capacidad:
+  - Un selector "¿Quién realizó el servicio?" en el formulario de
+    registrar, **obligatorio y visible solo con
+    `puede_aprobar_servicios`** — sin ella, el formulario no pregunta
+    nada, sigue siendo siempre uno mismo.
+  - Manda **siempre** `?empleado=<su propio id>` al listar, sin
+    importar si tiene la capacidad — si no, un administrador vería en
+    "Mis servicios" lo mismo que en "Validar servicios" (el backend le
+    da visibilidad de todo el negocio con esa capacidad). Ver
+    `../DECISIONES.md` #29.
+  - Consecuencia: tras registrar, ya no se antepone el resultado a
+    mano a la lista local — puede no ser "propio" (si se registró a
+    nombre de otro) o caer fuera del período que se está mirando. Se
+    recarga con `cargar()`.
+- **Verificado en vivo** (mismo método que la tanda anterior: Chromium
+  vía Playwright, dos sesiones — barbero sin selector de empleado,
+  dueño con selector obligatorio): confirmado que el barbero no ve el
+  selector, que el dueño no puede enviar sin elegir, que un registro
+  hecho por el dueño a nombre de un barbero **no** aparece en el "Mis
+  servicios" del propio dueño, que el filtro por barbero en "Validar
+  servicios" funciona, y que el tab "Completados" muestra lo recién
+  aprobado. Cero errores de consola. 59 tests de Vitest en verde
+  (211 backend), `tsc -b` limpio.

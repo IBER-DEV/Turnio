@@ -1656,6 +1656,273 @@ paths:
                 items:
                   $ref: '#/components/schemas/Servicio'
           description: ''
+  /api/servicios/registros/:
+    get:
+      operationId: servicios_registros_list
+      description: |-
+        Registro y validación de servicios realizados.
+
+        Crear no exige ninguna capacidad: cualquier miembro activo puede
+        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+        suyo propio** — `empleado` sale de la membresía del token, nunca del
+        body (ver `perform_create`), para que nadie registre trabajo a
+        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+        **obligatorio**: alguien que administra el negocio puede estar
+        cargando el trabajo de un barbero que no usa la app, y el registro
+        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+        tipeó (ver `RegistroServicioSerializer.validate`).
+
+        Listar devuelve solo los propios salvo que se tenga
+        `puede_aprobar_servicios`, que ve los de todo el negocio, con
+        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+        suyo aunque tenga el permiso (ver `services._validar_revision`) —
+        incluye a quien registró a nombre de otro y luego se pone a sí mismo
+        como empleado: sigue sin poder aprobarse.
+
+        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+        su propio rastro de auditoría.
+      parameters:
+      - in: query
+        name: empleado
+        schema:
+          type: integer
+        description: 'Filtra por quién lo registró. Sin `puede_aprobar_servicios`
+          no tiene efecto útil: el listado ya está acotado a uno mismo.'
+      - in: query
+        name: estado
+        schema:
+          type: string
+          enum:
+          - aprobado
+          - pendiente
+          - rechazado
+        description: Filtra por estado. Sin este parámetro, devuelve todos.
+      - in: query
+        name: fecha_desde
+        schema:
+          type: string
+        description: Filtra desde esta fecha, inclusive (YYYY-MM-DD).
+      - in: query
+        name: fecha_hasta
+        schema:
+          type: string
+        description: Filtra hasta esta fecha, inclusive (YYYY-MM-DD).
+      tags:
+      - servicios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RegistroServicio'
+          description: ''
+    post:
+      operationId: servicios_registros_create
+      description: |-
+        Registro y validación de servicios realizados.
+
+        Crear no exige ninguna capacidad: cualquier miembro activo puede
+        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+        suyo propio** — `empleado` sale de la membresía del token, nunca del
+        body (ver `perform_create`), para que nadie registre trabajo a
+        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+        **obligatorio**: alguien que administra el negocio puede estar
+        cargando el trabajo de un barbero que no usa la app, y el registro
+        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+        tipeó (ver `RegistroServicioSerializer.validate`).
+
+        Listar devuelve solo los propios salvo que se tenga
+        `puede_aprobar_servicios`, que ve los de todo el negocio, con
+        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+        suyo aunque tenga el permiso (ver `services._validar_revision`) —
+        incluye a quien registró a nombre de otro y luego se pone a sí mismo
+        como empleado: sigue sin poder aprobarse.
+
+        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+        su propio rastro de auditoría.
+      tags:
+      - servicios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroServicio'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegistroServicio'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegistroServicio'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroServicio'
+          description: ''
+  /api/servicios/registros/{id}/:
+    get:
+      operationId: servicios_registros_retrieve
+      description: |-
+        Registro y validación de servicios realizados.
+
+        Crear no exige ninguna capacidad: cualquier miembro activo puede
+        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+        suyo propio** — `empleado` sale de la membresía del token, nunca del
+        body (ver `perform_create`), para que nadie registre trabajo a
+        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+        **obligatorio**: alguien que administra el negocio puede estar
+        cargando el trabajo de un barbero que no usa la app, y el registro
+        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+        tipeó (ver `RegistroServicioSerializer.validate`).
+
+        Listar devuelve solo los propios salvo que se tenga
+        `puede_aprobar_servicios`, que ve los de todo el negocio, con
+        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+        suyo aunque tenga el permiso (ver `services._validar_revision`) —
+        incluye a quien registró a nombre de otro y luego se pone a sí mismo
+        como empleado: sigue sin poder aprobarse.
+
+        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+        su propio rastro de auditoría.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this registro servicio.
+        required: true
+      tags:
+      - servicios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroServicio'
+          description: ''
+  /api/servicios/registros/{id}/aprobar/:
+    post:
+      operationId: servicios_registros_aprobar_create
+      description: |-
+        Registro y validación de servicios realizados.
+
+        Crear no exige ninguna capacidad: cualquier miembro activo puede
+        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+        suyo propio** — `empleado` sale de la membresía del token, nunca del
+        body (ver `perform_create`), para que nadie registre trabajo a
+        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+        **obligatorio**: alguien que administra el negocio puede estar
+        cargando el trabajo de un barbero que no usa la app, y el registro
+        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+        tipeó (ver `RegistroServicioSerializer.validate`).
+
+        Listar devuelve solo los propios salvo que se tenga
+        `puede_aprobar_servicios`, que ve los de todo el negocio, con
+        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+        suyo aunque tenga el permiso (ver `services._validar_revision`) —
+        incluye a quien registró a nombre de otro y luego se pone a sí mismo
+        como empleado: sigue sin poder aprobarse.
+
+        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+        su propio rastro de auditoría.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this registro servicio.
+        required: true
+      tags:
+      - servicios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroServicio'
+          description: ''
+  /api/servicios/registros/{id}/rechazar/:
+    post:
+      operationId: servicios_registros_rechazar_create
+      description: |-
+        Registro y validación de servicios realizados.
+
+        Crear no exige ninguna capacidad: cualquier miembro activo puede
+        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+        suyo propio** — `empleado` sale de la membresía del token, nunca del
+        body (ver `perform_create`), para que nadie registre trabajo a
+        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+        **obligatorio**: alguien que administra el negocio puede estar
+        cargando el trabajo de un barbero que no usa la app, y el registro
+        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+        tipeó (ver `RegistroServicioSerializer.validate`).
+
+        Listar devuelve solo los propios salvo que se tenga
+        `puede_aprobar_servicios`, que ve los de todo el negocio, con
+        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+        suyo aunque tenga el permiso (ver `services._validar_revision`) —
+        incluye a quien registró a nombre de otro y luego se pone a sí mismo
+        como empleado: sigue sin poder aprobarse.
+
+        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+        su propio rastro de auditoría.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this registro servicio.
+        required: true
+      tags:
+      - servicios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Rechazo'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Rechazo'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Rechazo'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroServicio'
+          description: ''
 components:
   schemas:
     Cargo:
@@ -1694,6 +1961,8 @@ components:
           type: boolean
         puede_editar_negocio:
           type: boolean
+        puede_aprobar_servicios:
+          type: boolean
       required:
       - id
       - miembros
@@ -1723,7 +1992,7 @@ components:
           readOnly: true
         estado:
           allOf:
-          - $ref: '#/components/schemas/EstadoEnum'
+          - $ref: '#/components/schemas/CitaEstadoEnum'
           readOnly: true
         nombre_cliente:
           type: string
@@ -1771,6 +2040,18 @@ components:
       - fecha_hora_inicio
       - nombre_cliente
       - servicio
+    CitaEstadoEnum:
+      enum:
+      - agendada
+      - confirmada
+      - completada
+      - cancelada
+      type: string
+      description: |-
+        * `agendada` - Agendada
+        * `confirmada` - Confirmada
+        * `completada` - Completada
+        * `cancelada` - Cancelada
     DiaSemanaEnum:
       enum:
       - 0
@@ -1840,18 +2121,6 @@ components:
       - email
       - nombre
       - password
-    EstadoEnum:
-      enum:
-      - agendada
-      - confirmada
-      - completada
-      - cancelada
-      type: string
-      description: |-
-        * `agendada` - Agendada
-        * `confirmada` - Confirmada
-        * `completada` - Completada
-        * `cancelada` - Cancelada
     FotoNegocio:
       type: object
       description: |-
@@ -2390,6 +2659,8 @@ components:
           type: boolean
         puede_editar_negocio:
           type: boolean
+        puede_aprobar_servicios:
+          type: boolean
     PatchedCita:
       type: object
       properties:
@@ -2415,7 +2686,7 @@ components:
           readOnly: true
         estado:
           allOf:
-          - $ref: '#/components/schemas/EstadoEnum'
+          - $ref: '#/components/schemas/CitaEstadoEnum'
           readOnly: true
         nombre_cliente:
           type: string
@@ -2578,6 +2849,17 @@ components:
       - especialidad
       - id
       - nombre
+    Rechazo:
+      type: object
+      description: |-
+        Entrada de `POST .../registros/{id}/rechazar/`: el motivo es
+        obligatorio — es lo que el empleado va a leer en su propio historial.
+      properties:
+        motivo:
+          type: string
+          maxLength: 500
+      required:
+      - motivo
     RegistroNegocio:
       type: object
       properties:
@@ -2625,6 +2907,101 @@ components:
       - access
       - negocio
       - refresh
+    RegistroServicio:
+      type: object
+      description: |-
+        Un registro de servicio realizado: alta y consulta.
+
+        `estado`, `aprobado_por` y `fecha_revision` son de solo lectura
+        porque los fija el servidor a través de las acciones
+        `aprobar`/`rechazar`, nunca el cliente.
+
+        `empleado` es un caso especial: **casi siempre** lo fija el servidor
+        también (ver `RegistroServicioViewSet.perform_create`), pero quien
+        tiene `puede_aprobar_servicios` puede —y debe— elegir a nombre de
+        quién registra, para dejar constancia de un servicio que un barbero
+        sin acceso a la app no pudo cargar él mismo. Por eso viaja como
+        campo normal (no en `read_only_fields`) y su exigencia se resuelve en
+        `validate()`, según quién hace el request.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        empleado:
+          type: integer
+          description: Quién realizó el servicio. Solo se puede elegir con `puede_aprobar_servicios`;
+            sin esa capacidad, el campo se ignora y siempre queda el propio solicitante.
+        empleado_nombre:
+          type: string
+          readOnly: true
+        servicio:
+          type: integer
+        servicio_nombre:
+          type: string
+          readOnly: true
+        nombre_cliente:
+          type: string
+          maxLength: 150
+        telefono_cliente:
+          type: string
+          maxLength: 30
+        fecha_hora:
+          type: string
+          format: date-time
+          description: Cuándo ocurrió el servicio. No puede ser futura.
+        observaciones:
+          type: string
+        evidencia:
+          type: string
+          format: uri
+          nullable: true
+        estado:
+          allOf:
+          - $ref: '#/components/schemas/RegistroServicioEstadoEnum'
+          readOnly: true
+        aprobado_por:
+          type: integer
+          readOnly: true
+          nullable: true
+        aprobado_por_nombre:
+          type: string
+          readOnly: true
+          nullable: true
+        fecha_revision:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        motivo_rechazo:
+          type: string
+          readOnly: true
+        creado_en:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - aprobado_por
+      - aprobado_por_nombre
+      - creado_en
+      - empleado_nombre
+      - estado
+      - fecha_hora
+      - fecha_revision
+      - id
+      - motivo_rechazo
+      - nombre_cliente
+      - servicio
+      - servicio_nombre
+    RegistroServicioEstadoEnum:
+      enum:
+      - pendiente
+      - aprobado
+      - rechazado
+      type: string
+      description: |-
+        * `pendiente` - Pendiente
+        * `aprobado` - Aprobado
+        * `rechazado` - Rechazado
     Reserva:
       type: object
       description: |-

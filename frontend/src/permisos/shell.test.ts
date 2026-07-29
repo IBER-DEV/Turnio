@@ -47,10 +47,10 @@ describe("shellDe", () => {
     expect(shellDe("operativo", NADA).inicio).toBe("/agenda");
   });
 
-  it("le deja al operativo solo lo suyo", () => {
+  it("le deja al operativo solo lo suyo, más registrar su propio servicio", () => {
     const rutas = shellDe("operativo", NADA).navegacion.map((item) => item.to);
 
-    expect(rutas).toEqual(["/", "/agenda"]);
+    expect(rutas).toEqual(["/", "/agenda", "/servicios/mios"]);
   });
 
   it("oculta las secciones de gestión a quien no las puede usar", () => {
@@ -94,6 +94,7 @@ describe("shellDe", () => {
     expect(shellDe(undefined, NADA).navegacion.map((item) => item.to)).toEqual([
       "/",
       "/agenda",
+      "/servicios/mios",
     ]);
   });
 

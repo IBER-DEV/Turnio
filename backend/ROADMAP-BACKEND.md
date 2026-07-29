@@ -1377,3 +1377,75 @@ El `og:image` **no** usa la portada de muestra a propósito (ver
 `../DECISIONES.md` #21): un negocio sin portada propia se comparte sin
 imagen. Si en el uso real eso pesa más que el riesgo de confundir al
 cliente, es una decisión de producto para reabrir, no un olvido.
+
+## Registro y validación de servicios realizados (2026-07-28)
+
+> Pedido explícito del humano, fuera del orden de fases: antes de que
+> Caja/Comisiones (Fase 3) exista, cerrar la puerta a que un empleado
+> registre trabajo que no hizo. Ver `../CONTRATO.md` 5.13 y
+> `../DECISIONES.md` #25–#27.
+
+- **`RegistroServicio`**, modelo nuevo en `apps/servicios` (no una app
+  aparte — ver `../DECISIONES.md` #25), **independiente de `Cita`**:
+  cubre también al cliente sin cita previa. Nace en `pendiente` y no
+  cuenta para nada (comisión, historial, métrica) hasta que se revisa.
+- Nueva capacidad **`puede_aprobar_servicios`** (`Cargo`, migración
+  `0006`). No se concede a ningún cargo sembrado salvo Administración
+  (hereda todas): es sensible, el dueño la asigna a mano a quien vaya a
+  validar.
+- Capa de servicios (`apps/servicios/services.py`):
+  `registrar_servicio()` (rechaza `fecha_hora` futura — `FechaFutura`),
+  `aprobar_registro()` / `rechazar_registro()` (una sola revisión por
+  registro — `RegistroYaRevisado`; nadie revisa lo suyo, ni con la
+  capacidad — `NoPuedeAutoaprobarse`, ver `../DECISIONES.md` #26;
+  rechazar exige motivo — `MotivoRechazoRequerido`).
+- `apps/servicios/signals.py`: señal `servicio_aprobado`, sin receptor
+  conectado a propósito — el punto de extensión para cuando Fase 3
+  invoque `calcular_comision()` (ya escrita, sigue inerte). Ver
+  `../DECISIONES.md` #27.
+- `RegistroServicioViewSet` (`GET/POST /api/servicios/registros/`,
+  `.../{id}/aprobar/`, `.../{id}/rechazar/`), sin `PUT`/`PATCH`/`DELETE`
+  — inmutable tras crearse. `empleado` sale siempre de la membresía del
+  token (nunca del body); listar filtra a lo propio salvo que se tenga
+  la capacidad, con `?estado=` opcional.
+- Evidencia fotográfica opcional (`evidencia`, multipart), mismo límite
+  de 5 MB que las imágenes de negocio (`PESO_MAXIMO_EVIDENCIA_BYTES`,
+  validación duplicada a propósito en vez de importada entre apps).
+- 24 tests nuevos (servicios de aplicación + API: creación,
+  aislamiento por tenant, alcance de listado, ambas revisiones, los
+  cuatro rechazos de negocio). 205 tests en verde. `openapi.yaml`
+  regenerado, `CONTRATO.md` 5.13 y su historial actualizados.
+
+### Pendiente
+El cálculo real de comisión en dinero sigue sin invocarse desde ningún
+flujo automático — es Fase 3 (Caja), que todavía no existe como
+módulo. No hay relación formal entre `RegistroServicio` y `Cita`
+(deliberado, ver `../DECISIONES.md` #25): si aparece un caso de uso
+concreto que las necesite enlazadas, se agrega entonces.
+
+## Filtros de consulta y registro a nombre de otro en servicios realizados (2026-07-28)
+
+> Segundo pedido del humano sobre el mismo módulo, misma sesión. Ver
+> `../CONTRATO.md` 5.13 y `../DECISIONES.md` #28–#29.
+
+- **`GET /api/servicios/registros/`** gana tres filtros opcionales y
+  combinables: `?fecha_desde=`/`?fecha_hasta=` (`YYYY-MM-DD`, sobre
+  `fecha_hora__date`, ambos inclusive) y `?empleado=` (por id — sin
+  `puede_aprobar_servicios` no tiene efecto útil, porque el queryset ya
+  está acotado a uno mismo). Documentados en el mismo
+  `@extend_schema_view(list=...)` que ya tenía `?estado=`.
+- **`empleado` pasa a ser un campo normal del serializer** (antes
+  estaba en `read_only_fields`). `RegistroServicioSerializer.validate()`
+  decide si es obligatorio: con `puede_aprobar_servicios`, el registro
+  queda a nombre de quien se elija (`400` si no se manda); sin ella,
+  `perform_create` lo sigue ignorando y fuerza al solicitante — mismo
+  comportamiento de siempre. Ver `../DECISIONES.md` #28 sobre por qué
+  no se creó una capacidad nueva para esto.
+- La regla de no-autoaprobación (`services._validar_revision`) sigue
+  aplicando sobre el `empleado` resultante sin cambios: registrarse un
+  servicio a sí mismo usando esta capacidad y luego intentar aprobarlo
+  sigue respondiendo `400`.
+- 6 tests nuevos (empleado obligatorio para quien tiene la capacidad,
+  registro a nombre de otro, rechazo si el empleado es de otro negocio
+  o está inactivo, filtro por rango de fechas, filtro por empleado).
+  211 tests en verde. `openapi.yaml` regenerado.

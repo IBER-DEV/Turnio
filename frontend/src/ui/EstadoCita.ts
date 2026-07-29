@@ -1,7 +1,7 @@
 import type { components } from "../api/schema";
 import type { NombreIcono } from "./Icon";
 
-type Estado = components["schemas"]["EstadoEnum"];
+type Estado = components["schemas"]["CitaEstadoEnum"];
 
 export const ESTILO_ESTADO: Record<
   Estado,
