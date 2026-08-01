@@ -22,6 +22,7 @@ export interface ServicioSugerido {
   precio: string;
   duracion_minutos: number;
   descripcion: string;
+  imagen?: string;
 }
 
 export const CATEGORIAS_CATALOGO = [
@@ -30,6 +31,51 @@ export const CATEGORIAS_CATALOGO = [
   "Uñas",
   "Estética",
 ] as const;
+
+export const IMAGENES_CATEGORIA_DEFAULT: Record<string, string> = {
+  Barbería: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=600&q=80",
+  Peluquería: "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=600&q=80",
+  Uñas: "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=600&q=80",
+  Estética: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=600&q=80",
+};
+
+export function obtenerImagenServicio(servicio: { nombre: string; categoria?: string; imagen?: string }): string {
+  if (servicio.imagen) return servicio.imagen;
+  const nombreNorm = servicio.nombre.toLowerCase();
+  
+  if (nombreNorm.includes("barba") || nombreNorm.includes("afeitado") || nombreNorm.includes("delineado")) {
+    return "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=600&q=80";
+  }
+  if (nombreNorm.includes("corte") && (servicio.categoria === "Barbería" || nombreNorm.includes("niño") || nombreNorm.includes("máquina"))) {
+    return "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=600&q=80";
+  }
+  if (nombreNorm.includes("tinte") || nombreNorm.includes("mechas") || nombreNorm.includes("balayage") || nombreNorm.includes("canas")) {
+    return "https://images.unsplash.com/photo-1560869713-7d0a29430803?auto=format&fit=crop&w=600&q=80";
+  }
+  if (nombreNorm.includes("cepillado") || nombreNorm.includes("peinado") || nombreNorm.includes("keratina")) {
+    return "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80";
+  }
+  if (nombreNorm.includes("pedicure")) {
+    return "https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=600&q=80";
+  }
+  if (nombreNorm.includes("manicure") || nombreNorm.includes("uñas") || nombreNorm.includes("esmaltado")) {
+    return "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=600&q=80";
+  }
+  if (nombreNorm.includes("cejas") || nombreNorm.includes("pestañas")) {
+    return "https://images.unsplash.com/photo-1583001931096-959e9a1a6223?auto=format&fit=crop&w=600&q=80";
+  }
+  if (nombreNorm.includes("masaje")) {
+    return "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=600&q=80";
+  }
+  if (nombreNorm.includes("facial") || nombreNorm.includes("limpieza") || nombreNorm.includes("depilación")) {
+    return "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=600&q=80";
+  }
+
+  if (servicio.categoria && IMAGENES_CATEGORIA_DEFAULT[servicio.categoria]) {
+    return IMAGENES_CATEGORIA_DEFAULT[servicio.categoria];
+  }
+  return IMAGENES_CATEGORIA_DEFAULT.Barbería;
+}
 
 export const CATALOGO_SERVICIOS: ServicioSugerido[] = [
   // --- Barbería ---

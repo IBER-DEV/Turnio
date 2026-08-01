@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
 import { apiClient } from "../api/client";
@@ -9,13 +9,13 @@ import { Button } from "../ui/Button";
 import { cn } from "../ui/cn";
 import { ACCIONES_POR_ESTADO, ESTILO_ESTADO } from "../ui/EstadoCita";
 import { Badge, EstadoError, EstadoVacio, SkeletonLista } from "../ui/Feedback";
+import { DatePicker } from "../ui/DatePicker";
 import { DateTimePicker } from "../ui/DateTimePicker";
 import { Icon } from "../ui/Icon";
 import { Input } from "../ui/Input";
 import { Modal, ModalConfirmacion } from "../ui/Modal";
 import { SelectCustom, SelectItem } from "../ui/SelectCustom";
 import { Tabs, TabsLista, TabsTrigger } from "../ui/Tabs";
-import { ToggleGroup, ToggleGroupItem } from "../ui/ToggleGroup";
 import { useToast } from "../ui/Toast";
 import { usePermisos } from "../permisos/usePermisos";
 import { ModalHorarioSemanal } from "./agenda/ModalHorarioSemanal";
@@ -32,15 +32,26 @@ type AccionCita = "confirmar" | "completar" | "cancelar";
 const DIAS_CORTOS = ["LUN", "MAR", "MIE", "JUE", "VIE", "SAB", "DOM"];
 const CUALQUIERA = "cualquiera";
 
-/** Los 7 días desde hoy, para el selector horizontal del diseño. */
-function proximosDias(cantidad = 7): Date[] {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+/** 7 días desde `inicio`, para el selector horizontal del diseño.
+ *
+ * `inicio` es un parámetro y no siempre "hoy" para que el ícono de
+ * calendario pueda recentrar la tira alrededor de una fecha elegida
+ * fuera del rango visible — si no, una cita agendada a más de una
+ * semana quedaba inalcanzable: no había forma de seleccionar ese día. */
+function proximosDias(inicio: Date, cantidad = 7): Date[] {
+  const base = new Date(inicio);
+  base.setHours(0, 0, 0, 0);
   return Array.from({ length: cantidad }, (_, indice) => {
-    const dia = new Date(hoy);
-    dia.setDate(hoy.getDate() + indice);
+    const dia = new Date(base);
+    dia.setDate(base.getDate() + indice);
     return dia;
   });
+}
+
+function inicioDeHoy(): Date {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return hoy;
 }
 
 function mismoDia(fechaIso: string, dia: Date): boolean {
@@ -74,8 +85,9 @@ export function AgendaPage() {
   // por compañero no tiene nada que filtrar (ver CONTRATO.md 5.8).
   const veAgendaCompleta = puede("puede_ver_agenda_completa");
 
-  const dias = useMemo(() => proximosDias(), []);
-  const [diaSeleccionado, setDiaSeleccionado] = useState<Date>(dias[0]);
+  const [inicioVentana, setInicioVentana] = useState<Date>(inicioDeHoy);
+  const dias = useMemo(() => proximosDias(inicioVentana), [inicioVentana]);
+  const [diaSeleccionado, setDiaSeleccionado] = useState<Date>(inicioDeHoy);
   const [empleadoFiltro, setEmpleadoFiltro] = useState<number | "todos">("todos");
 
   const [citas, setCitas] = useState<Cita[]>([]);
@@ -121,6 +133,16 @@ export function AgendaPage() {
   useEffect(() => {
     cargar();
   }, []);
+
+  /** Saltar a cualquier fecha (desde el `DatePicker`): recentra la tira
+   * de 7 días para que arranque ahí, no solo mueve la selección — si no,
+   * el día elegido podría seguir sin tener pastilla visible. */
+  function irAFecha(fecha: Date) {
+    const normalizada = new Date(fecha);
+    normalizada.setHours(0, 0, 0, 0);
+    setInicioVentana(normalizada);
+    setDiaSeleccionado(normalizada);
+  }
 
   const citasVisibles = citas
     .filter((cita) => mismoDia(cita.fecha_hora_inicio, diaSeleccionado))
@@ -175,13 +197,16 @@ export function AgendaPage() {
 
   return (
     <div className="space-y-6">
+      {/* El título "Agenda" ya lo muestra la TopAppBar de escritorio
+          (Layout.tsx); acá solo se repite en mobile, que no tiene esa
+          barra. El subtítulo con el conteo del día se queda siempre. */}
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8 lg:hidden">
             <Icon name="calendar_today" className="text-[20px] text-primary" />
           </span>
           <div>
-            <h1 className="font-headline-md text-headline-md-mobile font-bold text-primary md:text-headline-md">
+            <h1 className="font-headline-md text-headline-md-mobile font-bold text-primary lg:hidden">
               Agenda
             </h1>
             <p className="text-[12px] text-on-surface-variant">
@@ -214,21 +239,37 @@ export function AgendaPage() {
         )}
       </header>
 
-      {/* Filtro por empleado. Sin ver la agenda completa no hay nada que
-          filtrar: el backend ya devuelve solo las citas propias. */}
+      {/* Filtro por empleado tipo Segmented Control */}
       {veAgendaCompleta && (
-        <ToggleGroup
-          valor={String(empleadoFiltro)}
-          onChange={(val) => setEmpleadoFiltro(val === "todos" ? "todos" : Number(val))}
-          className="-mx-margin-mobile px-margin-mobile md:mx-0 md:px-0"
-        >
-          <ToggleGroupItem value="todos">Todos</ToggleGroupItem>
-          {empleados.map((empleado) => (
-            <ToggleGroupItem key={empleado.id} value={String(empleado.id)}>
-              {empleado.nombre}
-            </ToggleGroupItem>
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/60 max-w-full overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setEmpleadoFiltro("todos")}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all shrink-0",
+              empleadoFiltro === "todos"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900",
+            )}
+          >
+            Todos
+          </button>
+          {empleados.map((emp) => (
+            <button
+              key={emp.id}
+              type="button"
+              onClick={() => setEmpleadoFiltro(emp.id)}
+              className={cn(
+                "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all shrink-0",
+                empleadoFiltro === emp.id
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900",
+              )}
+            >
+              {emp.nombre}
+            </button>
           ))}
-        </ToggleGroup>
+        </div>
       )}
 
       {/* Selector de vista */}
@@ -241,40 +282,59 @@ export function AgendaPage() {
         </Tabs>
       </div>
 
-      {/* Selector de día */}
+      {/* Selector de día. La tira solo cubre 7 días — el ícono de
+          calendario abre un selector completo para saltar a cualquier
+          fecha (así aparecen citas agendadas con más anticipación, que
+          antes no había forma de alcanzar). */}
       <div
         className={cn(
-          "hide-scrollbar -mx-margin-mobile flex gap-2 overflow-x-auto px-margin-mobile pb-1 md:mx-0 md:px-0",
+          "flex items-center gap-2",
           vista === "semana" && "lg:hidden",
         )}
       >
-        {dias.map((dia) => {
-          const activo = dia.toDateString() === diaSeleccionado.toDateString();
-          const indiceDia = (dia.getDay() + 6) % 7;
-          const tieneCitas = citas.some((c) => mismoDia(c.fecha_hora_inicio, dia));
-          return (
+        <div className="hide-scrollbar -mx-margin-mobile flex flex-1 gap-2.5 overflow-x-auto px-margin-mobile pb-1 md:mx-0 md:px-0">
+          {dias.map((dia) => {
+            const activo = dia.toDateString() === diaSeleccionado.toDateString();
+            const indiceDia = (dia.getDay() + 6) % 7;
+            const tieneCitas = citas.some((c) => mismoDia(c.fecha_hora_inicio, dia));
+            return (
+              <button
+                key={dia.toISOString()}
+                type="button"
+                onClick={() => setDiaSeleccionado(dia)}
+                aria-pressed={activo}
+                className={cn(
+                  "tactile relative flex h-19 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border transition-all",
+                  activo
+                    ? "border-emerald-500 bg-emerald-500 text-white shadow-sm shadow-emerald-200 font-semibold"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300",
+                )}
+              >
+                <span className={cn("text-[10px] font-bold uppercase tracking-wider", !activo && "text-slate-400")}>
+                  {DIAS_CORTOS[indiceDia]}
+                </span>
+                <span className="text-xl font-extrabold">{dia.getDate()}</span>
+                {tieneCitas && !activo && (
+                  <span className="absolute bottom-2 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <DatePicker
+          valor={diaSeleccionado}
+          onChange={irAFecha}
+          trigger={
             <button
-              key={dia.toISOString()}
               type="button"
-              onClick={() => setDiaSeleccionado(dia)}
-              aria-pressed={activo}
-              className={cn(
-                "tactile relative flex h-[80px] w-[68px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border transition-all",
-                activo
-                  ? "border-menta bg-menta text-white shadow-suave"
-                  : "border-outline-variant/60 bg-white text-on-surface hover:border-menta/40 hover:shadow-card-soft",
-              )}
+              aria-label="Ir a una fecha"
+              className="flex h-19 w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition-colors hover:border-emerald-300 hover:text-emerald-600"
             >
-              <span className={cn("text-[11px] font-medium uppercase", !activo && "text-on-surface-variant")}>
-                {DIAS_CORTOS[indiceDia]}
-              </span>
-              <span className="text-xl font-bold">{dia.getDate()}</span>
-              {tieneCitas && !activo && (
-                <span className="absolute bottom-2.5 h-1 w-1 rounded-full bg-menta" />
-              )}
+              <Icon name="calendar_month" className="text-[22px]" />
             </button>
-          );
-        })}
+          }
+        />
       </div>
 
       {/* Grilla semanal: solo en pantallas anchas y si está elegida. */}
@@ -309,14 +369,29 @@ export function AgendaPage() {
           onReintentar={cargar}
         />
       ) : citasVisibles.length === 0 ? (
-        <EstadoVacio
-          icono="event_available"
-          titulo="Sin citas este día"
-          descripcion="No hay turnos agendados para el día y empleado seleccionados."
-          accion={
-            puedeGestionar ? { etiqueta: "Agendar cita", onClick: () => setFormularioCita(true) } : undefined
-          }
-        />
+        <div className="relative flex flex-col items-center justify-center gap-1 overflow-hidden rounded-3xl px-6 py-14 text-center">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle,rgba(16,185,129,0.12)_0%,rgba(16,185,129,0)_70%)]" />
+          <div className="relative mb-6 flex h-32 w-32 items-center justify-center">
+            <div className="absolute inset-0 scale-150 rounded-full bg-emerald-500/10" />
+            <div className="relative z-10 flex h-24 w-24 items-center justify-center rounded-full border border-slate-200/60 bg-white shadow-lg">
+              <Icon name="calendar_today" filled className="text-[48px] text-emerald-500" />
+            </div>
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">Sin citas para este día</h3>
+          <p className="mt-1 max-w-xs text-sm text-slate-500">
+            No hay turnos agendados en la fecha seleccionada. Puedes programar una cita manualmente.
+          </p>
+          {puedeGestionar && (
+            <button
+              type="button"
+              onClick={() => setFormularioCita(true)}
+              className="mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-8 py-4 font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-95"
+            >
+              <Icon name="add" className="text-[18px]" />
+              Agendar cita
+            </button>
+          )}
+        </div>
       ) : (
         <ul className="space-y-2.5">
           {citasVisibles.map((cita) => {

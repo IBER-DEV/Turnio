@@ -1294,3 +1294,266 @@ servicio) a un componente de `src/ui/`.
   servicios" funciona, y que el tab "Completados" muestra lo recién
   aprobado. Cero errores de consola. 59 tests de Vitest en verde
   (211 backend), `tsc -b` limpio.
+
+## Refactorización Global de UI/UX (2026-08-01)
+
+### Qué se completó
+- **Layout Global & Sidebar (`Layout.tsx`)**:
+  - Sidebar con fondo blanco `bg-white`, borde derecho sutil `border-r border-slate-200/80`.
+  - Ítem de navegación seleccionado resaltado con píldora `bg-emerald-50 text-emerald-700 font-semibold` e indicador vertical izquierdo de 3px `bg-emerald-500`. Espaciado compacto `gap-1`.
+  - Ancho de contenedor principal restringido a `max-w-6xl` centrado en pantalla.
+- **Vista "Inicio" (Dashboard) (`DashboardPage.tsx`)**:
+  - Tarjetas de métricas con borde suave `border-slate-200/80 rounded-2xl bg-white p-5 shadow-sm`, números grandes `text-3xl font-extrabold text-slate-900`, íconos en círculos tonales e indicadores de tendencia.
+  - Banner "Agenda de hoy" en Azul Índigo `#1E1B4B` con esquinas `rounded-2xl` y llamado a la acción positivo cuando no hay turnos.
+  - Accesos rápidos interactivos con hover micro-efecto e ícono en caja menta. Próximas citas con estado vacío de altura reducida (`min-h-[160px]`).
+- **Vista "Agenda" (`AgendaPage.tsx`)**:
+  - Selector de días con píldoras en Verde Esmeralda sólido (`bg-emerald-500 text-white shadow-sm shadow-emerald-200`) en día activo y bordes delgados en inactivos.
+  - Filtro de empleados en formato **Segmented Control** compacto (`bg-slate-100 p-1 rounded-xl flex gap-1`).
+  - Estado vacío de citas acotado con icono de calendario rodeado por aura verde menta y botón `+ Agendar cita` centrado.
+- **Vista "Servicios" y Catálogo con Imágenes (`ServiciosPage.tsx`, `ModalCatalogo.tsx`, `catalogoServicios.ts`)**:
+  - Incorporadas imágenes de alta resolución en `catalogoServicios.ts` vía `obtenerImagenServicio`.
+  - Tarjetas de servicios enriquecidas con miniatura de imagen, precio destacado y distintivos de duración.
+  - Estado vacío de servicios rediseñado en tarjeta blanca compacta con 2 opciones visuales claras (Elegir del Catálogo Prediseñado / Crear Servicio Personalizado).
+  - `ModalCatalogo.tsx` actualizado para listar cada servicio sugerido con su miniatura fotográfica.
+- **Vista "Perfil del Negocio" (`ConfiguracionNegocioPage.tsx`)**:
+  - Selector de plantillas de diseño con tarjeta seleccionada en borde Verde Menta `border-2 border-emerald-500 ring-2 ring-emerald-500/20` y badge flotante **"Seleccionado"** en la esquina superior derecha.
+  - Formulario de datos en **Grid de 2 columnas** (`grid grid-cols-1 md:grid-cols-2 gap-4`) con botón de guardar a la derecha.
+- **Verificación**: 59 tests de Vitest en verde, `npx tsc --noEmit` sin errores.
+
+## Ajuste fino contra specs de Stitch: Agenda y Servicios (2026-08-01)
+
+> Continuación de la refactorización de arriba: el humano trajo mockups
+> nuevos generados en Stitch (`agenda_turnio(_desktop)`,
+> `servicios_turnio(_desktop)`, `inicio_turnio(_desktop)`,
+> `perfil_del_negocio_turnio(_desktop)`) con un sistema de diseño nuevo
+> ("Emerald Nordic": Hanken Grotesk + paleta Material 3 propia). Decisión
+> del humano: **no** adoptar la fuente ni la paleta nuevas (se quedan
+> Plus Jakarta Sans y los tokens actuales de `design/tokens.css`) — sí
+> adoptar la estructura, densidad y jerarquía visual de cada pantalla,
+> traducida a los tokens/clases que ya usa el proyecto.
+
+- **`DashboardPage.tsx` y `ConfiguracionNegocioPage.tsx`** ya estaban
+  muy cerca de los mockups por la refactorización anterior (mismo
+  autor); no se tocaron hoy salvo una limpieza de imports sin usar en
+  `DashboardPage.tsx`.
+- **`AgendaPage.tsx`**: el estado vacío del día pasó del tratamiento
+  compacto anterior (icono pequeño en tarjeta con borde) a uno más
+  expresivo, calcado del mockup: aura radial `radial-gradient` detrás,
+  círculo blanco flotante de 96px con el icono de calendario relleno en
+  menta, y CTA en píldora `rounded-full` a ancho de botón (no de
+  tarjeta).
+- **`ServiciosPage.tsx`**: dos cambios de comportamiento, no solo de
+  estilo:
+  - El bento de arranque (Catálogo Prediseñado / Servicio
+    Personalizado) **ahora es siempre visible**, no solo cuando el
+    catálogo está vacío — en el mockup es el atajo más usado incluso
+    con servicios ya cargados (agregar uno más desde el catálogo).
+  - Las tarjetas de servicio con imagen grande pasaron a **filas
+    horizontales compactas** (miniatura 56px + nombre + duración +
+    precio + menú), que es el patrón de lista del mockup — la tarjeta
+    vertical con imagen de banner que había quedó descartada para este
+    catálogo con muchos ítems.
+- **Iconos**: `auto_awesome` y `add_circle_outline` no existen en
+  `@material-symbols/svg-400` con esos nombres exactos (el generador
+  los descarta en silencio — ver `scripts/generar-iconos.mjs` — y
+  `Icon` los habría renderizado vacíos). Se cambiaron a `stars` y
+  `add_circle` respectivamente, que sí están en el set instalado.
+  Si vuelve a pasar con un icono nuevo: `npm run iconos` avisa por
+  consola qué nombres descartó.
+- **Verificación en vivo**: dev server (`npm run dev`) + Edge headless
+  (`msedge.exe --headless --virtual-time-budget=...`) pilotado con
+  `puppeteer-core` (instalado con `--no-save`, no quedó en
+  `package.json`) contra un negocio de prueba registrado por la API
+  pública. Capturas en mobile (390px) y desktop (1440px) de las 4
+  pantallas, sin errores de consola. `tsc -b` limpio.
+
+## Segunda pasada: shell compartido y Perfil del negocio a fondo (2026-08-01)
+
+> El humano marcó que `ConfiguracionNegocioPage.tsx` seguía muy lejos
+> del mockup, y que el `Layout.tsx` compartido (navbar móvil + sidebar
+> desktop) también necesitaba trabajo — es la causa raíz de que
+> pantallas por lo demás cercanas al mockup "se sintieran distintas".
+
+- **`Layout.tsx` — sidebar (desktop)**: el ítem activo pasó de una
+  píldora flotante (`rounded-xl` + indicador absolutamente posicionado
+  + icono en su propia caja con fondo) a una "pestaña" pegada al borde
+  izquierdo: `border-l-4` (transparente en reposo, así no hay salto de
+  layout al activarse) + `rounded-r-xl` + icono sin caja, solo cambia de
+  color. Calca `sidebar-active` de `inicio_turnio_desktop_1/code.html`.
+- **`Layout.tsx` — navbar (móvil)**: el activo pasó de "barra indicadora
+  arriba + icono en caja cuadrada + texto suelto" a una sola píldora
+  `rounded-full` que envuelve icono y etiqueta juntos (`bg-emerald-500/15`),
+  igual que las cuatro variantes mobile del mockup. El contenedor de la
+  barra ganó `rounded-t-xl`. **No** se tocó el header superior (avatar +
+  saludo + menú de cuenta): el pedido fue específicamente navbar y
+  sidebar, no ese header.
+- **`ConfiguracionNegocioPage.tsx` — reescritura real, no solo estilo**:
+  - Título y copy iguales al mockup: "Configuración del Perfil" /
+    "Personaliza la apariencia y los datos públicos de tu negocio."
+    (antes: "Perfil del negocio" / "Lo que ven tus clientes...").
+  - Tarjetas de plantilla: imagen `h-32` (antes `h-24`), borde grueso
+    `border-2 border-emerald-500` en la seleccionada en vez de
+    `ring`+`shadow`, badge "Seleccionado" **inline junto al título** en
+    vez de superpuesto sobre la imagen. Badge "Visualización en vivo"
+    agregado junto al `h2` de la sección (existe en el mockup, no
+    existía acá).
+  - Los campos de texto se consolidaron en **una sola tarjeta grande**
+    "Detalles del Negocio" (`rounded-2xl p-6 md:p-8`, grid de 2
+    columnas, botón "Guardar cambios" a la derecha con separador
+    arriba) en vez de una tarjeta angosta genérica — así se ve en las
+    dos variantes (mobile y desktop) del mockup.
+  - **Deliberadamente no se copió el set de campos del mockup**: trae
+    "Categoría", "Correo de contacto" y "Descripción corta", que
+    **no existen en `MiNegocio`** (ver `backend/openapi.yaml` —  ese
+    schema solo tiene `nombre`, `ciudad`, `direccion`, `telefono`, más
+    `logo`/`portada`/`color_acento`/`tema`). Inventar esos campos habría
+    violado la regla de oro del contrato. Quedan como posible pedido a
+    backend si en algún momento se quieren de verdad, no como una tarea
+    pendiente de este cambio.
+  - La tarjeta de "Tu enlace" (arriba de todo) **se mantuvo** aunque no
+    aparece en el mockup: es funcionalidad real y documentada como "lo
+    primero que importa en esta pantalla" (ver más arriba en este mismo
+    archivo, sección de imágenes/perfil de Fase 2) — omitirla habría
+    sido una regresión, no un ajuste de fidelidad visual.
+  - Logo / Portada / Color de tu negocio / Fotos del local se dejaron
+    como tarjetas separadas después del formulario consolidado: el
+    mockup de referencia no las mostraba, pero son funcionalidad ya
+    construida y valiosa que ningún mockup de esta tanda contradice
+    explícitamente.
+- **Verificado en vivo** de nuevo con el mismo método (Edge headless +
+  `puppeteer-core --no-save` + negocio de prueba por API), capturas de
+  Perfil del negocio, Agenda e Inicio en mobile y desktop. `tsc -b`
+  limpio, 59 tests de Vitest en verde.
+
+## Tercera pasada: el shell seguía sin calcar el mockup (2026-08-01)
+
+> El humano comparó dos capturas lado a lado (el mockup real,
+> `turnio_business_management_app/code.html`, idéntico a
+> `inicio_turnio_desktop_1`, contra la app corriendo) y señaló que
+> "el navbar y el sidebar" seguían distintos — el pedido anterior se
+> había quedado corto.
+
+- **`Layout.tsx` — wordmark del sidebar**: pasó de un badge cuadrado
+  "T" + nombre del negocio a texto plano **"Turnio"** en verde
+  (`font-headline-lg`, calcado del mockup). El nombre del negocio
+  **no desapareció**: se movió a una línea pequeña en mayúsculas justo
+  encima del bloque de usuario, en el pie de la barra — perderlo del
+  todo habría sido peor para un producto multi-tenant que el mockup
+  (genérico, de un solo negocio) no necesitaba resolver.
+- **`Layout.tsx` — TopAppBar de escritorio, nueva**: no existía
+  ninguna barra superior en desktop; cada página ponía su propio
+  `<h1>` como primer elemento del contenido. Ahora hay una barra
+  sticky (`hidden lg:flex`) con el título de la sección (derivado de
+  `permisos/shell.ts` haciendo match de `location.pathname` contra
+  `navegacion` — un solo lugar que ya sabe la ruta de cada pantalla,
+  no un título nuevo por página) + iconos de búsqueda/notificación
+  **decorativos** (no hay funcionalidad detrás; se dejaron como
+  `<span>`, no `<button>`, para no fingir que algo es clicable cuando
+  no lo es).
+- **Consecuencia que había que resolver**: con la TopAppBar mostrando
+  ya el título de la sección, el `<h1>` propio de `AgendaPage.tsx`,
+  `ServiciosPage.tsx` y `ConfiguracionNegocioPage.tsx` quedó
+  **duplicado en desktop** (dos veces "Agenda", por ejemplo). Se le
+  agregó `lg:hidden` a esos tres títulos (y a su icono de cabecera,
+  donde aplica) — siguen apareciendo en mobile, que no tiene
+  TopAppBar propia. El subtítulo de cada página (conteo, fecha,
+  descripción) se queda visible siempre: no es un duplicado, es
+  información que la TopAppBar no muestra.
+- **Verificado en vivo** una vez más (mismo método), capturas de
+  Agenda, Servicios y Perfil del negocio en desktop confirmando que ya
+  no hay título repetido y que el sidebar/TopAppBar calcan el mockup.
+  `tsc -b` limpio, 59 tests de Vitest en verde.
+
+## Cuarta pasada: overflow del `Separator`, header móvil y "Tu enlace" (2026-08-01)
+
+- **`Layout.tsx` — `Separator` desbordaba el sidebar**: `w-full` en un
+  elemento horizontal calcula el 100% del contenedor y luego el `mx-3`/
+  `mx-2` de alrededor **se suma** a ese ancho — no se resta —, así que
+  el separador se salía por los dos lados. El humano tampoco quería ver
+  esa línea, así que se quitaron los dos usos (antes de la nav, antes
+  del bloque de usuario) sin reemplazarlas por otra línea: solo
+  espaciado (`mt-3` en la nav). El import de `Separator` se fue del
+  archivo — ya no se usa en `Layout.tsx`.
+- **`Layout.tsx` — wordmark del sidebar alineado con la TopAppBar**:
+  ambos bloques comparten ahora `h-14` + `items-center` (antes el
+  wordmark tenía `pt-8 pb-2`, la TopAppBar `py-3` — alturas y
+  padding-top distintos, texto en líneas distintas). Como los dos
+  contenedores son `sticky top-0` (arrancan en el mismo `y`), igualar
+  la altura los deja en la misma línea sin cálculos de píxeles sueltos.
+- **`Layout.tsx` — header móvil, ahora sí calcado del mockup**: el
+  pedido anterior había dejado este header explícitamente afuera (el
+  humano solo pidió "navbar y sidebar" esa vez); esta vez trajo la
+  captura del mockup mobile de Perfil del negocio y pidió igualarlo
+  también. Pasó de "avatar + saludo personalizado + menú de tres
+  puntos" a "icono de grilla (abre el mismo menú de cuenta de antes,
+  con el ajuste secundario y cerrar sesión) + wordmark 'Turnio' +
+  campana decorativa", igual que el resto de mockups mobile.
+  **El saludo personalizado ("Hola, X") desapareció del chrome de
+  móvil** — no tiene equivalente en ningún mockup mobile (todos usan
+  la misma barra genérica) y ya vive como contenido propio de
+  `DashboardPage` en desktop (`hidden lg:block`). No se replicó en
+  mobile a propósito: es exactamente lo que muestra el mockup.
+- **`ConfiguracionNegocioPage.tsx` — la tarjeta "Tu enlace" se fusionó
+  con "Diseño de tu página"**: a pedido explícito del humano ("se ve
+  más premium, más fiel al diseño"), la tarjeta separada con el enlace
+  completo + botones "Copiar"/"Ver" desapareció. La acción de **ver**
+  el enlace se convirtió en el botón "Vista previa" del encabezado de
+  la sección de plantillas (mismo lugar donde ya se elegía cómo se ve
+  la página — tiene sentido que previsualizar viva ahí). La acción de
+  **copiar** se mantuvo como ícono compacto al lado, sin etiqueta: no
+  se pidió explícitamente conservarla, pero quitar del todo la manera
+  de copiar el enlace (la forma más común de compartirlo por WhatsApp)
+  habría sido una regresión real, no solo un ajuste visual — se avisa
+  acá por si se prefiere quitarla también.
+- **Verificado en vivo**: mismo método (Edge headless + negocio de
+  prueba), capturas de Inicio y Perfil del negocio en mobile
+  confirmando el header nuevo y la fusión de "Tu enlace". `tsc -b`
+  limpio, 59 tests de Vitest en verde.
+
+## Quinta pasada: por qué "no aparecían" citas ya agendadas, y date picker real (2026-08-01)
+
+> El humano reportó (con un curl copiado del navegador) que un par de
+> citas no se veían en la Agenda. La API respondía bien — se replicó el
+> curl contra el backend local y devolvía las dos citas — así que no
+> era un bug de auth ni de datos: eran citas agendadas para el 10 y 11
+> de agosto, y la tira de selector de día de `AgendaPage.tsx` solo
+> mostraba una ventana fija de 7 días desde hoy (`proximosDias()`), sin
+> flechas de semana ni selector de fecha. Esas fechas literalmente no
+> tenían pastilla para hacer clic — no había forma de llegar ahí.
+
+- **`src/ui/CalendarioMes.tsx` (nuevo)**: la grilla de mes (navegación +
+  días + botón "Hoy") que antes vivía duplicada a mano dentro de
+  `DateTimePicker.tsx` se extrajo a un componente compartido, sin lógica
+  de hora — la usan tanto `DateTimePicker` (fecha y hora, para crear una
+  cita) como el `DatePicker` nuevo (solo fecha).
+- **`src/ui/DatePicker.tsx` (nuevo)**: selector de un día suelto sobre
+  `CalendarioMes`, con su propio disparador (`trigger`, cualquier
+  elemento — no se impuso un botón fijo para no repetir el error de
+  antes de un sub-componente que no reenvía `ref`/props a través de
+  `asChild` de Radix).
+- **`AgendaPage.tsx` — la tira de 7 días ahora se puede recentrar**:
+  `proximosDias()` pasó de "siempre desde hoy" a recibir una fecha de
+  inicio (`inicioVentana`, estado nuevo). Un ícono de calendario al
+  final de la tira abre el `DatePicker`; elegir una fecha ahí llama a
+  `irAFecha()`, que mueve tanto la selección como el inicio de la
+  ventana — así el día elegido queda como la primera pastilla visible,
+  no solo "seleccionado en el aire" sin representación en la tira.
+- **Bug de posicionamiento que el humano encontró con una captura**: el
+  `Popover.Content` de `DateTimePicker` (y ahora también el de
+  `DatePicker`) no tenía límite de alto. Cuando Radix lo volteaba hacia
+  arriba por falta de espacio abajo (el caso típico: el campo de
+  fecha/hora está cerca del fondo de un modal), el contenido —
+  navegación de mes + grilla de días + grilla de horas, bastante alto —
+  se salía por el borde superior de la pantalla, dejando el título del
+  mes casi invisible. Se corrigió con el patrón estándar de Radix:
+  `max-h-(--radix-popover-content-available-height) overflow-y-auto` —
+  esa variable CSS la calcula Radix según el espacio real disponible
+  hacia el lado que volteó, así que el popover ahora se ajusta al hueco
+  que tiene en vez de desbordarlo.
+- **Verificado en vivo**: registrado un servicio de prueba (por API)
+  para poder abrir el formulario real de "Agendar cita" y disparar el
+  `DateTimePicker` pegado al fondo del modal — antes se cortaba, ahora
+  se ve completo. También el `DatePicker` nuevo de la Agenda: abrirlo,
+  saltar al 10 de agosto, y confirmar que la tira se recentra y el
+  filtro de citas cambia. `tsc -b` limpio, 59 tests de Vitest en verde.
+

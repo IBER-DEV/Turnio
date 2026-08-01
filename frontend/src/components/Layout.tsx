@@ -1,12 +1,11 @@
 import type { ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../ui/Avatar";
 import { cn } from "../ui/cn";
 import { Icon } from "../ui/Icon";
 import { MenuAcciones, MenuAccionesItem, MenuAccionesSeparator } from "../ui/MenuAcciones";
-import { Separator } from "../ui/Separator";
 import { usePermisos } from "../permisos/usePermisos";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -21,6 +20,13 @@ export function Layout({ children }: { children: ReactNode }) {
   const navegacionPrincipal = navegacion.filter((item) => !item.secundaria);
   const navegacionSecundaria = navegacion.filter((item) => item.secundaria);
   const navigate = useNavigate();
+  // Título de la TopAppBar de escritorio: se deriva de la navegación en
+  // vez de que cada página lo declare — un solo lugar que ya conoce la
+  // ruta de todas las pantallas (permisos/shell.ts).
+  const { pathname } = useLocation();
+  const paginaActual =
+    navegacion.find((item) => item.to === pathname) ??
+    navegacion.find((item) => item.to !== "/" && pathname.startsWith(item.to));
 
   function handleLogout() {
     logout();
@@ -29,31 +35,21 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-background">
-      {/* Header — visible siempre en mobile, simplificado en desktop */}
-      <header className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b border-outline-variant/60 bg-white/80 px-margin-mobile py-3.5 backdrop-blur-md safe-top md:px-margin-desktop lg:hidden">
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar
-            nombre={membresia?.nombre ?? "Turnio"}
-            forma="cuadrado"
-            tamano="md"
-          />
-          <div className="min-w-0">
-            <p className="truncate font-caption text-caption text-on-surface-variant">
-              {membresia?.negocio.nombre}
-            </p>
-            <h1 className="truncate font-headline-md text-headline-md-mobile tracking-tight text-primary">
-              Hola, {membresia?.nombre.split(" ")[0]}
-            </h1>
-          </div>
-        </div>
+      {/* Header — visible siempre en mobile, simplificado en desktop.
+          Calcado del mockup: icono de grilla (abre el menú de cuenta, ya
+          que acá no hay un ítem de menú aparte para eso) + wordmark
+          "Turnio" centrado + campana decorativa. El saludo personalizado
+          que había acá antes no tiene equivalente en el mockup — vive en
+          el contenido de Inicio (`DashboardPage`), no en el chrome. */}
+      <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b border-outline-variant/30 bg-background/90 px-4 backdrop-blur-md safe-top lg:hidden">
         <MenuAcciones
           trigger={
             <button
               type="button"
-              className="flex h-10 w-10 shrink-0 items-center justify-center text-primary"
+              className="flex h-10 w-10 shrink-0 items-center justify-center text-emerald-600"
               aria-label="Menú de cuenta"
             >
-              <Icon name="more_vert" className="text-[24px]" />
+              <Icon name="grid_view" className="text-[24px]" />
             </button>
           }
         >
@@ -67,28 +63,38 @@ export function Layout({ children }: { children: ReactNode }) {
             Cerrar sesión
           </MenuAccionesItem>
         </MenuAcciones>
+
+        <span className="font-headline-lg text-headline-lg tracking-tight text-emerald-600">
+          Turnio
+        </span>
+
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center text-emerald-600">
+          <Icon name="notifications" className="text-[24px]" />
+        </span>
       </header>
 
       <div className="flex">
         {/* Sidebar — solo desktop */}
-        <aside className="sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col border-r border-outline-variant/40 bg-background lg:flex">
-          {/* Identidad del negocio */}
-          <div className="flex items-center gap-3 px-5 pb-2 pt-6">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-extrabold text-white">T</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-label-md text-label-md font-bold text-primary">
-                {membresia?.negocio.nombre ?? "Turnio"}
-              </p>
-            
-            </div>
+        <aside className="sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col border-r border-slate-200/80 bg-white lg:flex">
+          {/* Wordmark de Turnio — calcado del mockup (texto plano, sin
+              badge). Misma altura (`h-14`) y alineación vertical
+              (`items-center`) que la TopAppBar de la derecha, para que
+              "Turnio" y el título de sección queden en la misma línea.
+              El nombre del negocio no desaparece: vive en el pie de la
+              barra, junto al usuario, que es donde ya se lee su cuenta y
+              su negocio juntos. */}
+          <div className="flex h-14 items-center px-6">
+            <span className="font-headline-lg text-headline-lg tracking-tight text-emerald-600">
+              Turnio
+            </span>
           </div>
 
-          <Separator className="mx-5 my-3" />
-
-          {/* Navegación */}
-          <nav className="flex-1 space-y-0.5 px-3" aria-label="Navegación principal">
+          {/* Navegación — el activo es una "pestaña" pegada al borde
+              izquierdo (borde de 4px + esquinas redondeadas solo a la
+              derecha), no una píldora flotante: así se ve en los mockups
+              de Stitch y evita el salto de layout al activarse porque el
+              borde transparente ya reserva el espacio en el inactivo. */}
+          <nav className="mt-3 flex flex-1 flex-col gap-2 px-3" aria-label="Navegación principal">
             {navegacion.map(({ to, etiqueta, icono }) => (
               <NavLink
                 key={to}
@@ -97,33 +103,20 @@ export function Layout({ children }: { children: ReactNode }) {
                 viewTransition
                 className={({ isActive }) =>
                   cn(
-                    "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 font-body-md text-body-md transition-all",
+                    "flex items-center gap-3 rounded-r-xl border-l-4 px-3.5 py-3 font-body-md text-body-md transition-all",
                     isActive
-                      ? "bg-menta/8 font-semibold text-primary"
-                      : "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface",
+                      ? "border-emerald-500 bg-emerald-50 font-semibold text-emerald-700"
+                      : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {/* Indicador lateral */}
-                    <span
-                      className={cn(
-                        "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full transition-all",
-                        isActive ? "bg-menta opacity-100" : "opacity-0",
-                      )}
+                    <Icon
+                      name={icono}
+                      filled={isActive}
+                      className={cn("text-[20px]", isActive ? "text-emerald-600" : "text-slate-500")}
                     />
-                    {/* Icono con container en activo */}
-                    <span
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                        isActive
-                          ? "bg-menta/15 text-menta"
-                          : "text-on-surface-variant group-hover:text-on-surface",
-                      )}
-                    >
-                      <Icon name={icono} filled={isActive} className="text-[20px]" />
-                    </span>
                     <span>{etiqueta}</span>
                   </>
                 )}
@@ -131,9 +124,11 @@ export function Layout({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          {/* Footer — usuario + logout */}
+          {/* Footer — negocio + usuario + logout */}
           <div className="px-3 pb-4">
-            <Separator className="mx-2 mb-3" />
+            <p className="truncate px-3 pb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              {membresia?.negocio.nombre}
+            </p>
             <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
               <Avatar
                 nombre={membresia?.nombre ?? "U"}
@@ -167,15 +162,38 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 px-margin-mobile pb-28 pt-6 md:px-margin-desktop lg:pb-8 lg:pt-8">
-          <div className="mx-auto max-w-5xl animate-aparecer">{children}</div>
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* TopAppBar — solo desktop (mobile ya tiene su propio header
+              arriba). Título de sección + iconos de búsqueda/notificación
+              decorativos (no hay funcionalidad detrás todavía, calcado
+              del mockup tal cual). */}
+          <header className="sticky top-0 z-30 hidden h-14 border-b border-outline-variant/30 bg-background/90 px-8 backdrop-blur-sm lg:flex lg:items-center lg:justify-between">
+            <h1 className="font-headline-md text-headline-md text-primary">
+              {paginaActual?.etiqueta ?? "Turnio"}
+            </h1>
+            <div className="flex items-center gap-1 text-on-surface-variant">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full">
+                <Icon name="search" className="text-[22px]" />
+              </span>
+              <span className="relative flex h-9 w-9 items-center justify-center rounded-full">
+                <Icon name="notifications" className="text-[22px]" />
+                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-error" />
+              </span>
+            </div>
+          </header>
+
+          <main className="min-w-0 flex-1 px-4 pb-28 pt-6 md:px-8 lg:px-10 lg:pb-8 lg:pt-8">
+            <div className="mx-auto max-w-6xl animate-aparecer">{children}</div>
+          </main>
+        </div>
       </div>
 
-      {/* BottomNavBar móvil */}
+      {/* BottomNavBar móvil — una sola píldora envuelve icono+etiqueta en
+          el activo (sin indicador superior aparte), calcado del mockup:
+          esquinas superiores redondeadas en el propio contenedor. */}
       <nav
         aria-label="Navegación principal"
-        className="fixed bottom-0 left-0 z-50 flex w-full items-center justify-around border-t border-outline-variant/40 bg-white/95 px-2 pb-4 pt-1.5 backdrop-blur-md safe-bottom lg:hidden"
+        className="fixed bottom-0 left-0 z-50 flex w-full items-center justify-around rounded-t-xl border-t border-outline-variant/40 bg-white/95 px-2 pb-4 pt-1.5 backdrop-blur-md safe-bottom lg:hidden"
       >
         {navegacionPrincipal.map(({ to, etiqueta, icono }) => (
           <NavLink
@@ -185,37 +203,15 @@ export function Layout({ children }: { children: ReactNode }) {
             viewTransition
             className={({ isActive }) =>
               cn(
-                "tactile relative flex min-w-[56px] flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 transition-colors",
-                isActive
-                  ? "text-primary"
-                  : "text-on-surface-variant",
+                "tactile flex min-w-14 flex-col items-center gap-0.5 rounded-full px-4 py-1.5 transition-colors",
+                isActive ? "bg-emerald-500/15 text-emerald-700" : "text-on-surface-variant",
               )
             }
           >
             {({ isActive }) => (
               <>
-                {/* Indicador superior */}
-                <span
-                  className={cn(
-                    "absolute -top-1.5 left-1/2 h-[3px] w-5 -translate-x-1/2 rounded-full transition-all",
-                    isActive ? "bg-menta opacity-100" : "opacity-0",
-                  )}
-                />
-                {/* Ícono con container en activo */}
-                <span
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
-                    isActive && "bg-menta/10",
-                  )}
-                >
-                  <Icon name={icono} filled={isActive} className="text-[22px]" />
-                </span>
-                <span
-                  className={cn(
-                    "text-[10px] font-semibold",
-                    isActive && "text-primary",
-                  )}
-                >
+                <Icon name={icono} filled={isActive} className="text-[22px]" />
+                <span className={cn("text-[10px] font-semibold", isActive && "text-emerald-700")}>
                   {etiqueta}
                 </span>
               </>
