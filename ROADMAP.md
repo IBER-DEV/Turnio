@@ -142,7 +142,7 @@
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
 | Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
 | Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes y personalización entregadas el 2026-07-28** (backend y frontend): logo, portada y galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio`, `og:image` y `theme-color` reales al compartir el enlace (ver `CONTRATO.md` 5.12), pantalla `/configuracion/negocio`, y **plantillas por rubro** — barbería (oscura), spa y clínica, cada una con paleta, radios y tipografía propios, más color de acento del negocio con validación de contraste. Falta: decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
-| Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar; adelanto puntual del flujo de validación de servicios (ver decisión #10) | |
+| Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | 🟢 Caja + Comisiones automáticas + auditoría entregadas (2026-08-05); soporte offline queda fuera de esta tanda | Backend y frontend entregados en la misma sesión, rama `feature/fase3-caja-comisiones`. Apertura/cierre de caja (máquina de estados simple), registro de movimientos (ingreso/egreso, vínculo opcional a un `RegistroServicio` aprobado con cálculo y autoasignación de comisión), resumen en caliente (totales, por método de pago, comisión por empleado, aviso de servicios aprobados sin cobrar) y auditoría DIY (una fila por acción de negocio). Cierra el bloqueo #8 (`porcentaje_comision` separado de `puede_editar_precios` con la capacidad nueva `puede_editar_comisiones`). Ver `CONTRATO.md` 5.14, `backend/ROADMAP-BACKEND.md` y `frontend/ROADMAP-FRONTEND.md`. **Soporte offline explícitamente fuera de esta tanda** — es un problema de ingeniería distinto (cola local-first + sync) que merece su propio diseño. |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
 | Fase 6+ — Crecimiento | Sin empezar | |
@@ -172,11 +172,15 @@ NO hacer todavía.
    proyectos con interfaz — es decisión de producto. Ver `DECISIONES.md`
    #14.
 
-5. **Validación con negocios reales pendiente** (ver
+5. ~~**Validación con negocios reales pendiente** (ver
    `ESTRATEGIA-COMPETITIVA.md`): visitar ~10 barberías/salones locales
    para confirmar cómo agendan hoy, cómo pagan comisión a fin de
    semana, y qué pasa cuando se cae el internet, antes de comprometer
-   el detalle de Fase 3 (Caja/Comisiones).
+   el detalle de Fase 3 (Caja/Comisiones).~~ Confirmado por el humano
+   el 2026-08-05 (validación ya hecha / criterio informado propio) que
+   se podía proceder con el diseño completo de Caja + Comisiones +
+   auditoría — ver Fase 3 arriba. El soporte offline (la otra mitad de
+   este punto) se dejó fuera de esta tanda a propósito, sigue abierto.
 6. ~~Petición de frontend a backend: escritura en lote.~~ Resuelta el
    2026-07-25 (la misma persona hizo ambos lados): se agregaron `PUT
    /api/agenda/horarios/semana/` y `POST /api/servicios/lote/`, ambos
@@ -187,11 +191,20 @@ NO hacer todavía.
    dirección honesta: la UI las marca con un chip "Pronto" y siguen
    siendo configurables, pero ya no se presentan como si hicieran algo.
    Se quita el chip cuando Caja (Fase 3) y Reportes (Fase 4) las exijan
-   de verdad.
-8. **Bloqueante de entrada a Fase 3**: `porcentaje_comision` vive en
+   de verdad. **`puede_cobrar` ya con enforcement real desde el
+   2026-08-05** (gatea todo `apps/caja`) y el chip se quitó. **
+   `puede_ver_reportes` también dejó de estar "Pronto"**: ya habilita
+   ver el histórico de cajas de otros días (`puede_cobrar` **o**
+   `puede_ver_reportes` en `CajaViewSet`), aunque la pantalla de
+   Reportes en sí sigue siendo Fase 4.
+8. ~~**Bloqueante de entrada a Fase 3**: `porcentaje_comision` vive en
    `Servicio` y lo controla `puede_editar_precios`. Hoy es inerte, pero
    cuando Caja conecte el cálculo real, quien pueda editar servicios
-   podrá subirse su propia comisión. Separar antes de conectar.
+   podrá subirse su propia comisión. Separar antes de conectar.~~
+   Resuelto el 2026-08-05 junto con el resto de Fase 3: capacidad nueva
+   `puede_editar_comisiones`, gating por campo en
+   `ServicioSerializer.validate()` (solo exige la capacidad si el valor
+   realmente cambia). Ver `CONTRATO.md` 5.14 y `DECISIONES.md`.
 9. **Cambio de alcance de Fase 2 (2026-07-28, decisión del humano)**:
    el reemplazo de "llamar o escribir por WhatsApp" es el **enlace
    único y público del negocio** (`turnio.app/{slug}`, compartido por

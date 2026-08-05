@@ -78,6 +78,22 @@ describe("shellDe", () => {
     );
   });
 
+  it("Caja es principal y solo aparece con puede_cobrar", () => {
+    // Es el momento de conversión del producto (cerrar el día): a
+    // propósito no es secundaria, a diferencia de Cargos.
+    expect(shellDe("administracion", NADA).navegacion.map((item) => item.to)).not.toContain(
+      "/caja",
+    );
+    const conCaja = shellDe("administracion", { puede_cobrar: true }).navegacion;
+    expect(conCaja.map((item) => item.to)).toContain("/caja");
+    expect(conCaja.find((item) => item.to === "/caja")?.secundaria).not.toBe(true);
+  });
+
+  it("Cargos le cedió su lugar principal a Caja", () => {
+    const rutas = shellDe("administracion", TODO).navegacion;
+    expect(rutas.find((item) => item.to === "/configuracion/cargos")?.secundaria).toBe(true);
+  });
+
   it("la barra inferior de móvil no pasa de cinco entradas", () => {
     // Es un presupuesto de espacio real, no una preferencia: por encima
     // de cinco, los rótulos se pisan en un teléfono angosto. Lo que sobra

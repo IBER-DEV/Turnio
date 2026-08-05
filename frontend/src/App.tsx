@@ -37,6 +37,7 @@ const MisServiciosPage = lazy(() =>
 const ValidarServiciosPage = lazy(() =>
   import("./pages/servicios/ValidarServiciosPage").then((m) => ({ default: m.ValidarServiciosPage })),
 );
+const CajaPage = lazy(() => import("./pages/caja/CajaPage").then((m) => ({ default: m.CajaPage })));
 
 function CargandoRuta() {
   // Sin logo ni layout propio a propósito: esta pantalla la ve tanto un
@@ -138,6 +139,16 @@ function App() {
                   <RutaProtegida capacidad="puede_aprobar_servicios">
                     <Layout>
                       <ValidarServiciosPage />
+                    </Layout>
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/caja"
+                element={
+                  <RutaProtegida capacidad="puede_cobrar">
+                    <Layout>
+                      <CajaPage />
                     </Layout>
                   </RutaProtegida>
                 }

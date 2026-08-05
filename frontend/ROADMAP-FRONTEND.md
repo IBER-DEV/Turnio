@@ -1557,3 +1557,110 @@ servicio) a un componente de `src/ui/`.
   saltar al 10 de agosto, y confirmar que la tira se recentra y el
   filtro de citas cambia. `tsc -b` limpio, 59 tests de Vitest en verde.
 
+## Fase 3: Caja, comisiones automáticas y auditoría (2026-08-05)
+
+> Rama `feature/fase3-caja-comisiones`, mismo diseño acordado con el
+> humano en `/home/iber/.claude/plans/lucky-bubbling-balloon.md`
+> (aprobado tras 3 preguntas de producto — todas resueltas con la
+> opción recomendada). Lado backend ya documentado en
+> `../backend/ROADMAP-BACKEND.md`; acá va lo que le tocó a esta capa.
+
+### Qué se completó
+- **`src/permisos/catalogo.ts`**: `puede_cobrar` y `puede_ver_reportes`
+  dejaron de estar marcadas `proximamente` (tenían el chip "Pronto" sin
+  ningún enforcement real desde que se declararon en Fase 1). Se agregó
+  la capacidad nueva `puede_editar_comisiones` al grupo "Dinero", junto
+  a `puede_editar_precios` — el ciclo "agrego capacidad en el backend →
+  rompe la compilación de `catalogo.ts` → la traduzco" ocurrió de
+  verdad en esta tanda, no se saltó regenerando tipos después.
+- **`src/permisos/shell.ts`**: `Caja` entra a la navegación **principal**
+  de `administracion`/`recepcion` (gateada por `puede_cobrar`) — es el
+  momento de conversión del producto (cerrar el día, ver cuánto le toca
+  a cada barbero), no algo para esconder. `Cargos` le cedió su lugar
+  (pasó a `secundaria: true`): se configura una vez, no es trabajo
+  diario. La barra inferior de móvil sigue en el límite de 5 entradas
+  principales para `administracion`/`recepcion` (Inicio, Agenda,
+  Servicios, Caja, Equipo) — verificado con un test nuevo en
+  `shell.test.ts`, no a ojo.
+- **`src/api/types.ts`**: alias `MovimientoCajaInput`, mismo patrón que
+  `ServicioInput` para el wart conocido de serializers read/write
+  mezclados (ver `CLAUDE.md`).
+- **`src/ui/EstadoCaja.ts`** y **`src/ui/moneda.ts`** (nuevos):
+  `formatearMoneda` reemplaza el formateo de pesos que ya estaba
+  duplicado suelto en `ServiciosPage.tsx`/`ModalCatalogo.tsx`/
+  `publico/secciones.tsx` — Caja fue el cuarto lugar que lo necesitó,
+  el punto en que valía la pena extraerlo. Los usos existentes no se
+  migraron en esta tanda.
+- **`src/pages/caja/`** (nuevo): `CajaPage` (contenedor con toggle
+  "Hoy"/"Historial" — una sola ruta, no dos como Mis-servicios/Validar,
+  porque Caja es del negocio como un todo, no hay una versión "mía" vs.
+  "ajena"), `CajaHoy` (abrir caja, resumen del día, registrar
+  ingreso/egreso, vincular un `RegistroServicio` aprobado con
+  autocompletado de comisión, aviso de servicios aprobados sin cobrar,
+  cerrar caja) y `CajaHistorial` (reusa `FiltroPeriodo`/
+  `filtrosPeriodo.ts` de `../servicios/` tal cual, sin tocarlo).
+- **`src/App.tsx`**: ruta `/caja` gateada con `capacidad="puede_cobrar"`,
+  mismo criterio que `EmpleadosPage`/`ConfiguracionCargosPage`.
+- **Tests nuevos**: `src/ui/moneda.test.ts` (formatea números y strings
+  numéricos, una entrada no numérica no explota), `src/pages/caja/
+  CajaHoy.test.tsx` (5 tests: sin caja abierta el 404 de `/actual/` se
+  trata como estado vacío y no como error; un error real sí muestra
+  `EstadoError`; el formulario oculta método de pago y el selector de
+  vínculo cuando el tipo es egreso; elegir un `RegistroServicio` fija
+  el empleado de comisión como texto no editable y autocompleta
+  concepto/monto; el `POST` de un movimiento manda el body esperado),
+  y dos casos nuevos en `shell.test.ts` (Caja principal y gateada por
+  capacidad, Cargos ahora secundaria). Suite completa: 68 tests en
+  verde.
+
+### Decisión técnica: mock de `apiClient` sin mockear `conReintentoDeAuth`
+`CajaHoy.test.tsx` mockea `../../api/client` (`apiClient.GET`/`POST`)
+pero deja correr la implementación real de `conReintentoDeAuth`, que
+lee `response.status` para decidir si reintenta tras un 401 y (en este
+componente) para distinguir "sin caja abierta" (404) de un error real.
+Por eso cada respuesta mockeada necesita `{ data, error, response:
+{ status } }` aunque el test no use `response` directamente — omitirlo
+rompe en un `TypeError` dentro de `conReintentoDeAuth`, no en la
+aserción del test, lo cual confundiría a quien lo debuguee después.
+
+### Trampa encontrada: dos botones con el mismo nombre accesible
+Con `movimientos: []`, `CajaHoy` renderiza **dos** botones "Registrar
+movimiento" a la vez: el del header y el de la acción de
+`EstadoVacio`. `screen.findByRole("button", { name: "Registrar
+movimiento" })` revienta porque matchea dos elementos. Se resolvió con
+`findAllByRole(...)[0]` en vez de agregarle un `aria-label` distinto a
+uno de los dos solo para que el test lo pudiera diferenciar — cambiar
+el markup de producción para acomodar un test es la dirección
+equivocada cuando ambos botones son legítimamente el mismo texto para
+la persona que usa la pantalla.
+
+### Verificación
+`npm run test` (68 tests), `npx tsc -b` (limpio), `npm run build`
+(limpio), `npm run lint` (solo los 3 warnings preexistentes de
+`only-export-components`, ninguno nuevo). **La verificación manual en
+navegador no se hizo desde esta sesión** — el humano pidió no
+validarla acá, la hace él directamente. Sí se corrió una verificación
+end-to-end completa contra el backend real en Docker (`curl`, sin
+navegador): registrar negocio → crear servicio con
+`porcentaje_comision` → registrar y aprobar un `RegistroServicio` como
+un segundo miembro → abrir caja → registrar movimiento vinculado
+(comisión calculada en `20000.00` = `40000 × 50%`, `empleado_comision`
+autoasignado al barbero) → intentar vincular el mismo registro dos
+veces (`400`) → cerrar caja → confirmar `resumen` completo (totales,
+por método de pago, comisión por empleado, contador de sin-cobrar en
+`0`) → histórico con filtro de fechas → gating 403 para quien no tiene
+`puede_cobrar`/`puede_editar_comisiones`. De paso salió a la luz que la
+base de datos de Docker tenía pendientes las migraciones
+`usuarios.0007` y `caja.0001` (se habían generado en la sesión de
+backend pero nunca se aplicó `migrate` sobre el contenedor corriendo)
+— aplicadas con `docker compose exec backend python manage.py
+migrate`, sin tocar código.
+
+### Pendiente
+- Verificación manual en navegador de `CajaPage` con dos sesiones
+  (una con `puede_cobrar`, otra sin ella) — queda a cargo del humano.
+- Migrar los usos existentes de formateo de moneda suelto
+  (`ServiciosPage.tsx`, `ModalCatalogo.tsx`, `publico/secciones.tsx`) a
+  `formatearMoneda` — no urgente, anotado en el comentario del propio
+  `ui/moneda.ts`.
+
