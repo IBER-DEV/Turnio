@@ -4,7 +4,11 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.common.permissions import TieneMembresiaActiva, requiere_capacidad
+from apps.common.permissions import (
+    TieneMembresiaActiva,
+    requiere_alguna_capacidad,
+    requiere_capacidad,
+)
 from apps.servicios import services
 from apps.servicios.models import RegistroServicio, Servicio
 from apps.servicios.serializers import (
@@ -18,9 +22,14 @@ from apps.servicios.serializers import (
 class ServicioViewSet(viewsets.ModelViewSet):
     """CRUD de servicios del negocio del usuario autenticado.
 
-    Leer requiere solo pertenecer al negocio; crear/editar/borrar
-    requiere la capacidad `puede_editar_precios`, porque un servicio
-    define precio y comisión.
+    Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+    lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+    define un precio, así que no tiene sentido crear uno sin esa
+    capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+    con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+    `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+    quién puede cambiar cuál de los dos, en el detalle, lo decide
+    `ServicioSerializer.validate()`.
     """
 
     serializer_class = ServicioSerializer
@@ -28,6 +37,8 @@ class ServicioViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             return [TieneMembresiaActiva()]
+        if self.action in ("update", "partial_update"):
+            return [requiere_alguna_capacidad("puede_editar_precios", "puede_editar_comisiones")()]
         return [requiere_capacidad("puede_editar_precios")()]
 
     def get_queryset(self):

@@ -691,6 +691,194 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenRefresh'
           description: ''
+  /api/caja/:
+    get:
+      operationId: caja_list
+      description: |-
+        La caja del negocio: histórico, apertura, movimientos y cierre.
+
+        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+        opera la caja del día necesita poder mirar cierres pasados para
+        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+        movimientos exigen `puede_cobrar` sin excepción.
+      parameters:
+      - in: query
+        name: fecha_desde
+        schema:
+          type: string
+        description: Filtra desde esta fecha, inclusive (YYYY-MM-DD), sobre cuándo
+          se abrió la caja.
+      - in: query
+        name: fecha_hasta
+        schema:
+          type: string
+        description: Filtra hasta esta fecha, inclusive (YYYY-MM-DD), sobre cuándo
+          se abrió la caja.
+      tags:
+      - caja
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CajaLista'
+          description: ''
+  /api/caja/{id}/:
+    get:
+      operationId: caja_retrieve
+      description: |-
+        La caja del negocio: histórico, apertura, movimientos y cierre.
+
+        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+        opera la caja del día necesita poder mirar cierres pasados para
+        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+        movimientos exigen `puede_cobrar` sin excepción.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this caja.
+        required: true
+      tags:
+      - caja
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CajaDetalle'
+          description: ''
+  /api/caja/abrir/:
+    post:
+      operationId: caja_abrir_create
+      description: |-
+        La caja del negocio: histórico, apertura, movimientos y cierre.
+
+        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+        opera la caja del día necesita poder mirar cierres pasados para
+        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+        movimientos exigen `puede_cobrar` sin excepción.
+      tags:
+      - caja
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AbrirCaja'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AbrirCaja'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AbrirCaja'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CajaDetalle'
+          description: ''
+  /api/caja/actual/:
+    get:
+      operationId: caja_actual_retrieve
+      description: |-
+        La caja del negocio: histórico, apertura, movimientos y cierre.
+
+        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+        opera la caja del día necesita poder mirar cierres pasados para
+        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+        movimientos exigen `puede_cobrar` sin excepción.
+      tags:
+      - caja
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CajaDetalle'
+          description: ''
+  /api/caja/cerrar/:
+    post:
+      operationId: caja_cerrar_create
+      description: |-
+        La caja del negocio: histórico, apertura, movimientos y cierre.
+
+        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+        opera la caja del día necesita poder mirar cierres pasados para
+        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+        movimientos exigen `puede_cobrar` sin excepción.
+      tags:
+      - caja
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CerrarCaja'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CerrarCaja'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CerrarCaja'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CajaDetalle'
+          description: ''
+  /api/caja/movimientos/:
+    post:
+      operationId: caja_movimientos_create
+      description: |-
+        La caja del negocio: histórico, apertura, movimientos y cierre.
+
+        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+        opera la caja del día necesita poder mirar cierres pasados para
+        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+        movimientos exigen `puede_cobrar` sin excepción.
+      tags:
+      - caja
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoCaja'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MovimientoCaja'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MovimientoCaja'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoCaja'
+          description: ''
   /api/negocios/cargos/:
     get:
       operationId: negocios_cargos_list
@@ -1453,9 +1641,14 @@ paths:
       description: |-
         CRUD de servicios del negocio del usuario autenticado.
 
-        Leer requiere solo pertenecer al negocio; crear/editar/borrar
-        requiere la capacidad `puede_editar_precios`, porque un servicio
-        define precio y comisión.
+        Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+        lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+        define un precio, así que no tiene sentido crear uno sin esa
+        capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+        con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+        `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+        quién puede cambiar cuál de los dos, en el detalle, lo decide
+        `ServicioSerializer.validate()`.
       tags:
       - servicios
       security:
@@ -1474,9 +1667,14 @@ paths:
       description: |-
         CRUD de servicios del negocio del usuario autenticado.
 
-        Leer requiere solo pertenecer al negocio; crear/editar/borrar
-        requiere la capacidad `puede_editar_precios`, porque un servicio
-        define precio y comisión.
+        Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+        lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+        define un precio, así que no tiene sentido crear uno sin esa
+        capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+        con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+        `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+        quién puede cambiar cuál de los dos, en el detalle, lo decide
+        `ServicioSerializer.validate()`.
       tags:
       - servicios
       requestBody:
@@ -1506,9 +1704,14 @@ paths:
       description: |-
         CRUD de servicios del negocio del usuario autenticado.
 
-        Leer requiere solo pertenecer al negocio; crear/editar/borrar
-        requiere la capacidad `puede_editar_precios`, porque un servicio
-        define precio y comisión.
+        Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+        lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+        define un precio, así que no tiene sentido crear uno sin esa
+        capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+        con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+        `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+        quién puede cambiar cuál de los dos, en el detalle, lo decide
+        `ServicioSerializer.validate()`.
       parameters:
       - in: path
         name: id
@@ -1532,9 +1735,14 @@ paths:
       description: |-
         CRUD de servicios del negocio del usuario autenticado.
 
-        Leer requiere solo pertenecer al negocio; crear/editar/borrar
-        requiere la capacidad `puede_editar_precios`, porque un servicio
-        define precio y comisión.
+        Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+        lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+        define un precio, así que no tiene sentido crear uno sin esa
+        capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+        con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+        `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+        quién puede cambiar cuál de los dos, en el detalle, lo decide
+        `ServicioSerializer.validate()`.
       parameters:
       - in: path
         name: id
@@ -1570,9 +1778,14 @@ paths:
       description: |-
         CRUD de servicios del negocio del usuario autenticado.
 
-        Leer requiere solo pertenecer al negocio; crear/editar/borrar
-        requiere la capacidad `puede_editar_precios`, porque un servicio
-        define precio y comisión.
+        Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+        lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+        define un precio, así que no tiene sentido crear uno sin esa
+        capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+        con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+        `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+        quién puede cambiar cuál de los dos, en el detalle, lo decide
+        `ServicioSerializer.validate()`.
       parameters:
       - in: path
         name: id
@@ -1607,9 +1820,14 @@ paths:
       description: |-
         CRUD de servicios del negocio del usuario autenticado.
 
-        Leer requiere solo pertenecer al negocio; crear/editar/borrar
-        requiere la capacidad `puede_editar_precios`, porque un servicio
-        define precio y comisión.
+        Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+        lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+        define un precio, así que no tiene sentido crear uno sin esa
+        capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+        con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+        `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+        quién puede cambiar cuál de los dos, en el detalle, lo decide
+        `ServicioSerializer.validate()`.
       parameters:
       - in: path
         name: id
@@ -1925,6 +2143,144 @@ paths:
           description: ''
 components:
   schemas:
+    AbrirCaja:
+      type: object
+      properties:
+        saldo_inicial:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          default: '0.00'
+    BlankEnum:
+      enum:
+      - ''
+    CajaDetalle:
+      type: object
+      description: 'El detalle de una caja: sus movimientos y el resumen agregado.'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        estado:
+          allOf:
+          - $ref: '#/components/schemas/CajaEstadoEnum'
+          readOnly: true
+        saldo_inicial:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        abierta_por:
+          type: integer
+          readOnly: true
+        abierta_por_nombre:
+          type: string
+          readOnly: true
+        abierta_en:
+          type: string
+          format: date-time
+          readOnly: true
+        cerrada_por:
+          type: integer
+          readOnly: true
+          nullable: true
+        cerrada_por_nombre:
+          type: string
+          readOnly: true
+          nullable: true
+        cerrada_en:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        nota_cierre:
+          type: string
+          readOnly: true
+        movimientos:
+          type: array
+          items:
+            $ref: '#/components/schemas/MovimientoCaja'
+          readOnly: true
+        resumen:
+          allOf:
+          - $ref: '#/components/schemas/ResumenCaja'
+          readOnly: true
+      required:
+      - abierta_en
+      - abierta_por
+      - abierta_por_nombre
+      - cerrada_en
+      - cerrada_por
+      - cerrada_por_nombre
+      - estado
+      - id
+      - movimientos
+      - nota_cierre
+      - resumen
+      - saldo_inicial
+    CajaEstadoEnum:
+      enum:
+      - abierta
+      - cerrada
+      type: string
+      description: |-
+        * `abierta` - Abierta
+        * `cerrada` - Cerrada
+    CajaLista:
+      type: object
+      description: |-
+        Una caja en el histórico — sin movimientos ni resumen, para que
+        listar varias no cargue todo su detalle.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        estado:
+          allOf:
+          - $ref: '#/components/schemas/CajaEstadoEnum'
+          readOnly: true
+        saldo_inicial:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        abierta_por:
+          type: integer
+          readOnly: true
+        abierta_por_nombre:
+          type: string
+          readOnly: true
+        abierta_en:
+          type: string
+          format: date-time
+          readOnly: true
+        cerrada_por:
+          type: integer
+          readOnly: true
+          nullable: true
+        cerrada_por_nombre:
+          type: string
+          readOnly: true
+          nullable: true
+        cerrada_en:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        nota_cierre:
+          type: string
+          readOnly: true
+      required:
+      - abierta_en
+      - abierta_por
+      - abierta_por_nombre
+      - cerrada_en
+      - cerrada_por
+      - cerrada_por_nombre
+      - estado
+      - id
+      - nota_cierre
+      - saldo_inicial
     Cargo:
       type: object
       description: |-
@@ -1951,6 +2307,8 @@ components:
           type: boolean
         puede_editar_precios:
           type: boolean
+        puede_editar_comisiones:
+          type: boolean
         puede_gestionar_empleados:
           type: boolean
         puede_gestionar_agenda:
@@ -1967,6 +2325,12 @@ components:
       - id
       - miembros
       - nombre
+    CerrarCaja:
+      type: object
+      properties:
+        nota_cierre:
+          type: string
+          default: ''
     Cita:
       type: object
       properties:
@@ -2300,6 +2664,20 @@ components:
           format: date-time
       required:
       - inicio
+    MetodoPagoEnum:
+      enum:
+      - efectivo
+      - nequi
+      - daviplata
+      - bre_b
+      - otro
+      type: string
+      description: |-
+        * `efectivo` - Efectivo
+        * `nequi` - Nequi
+        * `daviplata` - Daviplata
+        * `bre_b` - Bre-B
+        * `otro` - Otro
     MiMembresia:
       type: object
       description: |-
@@ -2482,6 +2860,76 @@ components:
       - email
       - id
       - nombre
+    MovimientoCaja:
+      type: object
+      description: |-
+        Un ingreso o egreso. Alta y consulta — no hay edición (ver el
+        modelo: es un libro contable, inmutable tras crearse).
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        caja:
+          type: integer
+          readOnly: true
+        tipo:
+          $ref: '#/components/schemas/MovimientoCajaTipoEnum'
+        metodo_pago:
+          oneOf:
+          - $ref: '#/components/schemas/MetodoPagoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        concepto:
+          type: string
+          maxLength: 200
+        registro_servicio:
+          type: integer
+          nullable: true
+        empleado_comision:
+          type: integer
+          nullable: true
+        empleado_comision_nombre:
+          type: string
+          readOnly: true
+          nullable: true
+        monto_comision:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        registrado_por:
+          type: integer
+          readOnly: true
+        registrado_por_nombre:
+          type: string
+          readOnly: true
+        creado_en:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - caja
+      - concepto
+      - creado_en
+      - empleado_comision_nombre
+      - id
+      - monto
+      - monto_comision
+      - registrado_por
+      - registrado_por_nombre
+      - tipo
+    MovimientoCajaTipoEnum:
+      enum:
+      - ingreso
+      - egreso
+      type: string
+      description: |-
+        * `ingreso` - Ingreso
+        * `egreso` - Egreso
     Negocio:
       type: object
       properties:
@@ -2648,6 +3096,8 @@ components:
         puede_ver_reportes:
           type: boolean
         puede_editar_precios:
+          type: boolean
+        puede_editar_comisiones:
           type: boolean
         puede_gestionar_empleados:
           type: boolean
@@ -3064,6 +3514,60 @@ components:
       - nombre_cliente
       - profesional
       - servicio
+    ResumenCaja:
+      type: object
+      description: |-
+        Los totales de una caja, siempre calculados en caliente
+        (`apps.caja.services.resumen_de`) — nunca persistidos.
+      properties:
+        total_ingresos:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total_egresos:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        neto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        por_metodo_pago:
+          type: object
+          additionalProperties:
+            type: string
+            format: decimal
+            pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        comisiones_por_empleado:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResumenComision'
+        servicios_aprobados_sin_cobrar:
+          type: integer
+          description: Cuántos RegistroServicio aprobados durante esta caja no tienen
+            ningún movimiento vinculado. Informativo, no bloquea el cierre.
+      required:
+      - comisiones_por_empleado
+      - neto
+      - por_metodo_pago
+      - servicios_aprobados_sin_cobrar
+      - total_egresos
+      - total_ingresos
+    ResumenComision:
+      type: object
+      properties:
+        empleado:
+          type: integer
+        empleado_nombre:
+          type: string
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - empleado
+      - empleado_nombre
+      - monto
     Servicio:
       type: object
       properties:

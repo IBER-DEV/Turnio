@@ -40,10 +40,10 @@ def crear_servicios_en_lote(*, negocio, servicios):
 def calcular_comision(*, servicio, monto=None):
     """Monto de comisión de un servicio dado su porcentaje configurado.
 
-    No se invoca todavía desde ningún flujo automático: la ejecución
-    real (al completar una cita y registrar el cobro) es de Fase 3,
-    cuando exista el módulo de Caja. Se deja lista acá porque la
-    fórmula es propia del Servicio, no de Caja.
+    Se queda en `apps.servicios` porque la fórmula es propia del
+    `Servicio` (su `porcentaje_comision`), no de `apps.caja`, que la
+    importa directamente al registrar un movimiento vinculado a un
+    `RegistroServicio` aprobado (`apps.caja.services.registrar_movimiento`).
     """
     base = monto if monto is not None else servicio.precio
     return (base * servicio.porcentaje_comision / Decimal("100")).quantize(Decimal("0.01"))
@@ -118,11 +118,14 @@ def _validar_revision(*, registro, revisor):
 def aprobar_registro(*, registro, revisor):
     """Aprueba el registro: desde acá es de verdad trabajo confirmado.
 
-    Envía la señal `servicio_aprobado`, el punto donde Fase 3 (Caja)
-    conectará `calcular_comision()` cuando exista el módulo de pagos. Hoy
-    no hay ningún receptor conectado a propósito: no hay nada que hacer
-    todavía con la señal, y conectar un receptor vacío sería construir
-    infraestructura de eventos antes de necesitarla.
+    Envía la señal `servicio_aprobado`, sin ningún receptor conectado a
+    propósito: cobrar un servicio ya aprobado (`apps.caja.services.
+    registrar_movimiento`) importa `calcular_comision()` directamente en
+    vez de escuchar esta señal — es un solo efecto síncrono, y
+    `backend/CLAUDE.md` reserva las señales para cuando un mismo hecho de
+    negocio necesita disparar **varios** efectos desacoplados. La señal
+    se deja igual, como punto de extensión para ese caso futuro (ej. una
+    notificación), no para el cálculo de comisión.
     """
     _validar_revision(registro=registro, revisor=revisor)
 

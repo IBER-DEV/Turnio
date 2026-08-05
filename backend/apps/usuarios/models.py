@@ -53,6 +53,7 @@ CAPACIDADES = (
     "puede_cobrar",
     "puede_ver_reportes",
     "puede_editar_precios",
+    "puede_editar_comisiones",
     "puede_gestionar_empleados",
     "puede_gestionar_agenda",
     "puede_configurar_horarios",
@@ -104,6 +105,14 @@ class Cargo(TenantScopedModel):
     puede_cobrar = models.BooleanField(default=False)
     puede_ver_reportes = models.BooleanField(default=False)
     puede_editar_precios = models.BooleanField(default=False)
+    # Fijar cuánto se lleva cada empleado por un servicio (Servicio.
+    # porcentaje_comision), separada a propósito de `puede_editar_precios`:
+    # decidir cuánto le cobra el negocio al cliente y decidir cuánto le
+    # paga al empleado son dos dominios de confianza distintos — el
+    # segundo es información sensible entre el negocio y su gente, y no
+    # todo el que pone precios debería poder tocarla. Mismo criterio que
+    # separó `puede_editar_negocio` de `puede_gestionar_empleados`.
+    puede_editar_comisiones = models.BooleanField(default=False)
     puede_gestionar_empleados = models.BooleanField(default=False)
 
     # Operar la agenda del día: crear, mover y borrar citas de cualquiera.

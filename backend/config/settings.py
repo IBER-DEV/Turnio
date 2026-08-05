@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "apps.usuarios",
     "apps.servicios",
     "apps.agenda",
+    "apps.caja",
     "apps.publico",
 ]
 
@@ -134,6 +135,20 @@ SPECTACULAR_SETTINGS = {
     ),
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # `Cargo.tipo` y `MovimientoCaja.tipo`/`Caja.estado` comparten nombre
+    # de campo con otros `TextChoices` del proyecto (`Cita.estado`,
+    # `RegistroServicio.estado`). drf-spectacular ya resolvía la colisión
+    # de "estado" automáticamente (`CitaEstadoEnum`/`RegistroServicioEstadoEnum`),
+    # pero agregar `Caja.estado` como tercer "estado" lo empujó a un
+    # nombre con hash ilegible (`Estado36eEnum`) y además le movió el
+    # nombre limpio a `Cargo.tipo` (`Tipo14fEnum`) — que el frontend ya
+    # usa por nombre fijo (`components["schemas"]["TipoEnum"]` en
+    # `permisos/catalogo.ts`). Se fijan los dos nombres a mano para que
+    # una colisión nueva no le cambie el nombre a un tipo que ya existía.
+    "ENUM_NAME_OVERRIDES": {
+        "TipoEnum": "apps.usuarios.models.Cargo.Tipo",
+        "CajaEstadoEnum": "apps.caja.models.Caja.Estado",
+    },
 }
 
 SIMPLE_JWT = {
