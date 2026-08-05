@@ -142,7 +142,7 @@
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
 | Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
 | Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes y personalización entregadas el 2026-07-28** (backend y frontend): logo, portada y galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio`, `og:image` y `theme-color` reales al compartir el enlace (ver `CONTRATO.md` 5.12), pantalla `/configuracion/negocio`, y **plantillas por rubro** — barbería (oscura), spa y clínica, cada una con paleta, radios y tipografía propios, más color de acento del negocio con validación de contraste. Falta: decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
-| Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar | |
+| Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | Sin empezar; adelanto puntual del flujo de validación de servicios (ver decisión #10) | |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
 | Fase 6+ — Crecimiento | Sin empezar | |
@@ -202,6 +202,31 @@ NO hacer todavía.
    infraestructura para el buscador de Fase 6+, no el flujo principal
    de Fase 2. `CLAUDE.md` (principio de diseño y fases) actualizado en
    consecuencia.
+10. **Adelanto puntual de Fase 3, fuera de orden (2026-07-28, pedido
+    explícito del humano)**: se construyó el flujo de "registro de
+    servicio realizado, pendiente de validación" (barbero registra →
+    queda `pendiente` sin generar nada → alguien con `puede_aprobar_servicios`
+    aprueba o rechaza, con motivo y auditoría de quién/cuándo) antes de
+    que el resto de Fase 3 (Caja, Comisiones) exista. Es la base
+    antifraude sobre la que Fase 3 va a calcular comisiones de verdad:
+    `RegistroServicio` (modelo nuevo, `apps/servicios`, independiente de
+    `Cita` — cubre walk-ins) dispara una señal sin receptor al
+    aprobarse, el punto donde se conectará `calcular_comision()` (ya
+    escrita, todavía inerte) cuando Caja exista. Backend y frontend
+    entregados juntos en la misma sesión. Detalle en
+    `backend/ROADMAP-BACKEND.md`, `frontend/ROADMAP-FRONTEND.md`,
+    `CONTRATO.md` 5.13 y `DECISIONES.md` #25–#27.
+
+    **Ampliado el mismo día**, segundo pedido del humano sobre el mismo
+    módulo: filtros de consulta (período día/semana/mes, por barbero,
+    por estado — con "Completados" como etiqueta de UI para `aprobado`)
+    y la posibilidad de que quien tiene `puede_aprobar_servicios`
+    registre un servicio a nombre de un barbero concreto (obligatorio
+    elegir cuál, en vez de asumir el operador único). Se reutilizó la
+    misma capacidad en vez de crear una nueva — el proyecto ya estaba en
+    9 capacidades — y "Mis servicios" fuerza filtrar por el propio id
+    para no confundirse con "Validar servicios" pese a que el backend le
+    daría visibilidad completa. `DECISIONES.md` #28–#29.
 
    De ahí salieron dos hallazgos que quedan como bloqueos reales, no
    del contrato sino de producto/infraestructura:

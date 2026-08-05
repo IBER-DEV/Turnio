@@ -977,6 +977,200 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/servicios/registros/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Registro y validación de servicios realizados.
+         *
+         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
+         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
+         *     body (ver `perform_create`), para que nadie registre trabajo a
+         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+         *     **obligatorio**: alguien que administra el negocio puede estar
+         *     cargando el trabajo de un barbero que no usa la app, y el registro
+         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+         *     tipeó (ver `RegistroServicioSerializer.validate`).
+         *
+         *     Listar devuelve solo los propios salvo que se tenga
+         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
+         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
+         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
+         *     como empleado: sigue sin poder aprobarse.
+         *
+         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+         *     su propio rastro de auditoría.
+         */
+        get: operations["servicios_registros_list"];
+        put?: never;
+        /**
+         * @description Registro y validación de servicios realizados.
+         *
+         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
+         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
+         *     body (ver `perform_create`), para que nadie registre trabajo a
+         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+         *     **obligatorio**: alguien que administra el negocio puede estar
+         *     cargando el trabajo de un barbero que no usa la app, y el registro
+         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+         *     tipeó (ver `RegistroServicioSerializer.validate`).
+         *
+         *     Listar devuelve solo los propios salvo que se tenga
+         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
+         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
+         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
+         *     como empleado: sigue sin poder aprobarse.
+         *
+         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+         *     su propio rastro de auditoría.
+         */
+        post: operations["servicios_registros_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/servicios/registros/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Registro y validación de servicios realizados.
+         *
+         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
+         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
+         *     body (ver `perform_create`), para que nadie registre trabajo a
+         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+         *     **obligatorio**: alguien que administra el negocio puede estar
+         *     cargando el trabajo de un barbero que no usa la app, y el registro
+         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+         *     tipeó (ver `RegistroServicioSerializer.validate`).
+         *
+         *     Listar devuelve solo los propios salvo que se tenga
+         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
+         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
+         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
+         *     como empleado: sigue sin poder aprobarse.
+         *
+         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+         *     su propio rastro de auditoría.
+         */
+        get: operations["servicios_registros_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/servicios/registros/{id}/aprobar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Registro y validación de servicios realizados.
+         *
+         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
+         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
+         *     body (ver `perform_create`), para que nadie registre trabajo a
+         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+         *     **obligatorio**: alguien que administra el negocio puede estar
+         *     cargando el trabajo de un barbero que no usa la app, y el registro
+         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+         *     tipeó (ver `RegistroServicioSerializer.validate`).
+         *
+         *     Listar devuelve solo los propios salvo que se tenga
+         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
+         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
+         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
+         *     como empleado: sigue sin poder aprobarse.
+         *
+         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+         *     su propio rastro de auditoría.
+         */
+        post: operations["servicios_registros_aprobar_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/servicios/registros/{id}/rechazar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Registro y validación de servicios realizados.
+         *
+         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
+         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
+         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
+         *     body (ver `perform_create`), para que nadie registre trabajo a
+         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
+         *     **obligatorio**: alguien que administra el negocio puede estar
+         *     cargando el trabajo de un barbero que no usa la app, y el registro
+         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
+         *     tipeó (ver `RegistroServicioSerializer.validate`).
+         *
+         *     Listar devuelve solo los propios salvo que se tenga
+         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
+         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
+         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
+         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
+         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
+         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
+         *     como empleado: sigue sin poder aprobarse.
+         *
+         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
+         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
+         *     su propio rastro de auditoría.
+         */
+        post: operations["servicios_registros_rechazar_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1001,6 +1195,7 @@ export interface components {
             puede_configurar_horarios?: boolean;
             puede_ver_agenda_completa?: boolean;
             puede_editar_negocio?: boolean;
+            puede_aprobar_servicios?: boolean;
         };
         Cita: {
             readonly id: number;
@@ -1012,7 +1207,7 @@ export interface components {
             fecha_hora_inicio: string;
             /** Format: date-time */
             readonly fecha_hora_fin: string;
-            readonly estado: components["schemas"]["EstadoEnum"];
+            readonly estado: components["schemas"]["CitaEstadoEnum"];
             nombre_cliente: string;
             telefono_cliente?: string;
             notas?: string;
@@ -1032,6 +1227,14 @@ export interface components {
             /** @default  */
             notas: string;
         };
+        /**
+         * @description * `agendada` - Agendada
+         *     * `confirmada` - Confirmada
+         *     * `completada` - Completada
+         *     * `cancelada` - Cancelada
+         * @enum {string}
+         */
+        CitaEstadoEnum: "agendada" | "confirmada" | "completada" | "cancelada";
         /**
          * @description * `0` - Lunes
          *     * `1` - Martes
@@ -1069,14 +1272,6 @@ export interface components {
             /** @default  */
             especialidad: string;
         };
-        /**
-         * @description * `agendada` - Agendada
-         *     * `confirmada` - Confirmada
-         *     * `completada` - Completada
-         *     * `cancelada` - Cancelada
-         * @enum {string}
-         */
-        EstadoEnum: "agendada" | "confirmada" | "completada" | "cancelada";
         /**
          * @description Una foto de la galería. `orden` no se escribe acá: lo fija
          *     `PUT .../fotos/orden/` sobre la lista completa.
@@ -1325,6 +1520,7 @@ export interface components {
             puede_configurar_horarios?: boolean;
             puede_ver_agenda_completa?: boolean;
             puede_editar_negocio?: boolean;
+            puede_aprobar_servicios?: boolean;
         };
         PatchedCita: {
             readonly id?: number;
@@ -1336,7 +1532,7 @@ export interface components {
             fecha_hora_inicio?: string;
             /** Format: date-time */
             readonly fecha_hora_fin?: string;
-            readonly estado?: components["schemas"]["EstadoEnum"];
+            readonly estado?: components["schemas"]["CitaEstadoEnum"];
             nombre_cliente?: string;
             telefono_cliente?: string;
             notas?: string;
@@ -1421,6 +1617,13 @@ export interface components {
             readonly nombre: string;
             readonly especialidad: string;
         };
+        /**
+         * @description Entrada de `POST .../registros/{id}/rechazar/`: el motivo es
+         *     obligatorio — es lo que el empleado va a leer en su propio historial.
+         */
+        Rechazo: {
+            motivo: string;
+        };
         RegistroNegocio: {
             nombre_negocio: string;
             ciudad?: string;
@@ -1438,6 +1641,54 @@ export interface components {
             access: string;
             refresh: string;
         };
+        /**
+         * @description Un registro de servicio realizado: alta y consulta.
+         *
+         *     `estado`, `aprobado_por` y `fecha_revision` son de solo lectura
+         *     porque los fija el servidor a través de las acciones
+         *     `aprobar`/`rechazar`, nunca el cliente.
+         *
+         *     `empleado` es un caso especial: **casi siempre** lo fija el servidor
+         *     también (ver `RegistroServicioViewSet.perform_create`), pero quien
+         *     tiene `puede_aprobar_servicios` puede —y debe— elegir a nombre de
+         *     quién registra, para dejar constancia de un servicio que un barbero
+         *     sin acceso a la app no pudo cargar él mismo. Por eso viaja como
+         *     campo normal (no en `read_only_fields`) y su exigencia se resuelve en
+         *     `validate()`, según quién hace el request.
+         */
+        RegistroServicio: {
+            readonly id: number;
+            /** @description Quién realizó el servicio. Solo se puede elegir con `puede_aprobar_servicios`; sin esa capacidad, el campo se ignora y siempre queda el propio solicitante. */
+            empleado?: number;
+            readonly empleado_nombre: string;
+            servicio: number;
+            readonly servicio_nombre: string;
+            nombre_cliente: string;
+            telefono_cliente?: string;
+            /**
+             * Format: date-time
+             * @description Cuándo ocurrió el servicio. No puede ser futura.
+             */
+            fecha_hora: string;
+            observaciones?: string;
+            /** Format: uri */
+            evidencia?: string | null;
+            readonly estado: components["schemas"]["RegistroServicioEstadoEnum"];
+            readonly aprobado_por: number | null;
+            readonly aprobado_por_nombre: string | null;
+            /** Format: date-time */
+            readonly fecha_revision: string | null;
+            readonly motivo_rechazo: string;
+            /** Format: date-time */
+            readonly creado_en: string;
+        };
+        /**
+         * @description * `pendiente` - Pendiente
+         *     * `aprobado` - Aprobado
+         *     * `rechazado` - Rechazado
+         * @enum {string}
+         */
+        RegistroServicioEstadoEnum: "pendiente" | "aprobado" | "rechazado";
         /**
          * @description Lo que manda un cliente para reservar. Sin cuenta: nombre y teléfono.
          *
@@ -2734,6 +2985,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Servicio"][];
+                };
+            };
+        };
+    };
+    servicios_registros_list: {
+        parameters: {
+            query?: {
+                /** @description Filtra por quién lo registró. Sin `puede_aprobar_servicios` no tiene efecto útil: el listado ya está acotado a uno mismo. */
+                empleado?: number;
+                /** @description Filtra por estado. Sin este parámetro, devuelve todos. */
+                estado?: "aprobado" | "pendiente" | "rechazado";
+                /** @description Filtra desde esta fecha, inclusive (YYYY-MM-DD). */
+                fecha_desde?: string;
+                /** @description Filtra hasta esta fecha, inclusive (YYYY-MM-DD). */
+                fecha_hasta?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistroServicio"][];
+                };
+            };
+        };
+    };
+    servicios_registros_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistroServicio"];
+                "application/x-www-form-urlencoded": components["schemas"]["RegistroServicio"];
+                "multipart/form-data": components["schemas"]["RegistroServicio"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistroServicio"];
+                };
+            };
+        };
+    };
+    servicios_registros_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this registro servicio. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistroServicio"];
+                };
+            };
+        };
+    };
+    servicios_registros_aprobar_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this registro servicio. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistroServicio"];
+                };
+            };
+        };
+    };
+    servicios_registros_rechazar_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this registro servicio. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Rechazo"];
+                "application/x-www-form-urlencoded": components["schemas"]["Rechazo"];
+                "multipart/form-data": components["schemas"]["Rechazo"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistroServicio"];
                 };
             };
         };

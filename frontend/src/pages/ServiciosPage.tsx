@@ -1,12 +1,13 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
 import { apiClient } from "../api/client";
 import type { components } from "../api/schema";
 import type { ServicioInput } from "../api/types";
 import { conReintentoDeAuth } from "../auth/refresh";
+import { obtenerImagenServicio } from "../data/catalogoServicios";
 import { Button } from "../ui/Button";
-import { EstadoError, EstadoVacio, SkeletonLista } from "../ui/Feedback";
+import { EstadoError, SkeletonLista } from "../ui/Feedback";
 import { Icon } from "../ui/Icon";
 import { Input } from "../ui/Input";
 import { MenuAcciones, MenuAccionesItem, MenuAccionesSeparator } from "../ui/MenuAcciones";
@@ -146,16 +147,18 @@ export function ServiciosPage() {
 
   return (
     <div className="space-y-6">
+      {/* El título "Servicios" ya lo muestra la TopAppBar de escritorio
+          (Layout.tsx); acá solo se repite en mobile. */}
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-menta/8">
-            <Icon name="content_cut" className="text-[20px] text-menta" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 lg:hidden">
+            <Icon name="content_cut" className="text-[20px]" />
           </span>
           <div>
-            <h1 className="font-headline-md text-headline-md-mobile font-bold text-primary md:text-headline-md">
+            <h1 className="font-headline-md text-headline-md-mobile font-bold text-slate-900 tracking-tight lg:hidden">
               Servicios
             </h1>
-            <p className="text-[12px] text-on-surface-variant">
+            <p className="text-xs text-slate-500">
               {servicios.length} {servicios.length === 1 ? "servicio" : "servicios"} en tu catálogo
             </p>
           </div>
@@ -184,91 +187,157 @@ export function ServiciosPage() {
           mensaje="No pudimos cargar los servicios. Revisa tu conexión."
           onReintentar={cargar}
         />
-      ) : servicios.length === 0 ? (
-        <EstadoVacio
-          icono="content_cut"
-          titulo="Aún no tienes servicios"
-          descripcion="Empieza desde el catálogo y ajusta precios a tu gusto, o crea uno desde cero."
-          accion={
-            puedeEditar
-              ? { etiqueta: "Ver catálogo", onClick: () => setCatalogoAbierto(true) }
-              : undefined
-          }
-          accionSecundaria={
-            puedeEditar ? { etiqueta: "Crear desde cero", onClick: abrirCreacion } : undefined
-          }
-        />
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {servicios.map((servicio) => {
-            const inactivo = !servicio.activo;
-            return (
-              <div
-                key={servicio.id}
-                className={cn(
-                  "group animate-slide-in-bottom rounded-xl border border-outline-variant/60 bg-white p-4 transition-all hover:border-menta/30 hover:shadow-card-soft",
-                  inactivo && "opacity-60",
-                )}
+        <div className="space-y-8">
+          {/* Bento de arranque: siempre visible, es el atajo más usado
+              incluso con el catálogo ya lleno (agregar otro servicio). */}
+          {puedeEditar && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setCatalogoAbierto(true)}
+                className="group relative flex min-h-40 flex-col items-start overflow-hidden rounded-xl bg-emerald-500 p-6 text-left text-white shadow-sm transition-all hover:brightness-105 active:scale-[0.98]"
               >
-                {/* Top: nombre + kebab */}
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <h2
+                <Icon
+                  name="stars"
+                  className="pointer-events-none absolute -right-2 -top-2 text-[96px] opacity-10 transition-opacity group-hover:opacity-20"
+                />
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
+                  <Icon name="library_add" className="text-[22px] text-white" />
+                </div>
+                <h3 className="text-lg font-bold">Catálogo Prediseñado</h3>
+                <p className="mt-1 text-sm text-white/80">
+                  Empieza rápido con servicios configurados para tu sector.
+                </p>
+                <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-emerald-600">
+                  Elegir del Catálogo
+                  <Icon name="arrow_forward" className="text-[14px]" />
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={abrirCreacion}
+                className="group flex min-h-40 flex-col items-start rounded-xl border border-slate-200 bg-white p-6 text-left transition-all hover:border-emerald-300 hover:bg-slate-50 active:scale-[0.98]"
+              >
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 transition-colors group-hover:bg-emerald-50">
+                  <Icon
+                    name="add_circle"
+                    className="text-[22px] text-slate-600 transition-colors group-hover:text-emerald-600"
+                  />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Servicio Personalizado</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Configura cada detalle desde cero para un control total.
+                </p>
+                <span className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors group-hover:border-emerald-500 group-hover:text-emerald-600">
+                  Crear Personalizado
+                </span>
+              </button>
+            </div>
+          )}
+
+          {servicios.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center">
+              <Icon name="content_cut" className="mx-auto text-[24px] text-slate-400" />
+              <p className="mt-3 text-sm text-slate-500">
+                Aún no tienes servicios registrados en tu catálogo.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Activos actualmente
+                </h3>
+                <span className="text-xs text-slate-500">
+                  {servicios.length} {servicios.length === 1 ? "servicio" : "servicios"}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {servicios.map((servicio) => {
+                  const inactivo = !servicio.activo;
+                  const imgUrl = obtenerImagenServicio(servicio);
+                  return (
+                    <div
+                      key={servicio.id}
                       className={cn(
-                        "truncate font-label-md text-label-md text-on-surface",
-                        inactivo && "text-on-surface-variant line-through",
+                        "flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-emerald-200",
+                        inactivo && "opacity-60",
                       )}
                     >
-                      {servicio.nombre}
-                    </h2>
-                    {servicio.categoria && (
-                      <p className="mt-0.5 text-[11px] font-medium text-menta">
-                        {servicio.categoria}
-                      </p>
-                    )}
-                  </div>
-                  {puedeEditar && (
-                    <MenuAcciones
-                      trigger={
-                        <button
-                          type="button"
-                          className="flex h-8 w-8 shrink-0 items-center justify-center text-primary"
-                          aria-label={`Acciones de ${servicio.nombre}`}
-                        >
-                        <Icon name="more_vert" className="text-[22px]" />
-                        </button>
-                      }
-                    >
-                      <MenuAccionesItem icono="edit" onClick={() => abrirEdicion(servicio)}>
-                        Editar
-                      </MenuAccionesItem>
-                      <MenuAccionesSeparator />
-                      <MenuAccionesItem
-                        icono={servicio.activo ? "visibility_off" : "visibility"}
-                        destructivo={servicio.activo ?? false}
-                        onClick={() => {
-                          if (servicio.activo) setPorDesactivar(servicio);
-                          else cambiarActivo(servicio, true);
-                        }}
-                      >
-                        {servicio.activo ? "Desactivar" : "Activar"}
-                      </MenuAccionesItem>
-                    </MenuAcciones>
-                  )}
-                </div>
+                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                        <img
+                          src={imgUrl}
+                          alt={servicio.nombre}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
 
-                {/* Bottom: precio + duración */}
-                <div className="mt-4 flex items-end justify-between">
-                  <span className="text-lg font-bold text-primary">
-                    {formatearPrecio(servicio.precio)}
-                  </span>
-                  <span className="rounded-full bg-surface-container-low px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant">
-                    {servicio.duracion_minutos} min
-                  </span>
-                </div>
+                      <div className="min-w-0 flex-1">
+                        <h2
+                          className={cn(
+                            "truncate text-base text-slate-900",
+                            inactivo && "text-slate-400 line-through",
+                          )}
+                        >
+                          {servicio.nombre}
+                        </h2>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-3">
+                          <span className="flex items-center gap-1 text-xs text-slate-500">
+                            <Icon name="schedule" className="text-[14px]" />
+                            {servicio.duracion_minutos} min
+                          </span>
+                          <span className="flex items-center gap-1 text-xs font-bold text-emerald-600">
+                            {formatearPrecio(servicio.precio)}
+                          </span>
+                          {servicio.categoria && (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                              {servicio.categoria}
+                            </span>
+                          )}
+                          {inactivo && (
+                            <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                              Inactivo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {puedeEditar && (
+                        <MenuAcciones
+                          trigger={
+                            <button
+                              type="button"
+                              className="flex h-9 w-9 shrink-0 items-center justify-center text-slate-400 hover:text-slate-900"
+                              aria-label={`Acciones de ${servicio.nombre}`}
+                            >
+                              <Icon name="more_vert" className="text-[20px]" />
+                            </button>
+                          }
+                        >
+                          <MenuAccionesItem icono="edit" onClick={() => abrirEdicion(servicio)}>
+                            Editar
+                          </MenuAccionesItem>
+                          <MenuAccionesSeparator />
+                          <MenuAccionesItem
+                            icono={servicio.activo ? "visibility_off" : "visibility"}
+                            destructivo={servicio.activo ?? false}
+                            onClick={() => {
+                              if (servicio.activo) setPorDesactivar(servicio);
+                              else cambiarActivo(servicio, true);
+                            }}
+                          >
+                            {servicio.activo ? "Desactivar" : "Activar"}
+                          </MenuAccionesItem>
+                        </MenuAcciones>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          )}
         </div>
       )}
 

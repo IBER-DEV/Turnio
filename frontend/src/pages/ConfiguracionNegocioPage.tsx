@@ -291,58 +291,53 @@ export function ConfiguracionNegocioPage() {
   const enlacePublico = `${window.location.origin}/${negocio.slug}`;
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-menta/8">
-          <Icon name="storefront" className="text-[20px] text-menta" />
-        </span>
-        <div className="min-w-0">
-          <h1 className="font-headline-md text-headline-md-mobile font-bold text-primary md:text-headline-md">
-            Perfil del negocio
-          </h1>
-          <p className="text-[12px] text-on-surface-variant">
-            Lo que ven tus clientes cuando abren tu enlace
-          </p>
-        </div>
+    <div className="space-y-8">
+      {/* El título ya lo muestra la TopAppBar de escritorio (Layout.tsx,
+          etiqueta "Perfil del negocio"); acá solo se repite en mobile. */}
+      <header>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 lg:hidden">
+          Configuración del Perfil
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Personaliza la apariencia y los datos públicos de tu negocio.
+        </p>
       </header>
 
-      {/* El enlace público, arriba de todo: es el producto. Quien entra
-          acá casi siempre viene a mejorar lo que se ve al compartirlo. */}
-      <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="min-w-0">
-          <p className="font-caption text-caption text-on-surface-variant">Tu enlace</p>
-          <p className="truncate font-label-md text-label-md text-on-surface">{enlacePublico}</p>
+      {/* El enlace público ya no vive en su propia tarjeta: la acción de
+          verlo se mudó acá, junto a donde se elige cómo se ve — a pedido
+          del humano, que la encontró más premium y más fiel al mockup.
+          Copiarlo se queda como ícono compacto al lado: perderlo del
+          todo habría sido una regresión de una acción real (compartir el
+          enlace por WhatsApp), no solo un ajuste de estilo. */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-slate-900">Diseño de tu página</h2>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">
+              Visualización en vivo
+            </span>
+            <button
+              type="button"
+              aria-label="Copiar enlace público"
+              onClick={async () => {
+                await navigator.clipboard.writeText(enlacePublico);
+                mostrar("exito", "Enlace copiado.");
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            >
+              <Icon name="share" className="text-[18px]" />
+            </button>
+            <Button
+              variante="secondary"
+              tamano="sm"
+              icono="visibility"
+              onClick={() => window.open(`/${negocio.slug}`, "_blank", "noopener")}
+            >
+              Vista previa
+            </Button>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <Button
-            variante="secondary"
-            tamano="sm"
-            icono="share"
-            onClick={async () => {
-              await navigator.clipboard.writeText(enlacePublico);
-              mostrar("exito", "Enlace copiado.");
-            }}
-          >
-            Copiar
-          </Button>
-          <Button
-            variante="ghost"
-            tamano="sm"
-            icono="arrow_forward"
-            onClick={() => window.open(`/${negocio.slug}`, "_blank", "noopener")}
-          >
-            Ver
-          </Button>
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <h2 className="mb-1 font-label-md text-label-md text-on-surface">Diseño de tu página</h2>
-        <p className="mb-4 font-caption text-caption text-on-surface-variant">
-          Elige el que se parezca a tu negocio. Cambia los colores, las formas y la portada de
-          muestra — puedes cambiarlo cuando quieras.
-        </p>
-        <ul className="grid gap-3 sm:grid-cols-3">
+        <ul className="grid gap-4 md:grid-cols-3">
           {CATALOGO_PLANTILLAS.map((plantilla) => {
             const elegida = negocio.tema === plantilla.id;
             return (
@@ -357,46 +352,74 @@ export function ConfiguracionNegocioPage() {
                     if (ok) mostrar("exito", `Diseño ${plantilla.nombre} aplicado.`);
                   }}
                   className={cn(
-                    "w-full overflow-hidden rounded-xl border text-left transition-all disabled:opacity-60",
+                    "w-full overflow-hidden rounded-xl bg-white text-left transition-all disabled:opacity-60",
                     elegida
-                      ? "border-menta ring-2 ring-menta/20"
-                      : "border-outline-variant hover:border-menta/40",
+                      ? "border-2 border-emerald-500"
+                      : "border border-slate-200 hover:border-emerald-300",
                   )}
                 >
-                  {/* La vista previa se pinta con las variables reales de
-                      la plantilla, así que no puede desincronizarse del
-                      perfil: si mañana cambia una paleta, esto cambia
-                      con ella. La foto es la misma portada de muestra
-                      que verá su página hasta que suba la suya. */}
-                  <span style={plantilla.variables} className="block bg-perfil-fondo">
-                    <span className="relative block">
-                      <img
-                        src={plantilla.portadaMuestra}
-                        alt=""
-                        loading="lazy"
-                        className="h-24 w-full object-cover"
-                      />
-                      <span className="absolute inset-0 bg-linear-to-t from-perfil-fondo to-transparent" />
-                    </span>
-                    <span className="flex items-center gap-2 px-3 pb-3">
-                      <span className="h-6 flex-1 rounded-perfil bg-perfil-primario" />
-                      <span className="h-6 w-6 rounded-perfil bg-perfil-superficie-alta" />
-                    </span>
-                  </span>
-                  <span className="block px-3 pb-3 pt-2">
-                    <span className="flex items-center gap-1.5 font-label-md text-label-md text-on-surface">
-                      {elegida && <Icon name="check_circle" className="text-[16px] text-menta" />}
-                      {plantilla.nombre}
-                    </span>
-                    <span className="mt-0.5 block font-caption text-caption text-on-surface-variant">
-                      {plantilla.descripcion}
-                    </span>
-                  </span>
+                  <img
+                    src={plantilla.portadaMuestra}
+                    alt=""
+                    loading="lazy"
+                    className="h-32 w-full object-cover"
+                  />
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-sm font-bold text-slate-900">{plantilla.nombre}</h3>
+                      {elegida && (
+                        <span className="shrink-0 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                          Seleccionado
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">{plantilla.descripcion}</p>
+                  </div>
                 </button>
               </li>
             );
           })}
         </ul>
+      </section>
+
+      <Card className="p-6 md:p-8">
+        <form className="flex flex-col gap-6" onSubmit={handleGuardarDatos}>
+          <h2 className="text-lg font-bold text-slate-900">Detalles del Negocio</h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <Input
+              label="Nombre Comercial"
+              value={datos.nombre}
+              onChange={(e) => setDatos({ ...datos, nombre: e.target.value })}
+              required
+            />
+            <Input
+              label="Ciudad"
+              value={datos.ciudad ?? ""}
+              onChange={(e) => setDatos({ ...datos, ciudad: e.target.value })}
+              placeholder="Ej: Medellín"
+            />
+            <Input
+              label="Teléfono"
+              type="tel"
+              value={datos.telefono ?? ""}
+              onChange={(e) => setDatos({ ...datos, telefono: e.target.value })}
+              placeholder="3001112233"
+            />
+            <Input
+              label="Dirección Física"
+              value={datos.direccion ?? ""}
+              onChange={(e) => setDatos({ ...datos, direccion: e.target.value })}
+              placeholder="Ej: Cra 45 #10-20"
+              icono="location_on"
+              ayuda="Aparece en tu perfil público para que tus clientes te ubiquen."
+            />
+          </div>
+          <div className="flex justify-end border-t border-slate-100 pt-5">
+            <Button type="submit" cargando={guardando}>
+              Guardar cambios
+            </Button>
+          </div>
+        </form>
       </Card>
 
       <Card className="p-5">
@@ -522,45 +545,6 @@ export function ConfiguracionNegocioPage() {
           onChange={(evento) => subirImagen("portada", "la portada", evento, setSubiendoPortada)}
           aria-label="Elegir imagen de portada"
         />
-      </Card>
-
-      <Card className="p-5">
-        <form className="flex flex-col gap-5" onSubmit={handleGuardarDatos}>
-          <h2 className="font-label-md text-label-md text-on-surface">Datos del negocio</h2>
-          <Input
-            label="Nombre"
-            value={datos.nombre}
-            onChange={(e) => setDatos({ ...datos, nombre: e.target.value })}
-            required
-          />
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Input
-              label="Ciudad"
-              value={datos.ciudad ?? ""}
-              onChange={(e) => setDatos({ ...datos, ciudad: e.target.value })}
-              placeholder="Ej: Medellín"
-            />
-            <Input
-              label="Teléfono"
-              type="tel"
-              value={datos.telefono ?? ""}
-              onChange={(e) => setDatos({ ...datos, telefono: e.target.value })}
-              placeholder="3001112233"
-            />
-          </div>
-          <Input
-            label="Dirección"
-            value={datos.direccion ?? ""}
-            onChange={(e) => setDatos({ ...datos, direccion: e.target.value })}
-            placeholder="Ej: Cra 45 #10-20"
-            ayuda="Aparece en tu perfil público para que te encuentren."
-          />
-          <div className="flex justify-end">
-            <Button type="submit" cargando={guardando}>
-              Guardar cambios
-            </Button>
-          </div>
-        </form>
       </Card>
 
       <Card className="p-5">

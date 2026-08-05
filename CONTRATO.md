@@ -597,6 +597,77 @@ sirven bajo `/media/` **solo con `DEBUG=1`**. Fuera de desarrollo eso lo
 sirve nginx o un bucket — la misma decisión de infraestructura pendiente
 que `frontend/dist/` (ver `backend/ROADMAP-BACKEND.md`).
 
+### 5.13 Registro y validación de servicios realizados
+
+Un empleado puede **decir que hizo un servicio** —incluido un cliente
+sin cita previa (walk-in)— pero ese registro no cuenta para nada
+(comisiones, historial, métricas — cuando existan en Fase 3) hasta que
+alguien con permiso lo revisa. Es **independiente de `Cita`**: no
+extiende su máquina de estados, porque no todo servicio realizado pasó
+antes por la agenda.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET/POST | `/api/servicios/registros/` | cualquier miembro (POST siempre sobre sí mismo) |
+| GET | `/api/servicios/registros/{id}/` | dueño del registro, o `puede_aprobar_servicios` |
+| POST | `/api/servicios/registros/{id}/aprobar/` | `puede_aprobar_servicios` |
+| POST | `/api/servicios/registros/{id}/rechazar/` | `puede_aprobar_servicios` |
+
+Reglas que el schema no captura:
+
+- **`empleado` es implícito para casi todos, explícito y obligatorio
+  para quien tiene `puede_aprobar_servicios`.** Sin esa capacidad, sale
+  siempre de la membresía del token, igual que el negocio (5.5): un
+  campo `empleado` en el request se ignora en silencio — nadie registra
+  trabajo a nombre de otro, es la protección central contra el fraude
+  que motivó este módulo. **Con** la capacidad, es al revés: `empleado`
+  es **obligatorio** (`400` si falta) porque quien administra puede
+  estar cargando el trabajo de alguien que no usa la app, y el registro
+  tiene que quedar asociado a quien de verdad lo hizo. En ambos casos
+  se valida que el empleado pertenezca al negocio y esté activo.
+- **Estados**: `pendiente` (por defecto) → `aprobado` o `rechazado`.
+  Sin vuelta atrás: un registro ya revisado responde `400` ante una
+  segunda revisión, en cualquier sentido.
+- **Nadie revisa lo suyo, ni siquiera registrando a nombre de otro y
+  poniéndose después como empleado.** A diferencia de `Cita` (donde la
+  propiedad habilita transicionar el propio registro), acá
+  `puede_aprobar_servicios` **no** hace excepción de propiedad: si el
+  revisor es el mismo empleado que quedó asociado al registro, la API
+  responde `400`. Es el mismo principio anti-escalada que ya rige los
+  cargos (5.9): nadie es juez de su propio trabajo.
+- **`fecha_hora` no puede ser futura.** Registrar un servicio es dar fe
+  de que ya ocurrió; una fecha futura respondería `400` en
+  `fecha_hora`.
+- **Rechazar exige motivo** (`{"motivo": "..."}`, no vacío). El
+  empleado lo lee en su propio historial — es el requisito explícito de
+  trazabilidad de este módulo.
+- **Listar** devuelve solo los registros propios, salvo que se tenga
+  `puede_aprobar_servicios`, que ve los de todo el negocio. Un registro
+  ajeno sin esa capacidad responde `404`, igual que uno inexistente
+  (5.2). Filtros opcionales, combinables:
+  - `?estado=` — `pendiente`, `aprobado` o `rechazado`.
+  - `?fecha_desde=` / `?fecha_hasta=` — `YYYY-MM-DD`, ambos inclusive,
+    sobre `fecha_hora`.
+  - `?empleado=` — por id. Sin la capacidad no tiene efecto útil (el
+    listado ya está acotado a uno mismo); con ella, filtra dentro de
+    todo el negocio. Es la manera en que "Mis servicios" en el frontend
+    se queda **siempre** en lo propio incluso para quien tiene
+    visibilidad completa: manda su propio id explícito en vez de
+    apoyarse en el default de la capacidad.
+- **Inmutable tras crearse**: no hay `PUT`/`PATCH`/`DELETE`. La única
+  forma de que cambie es `aprobar`/`rechazar`.
+- **Evidencia fotográfica es opcional** (`evidencia`, multipart, mismo
+  límite de 5 MB que las imágenes de negocio — 5.12).
+- **`puede_aprobar_servicios` no viene concedida a ningún cargo
+  sembrado** (ni Recepción ni Barbero/estilista): el dueño la asigna a
+  mano a quien vaya a validar. Es deliberado — decide qué cuenta como
+  trabajo real, así que no arranca activada por defecto salvo en
+  Administración (que hereda todas las capacidades).
+- **Qué NO hace todavía este módulo**: no calcula comisión en dinero,
+  no alimenta ningún reporte. Aprobar dispara una señal de Django
+  (`apps.servicios.signals.servicio_aprobado`) sin receptores conectados
+  — el punto donde Fase 3 (Caja/Comisiones) se enganchará.
+
 ## 6. Historial de cambios al contrato
 
 > Quien cambie la forma de la API agrega una entrada acá (fecha,
@@ -938,3 +1009,54 @@ que `frontend/dist/` (ver `backend/ROADMAP-BACKEND.md`).
   plantilla.
 
   Nuevo slug reservado: `plantillas`.
+- **2026-07-28** — **Registro y validación de servicios realizados**
+  (ver 5.13). Nuevo `GET/POST /api/servicios/registros/` +
+  `.../{id}/aprobar/` + `.../{id}/rechazar/`. Aditivo: ningún endpoint
+  existente cambió de forma.
+
+  Nueva capacidad **`puede_aprobar_servicios`**, sin concederla a
+  ningún cargo sembrado salvo Administración (que hereda todas). Un
+  empleado registra un servicio (`RegistroServicio`, modelo nuevo,
+  **independiente de `Cita`** — cubre walk-ins) que nace en
+  `pendiente` y no cuenta para nada hasta que alguien con esa
+  capacidad lo aprueba o rechaza. Reglas de negocio nuevas que no
+  tienen precedente en el resto del contrato:
+
+  - `empleado` sale siempre del token, nunca del body — mismo
+    principio que "el negocio nunca viaja en el body" (5.5), aplicado
+    acá para que nadie registre trabajo ajeno.
+  - **Nadie revisa su propio registro**, ni siquiera con la capacidad:
+    `aprobar`/`rechazar` sobre lo propio responde `400`. Es la primera
+    vez que una capacidad tiene esta excepción — en el resto del
+    contrato, tener la capacidad siempre alcanza.
+  - `fecha_hora` futura responde `400`: no se puede dar fe de un
+    servicio que no ha ocurrido.
+  - Rechazar exige `motivo` no vacío, visible después para el
+    empleado en su propio listado.
+
+  Se deja explícitamente **sin construir** el cálculo real de
+  comisiones: aprobar dispara la señal `servicio_aprobado`
+  (`apps.servicios.signals`), sin receptores conectados, como punto de
+  extensión para cuando exista Fase 3 (Caja). Detalle de la decisión en
+  `DECISIONES.md`.
+- **2026-07-28 — Filtros de consulta y registro a nombre de otro en
+  servicios realizados** (ver 5.13, pedido explícito del humano sobre el
+  mismo módulo del punto anterior). Aditivo para quien no tiene
+  `puede_aprobar_servicios`; **cambio de comportamiento** para quien sí:
+
+  - Nuevos filtros en `GET /api/servicios/registros/`: `?estado=`
+    (ya existía, sin cambios), `?fecha_desde=`/`?fecha_hasta=`
+    (`YYYY-MM-DD`, inclusive) y `?empleado=` (por id). Los tres son
+    opcionales y combinables.
+  - **`empleado` pasa de "siempre implícito" a "obligatorio para quien
+    tiene `puede_aprobar_servicios`".** Antes el campo se ignoraba
+    siempre, viniera o no en el body. Ahora: sin la capacidad, sigue
+    ignorándose (comportamiento viejo, sin cambio); **con** la
+    capacidad, hay que mandarlo — un `POST` sin `empleado` responde
+    `400`. Es la manera de que un administrador registre el trabajo de
+    alguien que no usa la app, con el registro asociado a quien
+    realmente lo hizo.
+  - La regla de "nadie revisa lo suyo" (historial anterior) sigue
+    aplicando tal cual sobre el `empleado` resultante, así que cubre
+    también el caso de registrar a nombre de uno mismo con la
+    capacidad: sigue sin poder autoaprobarse.

@@ -6,6 +6,7 @@ import { conReintentoDeAuth } from "../../auth/refresh";
 import {
   CATALOGO_SERVICIOS,
   CATEGORIAS_CATALOGO,
+  obtenerImagenServicio,
   sugerenciaAServicio,
 } from "../../data/catalogoServicios";
 import { Button } from "../../ui/Button";
@@ -114,10 +115,11 @@ export function ModalCatalogo({
           ))}
         </ToggleGroup>
 
-        <ul className="space-y-2">
+        <ul className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
           {visibles.map((item) => {
             const yaEsta = existentes.has(item.nombre.trim().toLowerCase());
             const elegido = seleccion.has(item.nombre);
+            const imgUrl = obtenerImagenServicio(item);
 
             return (
               <li key={item.nombre}>
@@ -127,29 +129,35 @@ export function ModalCatalogo({
                   onClick={() => alternar(item.nombre)}
                   aria-pressed={elegido}
                   className={cn(
-                    "tactile flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors",
+                    "tactile flex w-full items-center gap-3.5 rounded-xl border p-3 text-left transition-all",
                     elegido
-                      ? "border-menta bg-menta/10"
-                      : "border-outline-variant bg-white",
-                    yaEsta && "cursor-not-allowed opacity-50",
+                      ? "border-emerald-500 bg-emerald-50/60 ring-1 ring-emerald-500/30"
+                      : "border-slate-200 bg-white hover:border-slate-300",
+                    yaEsta && "cursor-not-allowed opacity-50 bg-slate-50",
                   )}
                 >
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                      elegido ? "border-menta bg-menta" : "border-outline-variant",
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors",
+                      elegido ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white",
                     )}
                   >
-                    {elegido && <Icon name="check" className="text-[16px] text-on-primary" />}
+                    {elegido && <Icon name="check" className="text-[14px]" />}
                   </span>
 
+                  <img
+                    src={imgUrl}
+                    alt={item.nombre}
+                    className="h-12 w-12 shrink-0 rounded-lg object-cover bg-slate-100"
+                  />
+
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-label-md text-label-md text-primary">
+                    <span className="block truncate font-bold text-slate-900 text-sm">
                       {item.nombre}
                     </span>
-                    <span className="block truncate font-caption text-caption text-on-surface-variant">
+                    <span className="block truncate text-xs text-slate-500">
                       {yaEsta
-                        ? "Ya lo tienes"
+                        ? "Ya lo tienes en tu carta"
                         : `${MONEDA.format(Number(item.precio))} · ${item.duracion_minutos} min`}
                     </span>
                   </span>

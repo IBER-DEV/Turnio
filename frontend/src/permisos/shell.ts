@@ -62,6 +62,37 @@ const NEGOCIO: ItemNav = {
   capacidad: "puede_editar_negocio",
   secundaria: true,
 };
+// Sin `capacidad`: cualquier miembro puede haber hecho un servicio,
+// incluido el dueño operador único (ver CLAUDE.md, caso n=1).
+//
+// Dos variantes del mismo destino, no una: en `administracion`/`recepcion`
+// la barra inferior de móvil ya tiene sus cinco entradas principales
+// ocupadas (Inicio, Agenda, Servicios, Equipo, Cargos), así que acá es
+// secundaria — cortar pelo no es el trabajo diario de quien administra.
+// Para `operativo` es justo lo contrario: es la pantalla que más usa, así
+// que va principal.
+const MIS_SERVICIOS_SECUNDARIA: ItemNav = {
+  to: "/servicios/mios",
+  etiqueta: "Mis servicios",
+  icono: "add_task",
+  secundaria: true,
+};
+const MIS_SERVICIOS_PRINCIPAL: ItemNav = {
+  to: "/servicios/mios",
+  etiqueta: "Mis servicios",
+  icono: "add_task",
+};
+// Con `capacidad` y no por `tipo`: un "Validador" puede ser cualquier
+// cargo al que el dueño se la conceda, no un tipo de shell propio (ver
+// CONTRATO.md 5.13). Igual que NEGOCIO, se declara en las tres listas
+// para que aparezca sin importar el tipo del cargo.
+const VALIDAR_SERVICIOS: ItemNav = {
+  to: "/servicios/validar",
+  etiqueta: "Validar servicios",
+  icono: "fact_check",
+  capacidad: "puede_aprobar_servicios",
+  secundaria: true,
+};
 
 export const SHELLS: Record<TipoDeUsuario, Shell> = {
   /** Ve el negocio completo: arranca en el panel con las cifras del día. */
@@ -71,6 +102,8 @@ export const SHELLS: Record<TipoDeUsuario, Shell> = {
       { to: "/", etiqueta: "Inicio", icono: "dashboard" },
       AGENDA,
       SERVICIOS,
+      MIS_SERVICIOS_SECUNDARIA,
+      VALIDAR_SERVICIOS,
       EQUIPO,
       CARGOS,
       NEGOCIO,
@@ -83,19 +116,26 @@ export const SHELLS: Record<TipoDeUsuario, Shell> = {
       { to: "/", etiqueta: "Inicio", icono: "dashboard" },
       AGENDA,
       SERVICIOS,
+      MIS_SERVICIOS_SECUNDARIA,
+      VALIDAR_SERVICIOS,
       EQUIPO,
       CARGOS,
       NEGOCIO,
     ],
   },
-  /** Su día y nada más. Sin catálogo ni administración: para un barbero
-   * son pantallas de solo lectura que no usa, y llenarle la barra
-   * inferior de secciones ajenas le esconde la que sí necesita. */
+  /** Su día y nada más, más registrar su propio trabajo. Sin catálogo ni
+   * administración: para un barbero son pantallas de solo lectura que no
+   * usa, y llenarle la barra inferior de secciones ajenas le esconde la
+   * que sí necesita. `VALIDAR_SERVICIOS` sigue disponible si el dueño le
+   * concede la capacidad a un cargo operativo (ej. un estilista senior
+   * que valida a los demás). */
   operativo: {
     inicio: "/agenda",
     navegacion: [
       { to: "/", etiqueta: "Inicio", icono: "dashboard" },
       AGENDA,
+      MIS_SERVICIOS_PRINCIPAL,
+      VALIDAR_SERVICIOS,
     ],
   },
 };

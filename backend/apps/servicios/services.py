@@ -1,8 +1,10 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 
-from apps.servicios.models import Servicio
+from apps.servicios.models import RegistroServicio, Servicio
+from apps.servicios.signals import servicio_aprobado
 
 
 def crear_servicio(*, negocio, nombre, precio, duracion_minutos, **campos_opcionales):
@@ -45,3 +47,112 @@ def calcular_comision(*, servicio, monto=None):
     """
     base = monto if monto is not None else servicio.precio
     return (base * servicio.porcentaje_comision / Decimal("100")).quantize(Decimal("0.01"))
+
+
+class FechaFutura(Exception):
+    """`fecha_hora` es posterior a ahora: no se puede registrar un
+    servicio que todavía no ha pasado."""
+
+
+class RegistroYaRevisado(Exception):
+    """El registro ya fue aprobado o rechazado; no admite una segunda
+    revisión."""
+
+
+class MotivoRechazoRequerido(Exception):
+    """Rechazar exige explicar por qué."""
+
+
+class NoPuedeAutoaprobarse(Exception):
+    """Quien registró el servicio no puede ser también quien lo revisa."""
+
+
+def registrar_servicio(
+    *,
+    negocio,
+    empleado,
+    servicio,
+    nombre_cliente,
+    fecha_hora,
+    telefono_cliente="",
+    observaciones="",
+    evidencia=None,
+):
+    """Deja un `RegistroServicio` en `pendiente`.
+
+    No genera comisión, historial ni estadística: eso solo ocurre si
+    `aprobar_registro` lo confirma después. `empleado` es quien lo hizo
+    **y** quien lo registra — lo fija siempre el llamador a partir de la
+    membresía autenticada, nunca un id que venga del cliente, para que
+    nadie registre trabajo a nombre de otro.
+    """
+    if fecha_hora > timezone.now():
+        raise FechaFutura("No puedes registrar un servicio que todavía no ha ocurrido.")
+
+    return RegistroServicio.objects.create(
+        tenant=negocio.tenant,
+        negocio=negocio,
+        empleado=empleado,
+        servicio=servicio,
+        nombre_cliente=nombre_cliente,
+        telefono_cliente=telefono_cliente,
+        fecha_hora=fecha_hora,
+        observaciones=observaciones,
+        evidencia=evidencia or "",
+    )
+
+
+def _validar_revision(*, registro, revisor):
+    if registro.estado != RegistroServicio.Estado.PENDIENTE:
+        raise RegistroYaRevisado(
+            f"Este registro ya fue {registro.get_estado_display().lower()}; no admite otra revisión."
+        )
+    if revisor.pk == registro.empleado_id:
+        raise NoPuedeAutoaprobarse(
+            "No puedes aprobar ni rechazar un servicio que registraste tú mismo. "
+            "Pídeselo a otra persona que valide servicios."
+        )
+
+
+@transaction.atomic
+def aprobar_registro(*, registro, revisor):
+    """Aprueba el registro: desde acá es de verdad trabajo confirmado.
+
+    Envía la señal `servicio_aprobado`, el punto donde Fase 3 (Caja)
+    conectará `calcular_comision()` cuando exista el módulo de pagos. Hoy
+    no hay ningún receptor conectado a propósito: no hay nada que hacer
+    todavía con la señal, y conectar un receptor vacío sería construir
+    infraestructura de eventos antes de necesitarla.
+    """
+    _validar_revision(registro=registro, revisor=revisor)
+
+    registro.estado = RegistroServicio.Estado.APROBADO
+    registro.aprobado_por = revisor
+    registro.fecha_revision = timezone.now()
+    registro.save(update_fields=["estado", "aprobado_por", "fecha_revision", "actualizado_en"])
+
+    servicio_aprobado.send(sender=RegistroServicio, registro=registro)
+    return registro
+
+
+def rechazar_registro(*, registro, revisor, motivo):
+    """Rechaza el registro dejando el motivo, que el empleado podrá leer
+    en su propio historial."""
+    if not motivo.strip():
+        raise MotivoRechazoRequerido("Explica por qué se rechaza este registro.")
+    _validar_revision(registro=registro, revisor=revisor)
+
+    registro.estado = RegistroServicio.Estado.RECHAZADO
+    registro.aprobado_por = revisor
+    registro.fecha_revision = timezone.now()
+    registro.motivo_rechazo = motivo.strip()
+    registro.save(
+        update_fields=[
+            "estado",
+            "aprobado_por",
+            "fecha_revision",
+            "motivo_rechazo",
+            "actualizado_en",
+        ]
+    )
+    return registro

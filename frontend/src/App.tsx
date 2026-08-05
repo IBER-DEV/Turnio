@@ -31,6 +31,12 @@ const RegistroNegocioPage = lazy(() =>
 const PerfilNegocioPage = lazy(() =>
   import("./pages/publico/PerfilNegocioPage").then((m) => ({ default: m.PerfilNegocioPage })),
 );
+const MisServiciosPage = lazy(() =>
+  import("./pages/servicios/MisServiciosPage").then((m) => ({ default: m.MisServiciosPage })),
+);
+const ValidarServiciosPage = lazy(() =>
+  import("./pages/servicios/ValidarServiciosPage").then((m) => ({ default: m.ValidarServiciosPage })),
+);
 
 function CargandoRuta() {
   // Sin logo ni layout propio a propósito: esta pantalla la ve tanto un
@@ -110,6 +116,28 @@ function App() {
                   <RutaProtegida capacidad="puede_editar_negocio">
                     <Layout>
                       <ConfiguracionNegocioPage />
+                    </Layout>
+                  </RutaProtegida>
+                }
+              />
+              {/* Sin `capacidad`: cualquier miembro puede haber hecho un
+                  servicio, incluido el dueño operador único. */}
+              <Route
+                path="/servicios/mios"
+                element={
+                  <RutaProtegida>
+                    <Layout>
+                      <MisServiciosPage />
+                    </Layout>
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/servicios/validar"
+                element={
+                  <RutaProtegida capacidad="puede_aprobar_servicios">
+                    <Layout>
+                      <ValidarServiciosPage />
                     </Layout>
                   </RutaProtegida>
                 }

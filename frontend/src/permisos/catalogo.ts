@@ -71,6 +71,12 @@ export const DEFINICIONES: Record<
     consecuencia:
       "El nombre, la dirección, el logo y las fotos que ven los clientes en el enlace del negocio.",
   },
+  puede_aprobar_servicios: {
+    etiqueta: "Validar servicios registrados",
+    corto: "Validar",
+    consecuencia:
+      "Revisa lo que el equipo registra como trabajo hecho y decide si cuenta: aprobarlo o rechazarlo con un motivo. Nadie valida lo que registró él mismo.",
+  },
 };
 
 /** Los permisos agrupados por área del negocio.
@@ -102,6 +108,12 @@ export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
     // pública del local.
     area: "Perfil del negocio",
     capacidades: ["puede_editar_negocio"],
+  },
+  {
+    // Área propia y no dentro de "Agenda": operar el calendario no es
+    // lo mismo que dar fe de que un trabajo se hizo de verdad.
+    area: "Servicios realizados",
+    capacidades: ["puede_aprobar_servicios"],
   },
 ];
 
