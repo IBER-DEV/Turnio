@@ -11,3 +11,13 @@ import type { components } from "./schema";
  */
 export type ServicioInput = Omit<components["schemas"]["Servicio"], "id">;
 export type HorarioTrabajoInput = Omit<components["schemas"]["HorarioTrabajo"], "id">;
+export type MovimientoCajaInput = Omit<
+  components["schemas"]["MovimientoCaja"],
+  | "id"
+  | "caja"
+  | "empleado_comision_nombre"
+  | "monto_comision"
+  | "registrado_por"
+  | "registrado_por_nombre"
+  | "creado_en"
+>;

@@ -77,6 +77,7 @@ SLUGS_RESERVADOS = frozenset(
         "servicios",
         "empleados",
         "configuracion",
+        "caja",
         # Superficie pública planeada
         "buscar",
         "negocios",

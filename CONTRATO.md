@@ -160,16 +160,19 @@ No hay roles fijos tipo "Dueño"/"Empleado" definidos en el código. Las
 capacidades son booleanos independientes y viven en un **`Cargo` que cada
 negocio define** (ver 5.10); `MiembroNegocio` apunta a un cargo y no tiene
 permisos propios. La lista vigente **vive en el schema** (`Cargo` en
-`openapi.yaml`); a la fecha de este documento son ocho:
+`openapi.yaml`); a la fecha de este documento son diez:
 
-- `puede_cobrar` *(declarada, sin efecto hasta Fase 3)*
-- `puede_ver_reportes` *(declarada, sin efecto hasta Fase 4)*
+- `puede_cobrar` *(abrir/cerrar caja y registrar movimientos — ver 5.14)*
+- `puede_ver_reportes` *(ve el histórico de caja además de `puede_cobrar`
+  — ver 5.14; sin efecto propio hasta Fase 4)*
 - `puede_editar_precios`
+- `puede_editar_comisiones` *(ver 5.14)*
 - `puede_gestionar_empleados`
 - `puede_gestionar_agenda`
 - `puede_configurar_horarios`
 - `puede_ver_agenda_completa`
 - `puede_editar_negocio` *(ver 5.12)*
+- `puede_aprobar_servicios` *(ver 5.13)*
 
 Esta lista **crecerá**. El frontend no debe hardcodear un switch/enum
 cerrado de capacidades sin volver a chequear el schema: debe tratarlas
@@ -663,10 +666,83 @@ Reglas que el schema no captura:
   mano a quien vaya a validar. Es deliberado — decide qué cuenta como
   trabajo real, así que no arranca activada por defecto salvo en
   Administración (que hereda todas las capacidades).
-- **Qué NO hace todavía este módulo**: no calcula comisión en dinero,
-  no alimenta ningún reporte. Aprobar dispara una señal de Django
-  (`apps.servicios.signals.servicio_aprobado`) sin receptores conectados
-  — el punto donde Fase 3 (Caja/Comisiones) se enganchará.
+- **Qué NO hace este módulo**: no calcula comisión ni la persiste — eso
+  ocurre al **cobrar** (ver 5.14), no al aprobar. Aprobar sigue
+  disparando la señal `apps.servicios.signals.servicio_aprobado`, pero
+  sin ningún receptor conectado: el cálculo de comisión se resolvió con
+  un import directo desde `apps.caja.services`, no escuchando esta señal
+  (ver `DECISIONES.md` #31).
+
+### 5.14 Caja: apertura, movimientos y cierre (Fase 3)
+
+Turnio **no procesa pagos** — Nequi, Daviplata, Bre-B o efectivo ya se
+movieron por fuera de la plataforma antes de llegar acá. Este módulo
+**concilia**: deja constancia de cuánto entró, por qué método, y cuánto
+le corresponde de comisión a cada empleado, para reemplazar el Excel
+del domingo.
+
+| Método | Ruta | Capacidad |
+|---|---|---|
+| GET | `/api/caja/` | `puede_cobrar` **o** `puede_ver_reportes` |
+| GET | `/api/caja/{id}/` | `puede_cobrar` **o** `puede_ver_reportes` |
+| GET | `/api/caja/actual/` | `puede_cobrar` |
+| POST | `/api/caja/abrir/` | `puede_cobrar` |
+| POST | `/api/caja/cerrar/` | `puede_cobrar` |
+| POST | `/api/caja/movimientos/` | `puede_cobrar` |
+
+Reglas que el schema no captura:
+
+- **Una sola caja abierta por negocio a la vez.** `POST .../abrir/` con
+  una ya abierta responde `400`. `GET .../actual/` responde `404` si no
+  hay ninguna — es la señal para que el frontend ofrezca "Abrir caja",
+  no un error real.
+- **Los movimientos son inmutables**: sin `PUT`/`PATCH`/`DELETE`, mismo
+  criterio que `RegistroServicio` (5.13) — es un libro contable, un
+  error se corrige con un movimiento de ajuste nuevo, nunca editando el
+  histórico.
+- **`POST .../movimientos/` opera sobre la caja abierta del negocio,
+  implícita** — no se manda `caja` en el body. Sin ninguna caja abierta,
+  responde `400`.
+- **`metodo_pago` es obligatorio en un `ingreso` y prohibido en un
+  `egreso`** (`400` en el sentido que corresponda si no se respeta).
+  Valores: `efectivo`, `nequi`, `daviplata`, `bre_b`, `otro` — son
+  etiquetas de conciliación, no una integración con ninguna pasarela.
+- **Vincular un movimiento a un `RegistroServicio`** (`registro_servicio`
+  en el body, opcional): exige que ese registro esté `aprobado` (`400`
+  si no) y que no tenga ya otro movimiento vinculado (`400` — un mismo
+  trabajo no se cobra dos veces). El vínculo **sobreescribe** cualquier
+  `empleado_comision` que se haya mandado: la comisión es siempre de
+  quien hizo el trabajo (`registro_servicio.empleado`), nunca de a quién
+  se le ocurra asignársela. `empleado_comision` solo queda libre para
+  elegir cuando **no** hay `registro_servicio` (ej. una venta suelta que
+  se le quiere acreditar a alguien sin pasar por el flujo de validación).
+  El monto de comisión (`monto_comision`) se calcula con el
+  `porcentaje_comision` del servicio en ese momento y queda fijo — un
+  cambio posterior al porcentaje no lo recalcula retroactivamente.
+- **`GET .../{id}/` y `.../actual/` traen `movimientos` anidados y un
+  `resumen`** calculado siempre en caliente desde los movimientos
+  (nunca persistido aparte): `total_ingresos`, `total_egresos`, `neto`,
+  `por_metodo_pago` (dict), `comisiones_por_empleado` (lista), y
+  **`servicios_aprobados_sin_cobrar`** — cuántos `RegistroServicio`
+  aprobados de todo el negocio no tienen ningún movimiento vinculado.
+  Es informativo, **no bloquea el cierre**, y deliberadamente no se
+  acota a la ventana de la caja actual: un servicio aprobado y nunca
+  cobrado sigue siendo plata pendiente aunque haya pasado el día en que
+  se hizo (ver `DECISIONES.md` #35).
+- **`GET /api/caja/`** (histórico) acepta `?fecha_desde=`/`?fecha_hasta=`
+  (`YYYY-MM-DD`, ambos inclusive, sobre cuándo se abrió la caja) y no
+  trae `movimientos` ni `resumen` — pedirlos es un `GET .../{id}/` por
+  cada caja que interese, para no pagar el payload completo al listar.
+- **Editar `Servicio.porcentaje_comision` exige `puede_editar_comisiones`**,
+  capacidad separada de `puede_editar_precios` (que sigue siendo la
+  única exigida para crear/borrar un servicio). Un mismo
+  `PATCH /api/servicios/{id}/` puede traer los dos campos; cada uno
+  exige su propia capacidad **solo si el valor cambia** — reenviar el
+  valor que ya tenía no requiere nada. Ver `DECISIONES.md` #33.
+- **Auditoría**: cada apertura, movimiento y cierre queda registrado
+  (quién, qué, cuándo) en un log interno (`RegistroAuditoria`), sin
+  endpoint propio todavía — hoy solo se consulta desde el admin de
+  Django. Ver `DECISIONES.md` #32.
 
 ## 6. Historial de cambios al contrato
 
@@ -1060,3 +1136,26 @@ Reglas que el schema no captura:
     aplicando tal cual sobre el `empleado` resultante, así que cubre
     también el caso de registrar a nombre de uno mismo con la
     capacidad: sigue sin poder autoaprobarse.
+- **2026-08-05** — **Fase 3: Caja, comisiones automáticas y auditoría**
+  (ver 5.14). Todo nuevo, aditivo — ningún endpoint existente cambió de
+  forma salvo `ServicioSerializer`, que gana el gating por campo del
+  punto siguiente:
+
+  - Endpoints nuevos bajo `/api/caja/`: histórico (`GET`, con filtro de
+    fecha), detalle, `actual/`, `abrir/`, `cerrar/`, `movimientos/`.
+  - Capacidades **`puede_cobrar`** y **`puede_ver_reportes`** pasan de
+    declaradas-sin-efecto a exigidas de verdad en estos endpoints —
+    ambas ya estaban sembradas en el cargo "Recepción" de todo negocio
+    existente, así que ningún negocio quedó bloqueado por la migración.
+  - Capacidad nueva **`puede_editar_comisiones`**, separada de
+    `puede_editar_precios`: gatea específicamente el campo
+    `Servicio.porcentaje_comision` (cierra el bloqueo #8 del
+    `ROADMAP.md` raíz — antes cualquiera con `puede_editar_precios`
+    podía subirse su propia comisión).
+  - `RegistroServicio` gana un uso real: vincularlo a un movimiento de
+    caja calcula y persiste su comisión. La señal `servicio_aprobado`
+    (5.13) sigue sin receptor — el cálculo se resuelve con un import
+    directo, no escuchando la señal (`DECISIONES.md` #31).
+
+  Detalle completo de reglas, límites y decisiones de diseño en 5.14 y
+  `DECISIONES.md` #30–#36.

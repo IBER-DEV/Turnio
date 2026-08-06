@@ -1449,3 +1449,66 @@ concreto que las necesite enlazadas, se agrega entonces.
   registro a nombre de otro, rechazo si el empleado es de otro negocio
   o está inactivo, filtro por rango de fechas, filtro por empleado).
   211 tests en verde. `openapi.yaml` regenerado.
+
+## Fase 3: Caja, comisiones automáticas y auditoría (2026-08-05)
+
+> Primer módulo real de Fase 3, sobre la base antifraude que dejó
+> `RegistroServicio`. Plan diseñado y aprobado con el humano antes de
+> tocar código (`/home/iber/.claude/plans/lucky-bubbling-balloon.md`).
+> Ver `../CONTRATO.md` 5.14 y `../DECISIONES.md` #30–#36. Soporte
+> offline queda explícitamente fuera de esta tanda — es un problema de
+> ingeniería aparte (cola local-first + sincronización).
+
+- **App nueva `apps/caja`**, con tres modelos: `Caja` (`estado`
+  `abierta`/`cerrada`, máquina de estados simple igual que `Cita`,
+  `UniqueConstraint` de "una caja abierta por negocio" reforzada a
+  nivel de BD), `MovimientoCaja` (ingreso/egreso, inmutable tras
+  crearse, `UniqueConstraint` que impide vincular dos veces el mismo
+  `RegistroServicio`) y `RegistroAuditoria` (log DIY de una fila por
+  acción — ver `DECISIONES.md` #32 sobre por qué no `django-simple-history`).
+- **Capacidad nueva `puede_editar_comisiones`** (migración `usuarios/0007`),
+  separada de `puede_editar_precios` — cierra el bloqueo #8 del
+  `../ROADMAP.md` raíz. Gating por campo dentro de `ServicioSerializer`,
+  no por vista: un mismo `PATCH` puede tocar precio, comisión, o ambos,
+  y cada capacidad solo se exige si el valor **cambia**.
+- **`puede_cobrar` y `puede_ver_reportes` pasan de declaradas a exigidas
+  de verdad** por primera vez, en los endpoints de `/api/caja/`. Sin
+  migración de datos: `puede_cobrar` ya estaba sembrada en el cargo
+  "Recepción" de todo negocio existente.
+- **`requiere_alguna_capacidad(*nombres)`** nuevo en
+  `apps/common/permissions.py` — exige al menos una de varias
+  capacidades (histórico de caja: `puede_cobrar` o `puede_ver_reportes`;
+  editar un `Servicio`: `puede_editar_precios` o `puede_editar_comisiones`).
+- **El cálculo de comisión se conecta por import directo**
+  (`apps.caja.services` importa `apps.servicios.services.calcular_comision`),
+  no conectando la señal `servicio_aprobado` que la sesión anterior
+  dejó preparada para esto — un solo efecto síncrono no amerita señal.
+  Ver `DECISIONES.md` #31.
+- Endpoints: `GET/POST /api/caja/`, `GET /api/caja/{id}/`,
+  `GET .../actual/`, `POST .../abrir/`, `POST .../cerrar/`,
+  `POST .../movimientos/`. El detalle trae `resumen` calculado en
+  caliente (nunca persistido): totales, por método de pago, comisiones
+  por empleado, y `servicios_aprobados_sin_cobrar` — un aviso no
+  bloqueante que **no** se acota a la ventana de la caja actual (un test
+  destapó que acotarlo hacía desaparecer el aviso apenas pasaba el día;
+  ver `DECISIONES.md` #35).
+- **Colisión de nombres de enum**: agregar `Caja.estado` le movió el
+  nombre limpio a `Cargo.tipo` (pasó a `Tipo14fEnum`), que el frontend
+  ya referencia por nombre fijo (`TipoEnum`). Resuelto con
+  `SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"]`. Ver `DECISIONES.md` #36
+  — vale la pena revisar `git diff openapi.yaml` completo, no solo lo
+  agregado, cada vez que se suma un campo `TextChoices` con nombre común.
+- 43 tests nuevos (19 de servicios de `apps/caja`, 17 de API de
+  `apps/caja`, 7 de gating de comisiones en `apps/servicios`). **254
+  tests en verde** (venían 211). `openapi.yaml` regenerado,
+  `CONTRATO.md` 5.14 y su historial actualizados, capacidades listadas
+  en la sección 5 puestas al día (ahora diez).
+
+### Pendiente
+Frontend de este módulo (pantalla de Caja) queda para la siguiente
+tanda de esta misma sesión. No hay endpoint de solo lectura para
+`RegistroAuditoria` — hoy solo se consulta desde el admin de Django; se
+agrega si en el uso real hace falta verlo desde la app. El pago de la
+comisión (el egreso real cuando el dueño le paga al barbero) no está
+modelado — `comisiones_por_empleado` es informativo, registrar el
+egreso correspondiente es un paso manual.

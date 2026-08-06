@@ -29,19 +29,24 @@ export const DEFINICIONES: Record<
   puede_cobrar: {
     etiqueta: "Cobrarle a los clientes",
     corto: "Cobrar",
-    consecuencia: "Recibe pagos y cierra la caja del día.",
-    proximamente: true,
+    consecuencia: "Abre y cierra la caja del día, y registra ingresos y egresos.",
   },
   puede_ver_reportes: {
     etiqueta: "Ver cuánto vende el negocio",
     corto: "Ver ventas",
-    consecuencia: "Ingresos, servicios más pedidos y comisiones.",
-    proximamente: true,
+    consecuencia:
+      "El histórico de cajas cerradas de cualquier día, sin necesitar poder cobrar. El resto de reportes sigue en camino.",
   },
   puede_editar_precios: {
     etiqueta: "Poner los precios",
     corto: "Precios",
     consecuencia: "Crear servicios y cambiar cuánto cuestan.",
+  },
+  puede_editar_comisiones: {
+    etiqueta: "Definir comisiones",
+    corto: "Comisiones",
+    consecuencia:
+      "Cuánto se lleva cada empleado por cada servicio — no requiere poder cambiar los precios.",
   },
   puede_gestionar_agenda: {
     etiqueta: "Agendar para todo el equipo",
@@ -81,13 +86,18 @@ export const DEFINICIONES: Record<
 
 /** Los permisos agrupados por área del negocio.
  *
- * Con ocho interruptores, la lista plana dejó de escanearse: quien
+ * Con diez interruptores, la lista plana dejó de escanearse: quien
  * busca "¿puede tocar la plata?" no debería leerlos todos.
  */
 export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
   {
     area: "Dinero",
-    capacidades: ["puede_cobrar", "puede_ver_reportes", "puede_editar_precios"],
+    capacidades: [
+      "puede_cobrar",
+      "puede_ver_reportes",
+      "puede_editar_precios",
+      "puede_editar_comisiones",
+    ],
   },
   {
     area: "Agenda",

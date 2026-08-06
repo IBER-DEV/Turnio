@@ -54,6 +54,20 @@ const CARGOS: ItemNav = {
   etiqueta: "Cargos",
   icono: "settings",
   capacidad: "puede_gestionar_empleados",
+  // Secundaria desde que existe CAJA: un cargo se configura una vez y
+  // casi no se vuelve a tocar, así que le cede su lugar en la barra
+  // principal a la pantalla que sí se usa todos los días.
+  secundaria: true,
+};
+// Principal a propósito, no secundaria: cerrar el día y ver cuánto le
+// corresponde a cada barbero es el momento de conversión del producto
+// (reemplaza el Excel dominical) — no algo para esconder en el menú de
+// cuenta. `CARGOS`, arriba, le cedió el lugar en la barra principal.
+const CAJA: ItemNav = {
+  to: "/caja",
+  etiqueta: "Caja",
+  icono: "point_of_sale",
+  capacidad: "puede_cobrar",
 };
 const NEGOCIO: ItemNav = {
   to: "/configuracion/negocio",
@@ -102,6 +116,7 @@ export const SHELLS: Record<TipoDeUsuario, Shell> = {
       { to: "/", etiqueta: "Inicio", icono: "dashboard" },
       AGENDA,
       SERVICIOS,
+      CAJA,
       MIS_SERVICIOS_SECUNDARIA,
       VALIDAR_SERVICIOS,
       EQUIPO,
@@ -116,6 +131,7 @@ export const SHELLS: Record<TipoDeUsuario, Shell> = {
       { to: "/", etiqueta: "Inicio", icono: "dashboard" },
       AGENDA,
       SERVICIOS,
+      CAJA,
       MIS_SERVICIOS_SECUNDARIA,
       VALIDAR_SERVICIOS,
       EQUIPO,

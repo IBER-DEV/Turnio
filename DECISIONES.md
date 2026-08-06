@@ -27,6 +27,154 @@
 
 ---
 
+## 2026-08-05 — Fase 3: Caja, comisiones automáticas y auditoría
+
+Primera entrega real de Fase 3 (Caja/Comisiones), sobre la base
+antifraude que ya dejó `RegistroServicio`. Ver `CONTRATO.md` 5.14.
+
+### 30. `apps/caja` es una app nueva, no vive dentro de `apps/servicios`
+
+**Decisión.** Caja es del **negocio** (una por negocio, con sus
+movimientos), no del servicio — a diferencia de `RegistroServicio`, que
+sí vive en `apps/servicios` porque referencia `Servicio` directamente y
+ya tenía ahí `calcular_comision()`. Es además un dominio nombrado
+explícitamente desde el arranque del proyecto: `backend/CLAUDE.md` cita
+"Caja (abierta → cerrada, Fase 3)" como ejemplo de máquina de estados
+desde la primera versión del documento, y `TenantScopedModel` cita a
+"Caja" en su propio docstring como modelo futuro. Crear la app no es
+abstracción prematura — es un dominio real que ya estaba anticipado.
+
+### 31. El cálculo de comisión se conecta con un import directo, no con la señal `servicio_aprobado`
+
+**Decisión.** `apps.caja.services.registrar_movimiento` importa
+`apps.servicios.services.calcular_comision` y la llama directamente al
+vincular un movimiento a un `RegistroServicio` aprobado. La señal
+`servicio_aprobado` —que llevaba desde la sesión anterior el comentario
+"acá es donde Fase 3 va a conectar `calcular_comision()`"— se queda sin
+receptor.
+
+**Por qué, si el comentario decía lo contrario.** `backend/CLAUDE.md` es
+explícito: las señales son para cuando un mismo hecho de negocio
+necesita disparar **varios** efectos desacoplados. Aprobar un registro
+sigue teniendo un solo efecto relevante hoy (poder cobrarlo), y ese
+efecto no ocurre en el momento de aprobar — ocurre después, cuando
+alguien con `puede_cobrar` decide cobrarlo, que es un momento y un actor
+distintos. Conectar la señal habría acoplado `apps.servicios` a
+`apps.caja` en el sentido equivocado (el módulo más viejo dependiendo
+del más nuevo) para un beneficio que el import directo ya da sin esa
+inversión. La señal sigue viva, documentada ahora como punto de
+extensión para un efecto realmente desacoplado (una notificación al
+aprobar, por ejemplo), no para el cálculo de comisión.
+
+### 32. Auditoría con un modelo propio (`RegistroAuditoria`), no `django-simple-history`
+
+**Decisión.** Una fila por acción de negocio (`"caja.abrir"`,
+`"caja.movimiento.crear"`, `"caja.cerrar"`) con un `JSONField` de
+detalle libre, en vez de instrumentar `Caja`/`MovimientoCaja` con
+`HistoricalRecords()`. `backend/CLAUDE.md` sanciona las dos opciones
+explícitamente ("usa un modelo de log simple o `django-simple-history`").
+
+**Por qué la opción DIY.** La superficie de mutación de este dominio es
+chica y a propósito: tres funciones de servicio, movimientos
+inmutables, una sola transición de estado posible en `Caja`. Un
+rastreador de historial genérico (que versiona cada `.save()`,
+campo por campo) es más maquinaria de la que esta necesidad pide, y una
+fila legible como `"caja.cerrar"` con su resumen en el detalle es más
+útil para un humano reconstruyendo "qué pasó" que un diff de columnas.
+
+**Trade-off aceptado, no ignorado.** La garantía de auditoría depende
+por completo de que toda mutación futura sobre estos modelos pase por
+`apps.caja.services`. Con `simple-history`, hasta un `.save()` hecho a
+mano desde el admin de Django quedaría registrado; con el log DIY, no.
+Documentado en el docstring del modelo para que quien extienda este
+dominio lo sepa antes de agregar un endpoint que escriba directo.
+
+### 33. `puede_editar_comisiones`, capacidad nueva y no reuso — cierra el bloqueo #8 del ROADMAP
+
+**Decisión.** `Servicio.porcentaje_comision` pasa a estar gateado por
+una capacidad propia, separada de `puede_editar_precios` (que sigue
+controlando `precio`, y sigue siendo la única exigida para crear/borrar
+un servicio). El gating es **por campo dentro del mismo endpoint**
+(`ServicioSerializer.validate()`), no por vista separada: un mismo
+`PATCH /api/servicios/{id}/` puede tocar uno de los dos campos, ambos, o
+ninguno, y cada uno exige su propia capacidad solo si el valor
+**cambia** respecto al actual — mismo criterio que
+`CargoSerializer.validate()` ("reenviar lo que ya tenía no es un intento
+de cambiarlo").
+
+**Por qué una capacidad nueva y no reusar `puede_ver_reportes` (que
+`DECISIONES.md` #28 sí reutilizó en un caso parecido).** Ahí el reuso
+tenía sentido porque las dos cosas eran el mismo dominio de confianza
+("control administrativo sobre la validación de servicios"). Acá no:
+fijar el precio que paga el cliente y fijar cuánto se lleva el empleado
+son dominios genuinamente distintos —el segundo es información sensible
+entre el negocio y su gente—, el mismo argumento que ya había separado
+`puede_editar_negocio` de `puede_gestionar_empleados`. El proyecto llega
+a 10 capacidades con esta; sigue por debajo del séptimo caso de
+"~8 flags" que `backend/CLAUDE.md` marca como disparador de revisión,
+y aun si lo superara, la razón para revisar sería la complejidad del
+alta, no el número en sí — acá cada capacidad separa un dominio de
+confianza real.
+
+### 34. `MovimientoCaja` es inmutable, y un `RegistroServicio` no se puede cobrar dos veces
+
+**Decisión.** Sin `PUT`/`PATCH`/`DELETE` en la vista (mismo criterio que
+`RegistroServicio`: es un libro contable). El vínculo con un
+`RegistroServicio` lleva además una `UniqueConstraint` parcial
+(`condition=Q(registro_servicio__isnull=False)`) que impide dos
+movimientos sobre el mismo registro — la capa de servicios valida antes
+para el mensaje de error legible, la constraint es la garantía real
+ante una condición de carrera (dos clicks casi simultáneos sobre el
+mismo botón "Cobrar"). Mismo patrón de doble capa que
+`una_caja_abierta_por_negocio` en `Caja`, y que el manejo de
+`IntegrityError` en `abrir_caja` — sin ese `try/except`, la carrera
+habría producido un 500 crudo en vez de un 400 de negocio.
+
+### 35. El aviso de "servicios aprobados sin cobrar" no se acota a la ventana de la caja actual
+
+**Decisión revertida sobre la marcha, durante la implementación** (no
+llegó a quedar mal en ningún commit anterior: se corrigió antes de que
+el plan original —que sí acotaba por fecha— se implementara). El plan
+aprobado calculaba `servicios_aprobados_sin_cobrar` filtrando
+`RegistroServicio` por `fecha_hora` dentro de la ventana de apertura de
+la caja actual. Un test lo destapó: un servicio aprobado *antes* de
+abrir la caja del día (perfectamente normal — se hizo ayer, se aprobó
+hoy temprano, nadie lo cobró) quedaba **fuera** del rango y no
+aparecía en el aviso.
+
+**Por qué importa el error, no solo el fix.** Acotar por la ventana de
+la caja significaba que un servicio olvidado dejaba de aparecer en el
+aviso apenas pasaba el día en que se hizo — exactamente lo opuesto de lo
+que este conteo existe para proteger (plata que se aprobó y nunca se
+cobró). La versión corregida cuenta **todos** los `RegistroServicio`
+aprobados del negocio sin ningún movimiento vinculado, sin importar
+cuándo se hicieron. Queda como recordatorio: un filtro de fecha en una
+alerta de "algo pendiente" casi siempre está resolviendo el problema
+equivocado — lo pendiente no caduca por el calendario.
+
+### 36. Colisión de nombres de enum al agregar `Caja.estado`/`MovimientoCaja.tipo`
+
+**Decisión.** `SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"]` fija a mano
+`TipoEnum` → `Cargo.Tipo` y agrega `CajaEstadoEnum` → `Caja.Estado`.
+
+**Por qué hizo falta.** drf-spectacular nombra los enums por el nombre
+del campo cuando es único; con tres campos `estado` (`Cita`,
+`RegistroServicio`, ahora `Caja`) y dos `tipo` (`Cargo`, ahora
+`MovimientoCaja`), su resolución automática de colisiones le puso un
+nombre con hash ilegible (`Estado36eEnum`) al enum **nuevo** de `Caja`,
+pero además **le movió el nombre limpio a un enum viejo**: `Cargo.tipo`
+pasó de `TipoEnum` a `Tipo14fEnum`. Eso habría sido un cambio con
+ruptura silencioso — `frontend/src/permisos/catalogo.ts` referencia
+`components["schemas"]["TipoEnum"]` por nombre fijo, y el frontend ni
+siquiera se habría enterado hasta que `tsc -b` fallara en un archivo que
+nadie tocó esta sesión. Vale como advertencia general: agregar un campo
+`TextChoices` con un nombre común (`estado`, `tipo`, `tema`...) puede
+renombrarle el tipo generado a un campo que ya existía en otro modelo,
+no solo al nuevo — `git diff backend/openapi.yaml` conviene revisarlo
+por esto, no solo por lo que se agregó.
+
+---
+
 ## 2026-07-28 — Filtros de consulta y registro a nombre de otro en servicios realizados
 
 Segundo pedido del humano sobre el mismo módulo: filtros por período

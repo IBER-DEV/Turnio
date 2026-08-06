@@ -421,6 +421,156 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/caja/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         *
+         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+         *     opera la caja del día necesita poder mirar cierres pasados para
+         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+         *     movimientos exigen `puede_cobrar` sin excepción.
+         */
+        get: operations["caja_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         *
+         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+         *     opera la caja del día necesita poder mirar cierres pasados para
+         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+         *     movimientos exigen `puede_cobrar` sin excepción.
+         */
+        get: operations["caja_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/abrir/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         *
+         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+         *     opera la caja del día necesita poder mirar cierres pasados para
+         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+         *     movimientos exigen `puede_cobrar` sin excepción.
+         */
+        post: operations["caja_abrir_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/actual/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         *
+         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+         *     opera la caja del día necesita poder mirar cierres pasados para
+         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+         *     movimientos exigen `puede_cobrar` sin excepción.
+         */
+        get: operations["caja_actual_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/cerrar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         *
+         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+         *     opera la caja del día necesita poder mirar cierres pasados para
+         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+         *     movimientos exigen `puede_cobrar` sin excepción.
+         */
+        post: operations["caja_cerrar_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/movimientos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         *
+         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
+         *     opera la caja del día necesita poder mirar cierres pasados para
+         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
+         *     movimientos exigen `puede_cobrar` sin excepción.
+         */
+        post: operations["caja_movimientos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/negocios/cargos/": {
         parameters: {
             query?: never;
@@ -892,18 +1042,28 @@ export interface paths {
         /**
          * @description CRUD de servicios del negocio del usuario autenticado.
          *
-         *     Leer requiere solo pertenecer al negocio; crear/editar/borrar
-         *     requiere la capacidad `puede_editar_precios`, porque un servicio
-         *     define precio y comisión.
+         *     Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+         *     lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+         *     define un precio, así que no tiene sentido crear uno sin esa
+         *     capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+         *     con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+         *     `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+         *     quién puede cambiar cuál de los dos, en el detalle, lo decide
+         *     `ServicioSerializer.validate()`.
          */
         get: operations["servicios_list"];
         put?: never;
         /**
          * @description CRUD de servicios del negocio del usuario autenticado.
          *
-         *     Leer requiere solo pertenecer al negocio; crear/editar/borrar
-         *     requiere la capacidad `puede_editar_precios`, porque un servicio
-         *     define precio y comisión.
+         *     Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+         *     lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+         *     define un precio, así que no tiene sentido crear uno sin esa
+         *     capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+         *     con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+         *     `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+         *     quién puede cambiar cuál de los dos, en el detalle, lo decide
+         *     `ServicioSerializer.validate()`.
          */
         post: operations["servicios_create"];
         delete?: never;
@@ -922,26 +1082,41 @@ export interface paths {
         /**
          * @description CRUD de servicios del negocio del usuario autenticado.
          *
-         *     Leer requiere solo pertenecer al negocio; crear/editar/borrar
-         *     requiere la capacidad `puede_editar_precios`, porque un servicio
-         *     define precio y comisión.
+         *     Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+         *     lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+         *     define un precio, así que no tiene sentido crear uno sin esa
+         *     capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+         *     con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+         *     `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+         *     quién puede cambiar cuál de los dos, en el detalle, lo decide
+         *     `ServicioSerializer.validate()`.
          */
         get: operations["servicios_retrieve"];
         /**
          * @description CRUD de servicios del negocio del usuario autenticado.
          *
-         *     Leer requiere solo pertenecer al negocio; crear/editar/borrar
-         *     requiere la capacidad `puede_editar_precios`, porque un servicio
-         *     define precio y comisión.
+         *     Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+         *     lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+         *     define un precio, así que no tiene sentido crear uno sin esa
+         *     capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+         *     con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+         *     `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+         *     quién puede cambiar cuál de los dos, en el detalle, lo decide
+         *     `ServicioSerializer.validate()`.
          */
         put: operations["servicios_update"];
         post?: never;
         /**
          * @description CRUD de servicios del negocio del usuario autenticado.
          *
-         *     Leer requiere solo pertenecer al negocio; crear/editar/borrar
-         *     requiere la capacidad `puede_editar_precios`, porque un servicio
-         *     define precio y comisión.
+         *     Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+         *     lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+         *     define un precio, así que no tiene sentido crear uno sin esa
+         *     capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+         *     con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+         *     `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+         *     quién puede cambiar cuál de los dos, en el detalle, lo decide
+         *     `ServicioSerializer.validate()`.
          */
         delete: operations["servicios_destroy"];
         options?: never;
@@ -949,9 +1124,14 @@ export interface paths {
         /**
          * @description CRUD de servicios del negocio del usuario autenticado.
          *
-         *     Leer requiere solo pertenecer al negocio; crear/editar/borrar
-         *     requiere la capacidad `puede_editar_precios`, porque un servicio
-         *     define precio y comisión.
+         *     Leer requiere solo pertenecer al negocio. Crear/borrar (y el alta en
+         *     lote) requieren `puede_editar_precios` — un servicio nuevo siempre
+         *     define un precio, así que no tiene sentido crear uno sin esa
+         *     capacidad. Editar (`update`/`partial_update`) es más laxo: alcanza
+         *     con `puede_editar_precios` **o** `puede_editar_comisiones`, porque un
+         *     `PATCH` puede tocar solo el precio o solo el `porcentaje_comision` —
+         *     quién puede cambiar cuál de los dos, en el detalle, lo decide
+         *     `ServicioSerializer.validate()`.
          */
         patch: operations["servicios_partial_update"];
         trace?: never;
@@ -1175,6 +1355,58 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AbrirCaja: {
+            /**
+             * Format: decimal
+             * @default 0.00
+             */
+            saldo_inicial: string;
+        };
+        /** @enum {unknown} */
+        BlankEnum: "";
+        /** @description El detalle de una caja: sus movimientos y el resumen agregado. */
+        CajaDetalle: {
+            readonly id: number;
+            readonly estado: components["schemas"]["CajaEstadoEnum"];
+            /** Format: decimal */
+            readonly saldo_inicial: string;
+            readonly abierta_por: number;
+            readonly abierta_por_nombre: string;
+            /** Format: date-time */
+            readonly abierta_en: string;
+            readonly cerrada_por: number | null;
+            readonly cerrada_por_nombre: string | null;
+            /** Format: date-time */
+            readonly cerrada_en: string | null;
+            readonly nota_cierre: string;
+            readonly movimientos: components["schemas"]["MovimientoCaja"][];
+            readonly resumen: components["schemas"]["ResumenCaja"];
+        };
+        /**
+         * @description * `abierta` - Abierta
+         *     * `cerrada` - Cerrada
+         * @enum {string}
+         */
+        CajaEstadoEnum: "abierta" | "cerrada";
+        /**
+         * @description Una caja en el histórico — sin movimientos ni resumen, para que
+         *     listar varias no cargue todo su detalle.
+         */
+        CajaLista: {
+            readonly id: number;
+            readonly estado: components["schemas"]["CajaEstadoEnum"];
+            /** Format: decimal */
+            readonly saldo_inicial: string;
+            readonly abierta_por: number;
+            readonly abierta_por_nombre: string;
+            /** Format: date-time */
+            readonly abierta_en: string;
+            readonly cerrada_por: number | null;
+            readonly cerrada_por_nombre: string | null;
+            /** Format: date-time */
+            readonly cerrada_en: string | null;
+            readonly nota_cierre: string;
+        };
         /**
          * @description Un cargo del negocio: nombre, tipo y qué concede.
          *
@@ -1190,12 +1422,17 @@ export interface components {
             puede_cobrar?: boolean;
             puede_ver_reportes?: boolean;
             puede_editar_precios?: boolean;
+            puede_editar_comisiones?: boolean;
             puede_gestionar_empleados?: boolean;
             puede_gestionar_agenda?: boolean;
             puede_configurar_horarios?: boolean;
             puede_ver_agenda_completa?: boolean;
             puede_editar_negocio?: boolean;
             puede_aprobar_servicios?: boolean;
+        };
+        CerrarCaja: {
+            /** @default  */
+            nota_cierre: string;
         };
         Cita: {
             readonly id: number;
@@ -1367,6 +1604,15 @@ export interface components {
             inicio: string;
         };
         /**
+         * @description * `efectivo` - Efectivo
+         *     * `nequi` - Nequi
+         *     * `daviplata` - Daviplata
+         *     * `bre_b` - Bre-B
+         *     * `otro` - Otro
+         * @enum {string}
+         */
+        MetodoPagoEnum: "efectivo" | "nequi" | "daviplata" | "bre_b" | "otro";
+        /**
          * @description Forma de la respuesta de GET /api/negocios/mi-membresia/.
          *
          *     Resuelve de un solo request "quién soy, en qué negocio, **qué
@@ -1460,6 +1706,34 @@ export interface components {
             readonly cargo_detalle: components["schemas"]["Cargo"];
             activo?: boolean;
         };
+        /**
+         * @description Un ingreso o egreso. Alta y consulta — no hay edición (ver el
+         *     modelo: es un libro contable, inmutable tras crearse).
+         */
+        MovimientoCaja: {
+            readonly id: number;
+            readonly caja: number;
+            tipo: components["schemas"]["MovimientoCajaTipoEnum"];
+            metodo_pago?: components["schemas"]["MetodoPagoEnum"] | components["schemas"]["BlankEnum"];
+            /** Format: decimal */
+            monto: string;
+            concepto: string;
+            registro_servicio?: number | null;
+            empleado_comision?: number | null;
+            readonly empleado_comision_nombre: string | null;
+            /** Format: decimal */
+            readonly monto_comision: string | null;
+            readonly registrado_por: number;
+            readonly registrado_por_nombre: string;
+            /** Format: date-time */
+            readonly creado_en: string;
+        };
+        /**
+         * @description * `ingreso` - Ingreso
+         *     * `egreso` - Egreso
+         * @enum {string}
+         */
+        MovimientoCajaTipoEnum: "ingreso" | "egreso";
         Negocio: {
             readonly id: number;
             readonly nombre: string;
@@ -1515,6 +1789,7 @@ export interface components {
             puede_cobrar?: boolean;
             puede_ver_reportes?: boolean;
             puede_editar_precios?: boolean;
+            puede_editar_comisiones?: boolean;
             puede_gestionar_empleados?: boolean;
             puede_gestionar_agenda?: boolean;
             puede_configurar_horarios?: boolean;
@@ -1722,6 +1997,30 @@ export interface components {
             /** Format: date-time */
             fecha_hora_fin: string;
             nombre_cliente: string;
+        };
+        /**
+         * @description Los totales de una caja, siempre calculados en caliente
+         *     (`apps.caja.services.resumen_de`) — nunca persistidos.
+         */
+        ResumenCaja: {
+            /** Format: decimal */
+            total_ingresos: string;
+            /** Format: decimal */
+            total_egresos: string;
+            /** Format: decimal */
+            neto: string;
+            por_metodo_pago: {
+                [key: string]: string;
+            };
+            comisiones_por_empleado: components["schemas"]["ResumenComision"][];
+            /** @description Cuántos RegistroServicio aprobados durante esta caja no tienen ningún movimiento vinculado. Informativo, no bloquea el cierre. */
+            servicios_aprobados_sin_cobrar: number;
+        };
+        ResumenComision: {
+            empleado: number;
+            empleado_nombre: string;
+            /** Format: decimal */
+            monto: string;
         };
         Servicio: {
             readonly id: number;
@@ -2261,6 +2560,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TokenRefresh"];
+                };
+            };
+        };
+    };
+    caja_list: {
+        parameters: {
+            query?: {
+                /** @description Filtra desde esta fecha, inclusive (YYYY-MM-DD), sobre cuándo se abrió la caja. */
+                fecha_desde?: string;
+                /** @description Filtra hasta esta fecha, inclusive (YYYY-MM-DD), sobre cuándo se abrió la caja. */
+                fecha_hasta?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CajaLista"][];
+                };
+            };
+        };
+    };
+    caja_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this caja. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CajaDetalle"];
+                };
+            };
+        };
+    };
+    caja_abrir_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AbrirCaja"];
+                "application/x-www-form-urlencoded": components["schemas"]["AbrirCaja"];
+                "multipart/form-data": components["schemas"]["AbrirCaja"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CajaDetalle"];
+                };
+            };
+        };
+    };
+    caja_actual_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CajaDetalle"];
+                };
+            };
+        };
+    };
+    caja_cerrar_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CerrarCaja"];
+                "application/x-www-form-urlencoded": components["schemas"]["CerrarCaja"];
+                "multipart/form-data": components["schemas"]["CerrarCaja"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CajaDetalle"];
+                };
+            };
+        };
+    };
+    caja_movimientos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MovimientoCaja"];
+                "application/x-www-form-urlencoded": components["schemas"]["MovimientoCaja"];
+                "multipart/form-data": components["schemas"]["MovimientoCaja"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovimientoCaja"];
                 };
             };
         };
