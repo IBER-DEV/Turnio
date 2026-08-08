@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell($p = Get-Process \"Docker Desktop\" -ErrorAction SilentlyContinue; if \\($p\\) { \"Docker Desktop corriendo \\(pid $\\($p.Id\\)\\)\" } else { \"Docker Desktop NO esta corriendo\" }; docker version --format '{{.Server.Version}}' 2>&1 | Select-Object -First 2)"
+      "PowerShell($p = Get-Process \"Docker Desktop\" -ErrorAction SilentlyContinue; if \\($p\\) { \"Docker Desktop corriendo \\(pid $\\($p.Id\\)\\)\" } else { \"Docker Desktop NO esta corriendo\" }; docker version --format '{{.Server.Version}}' 2>&1 | Select-Object -First 2)",
+      "Bash(python -)"
     ]
   }
 }
