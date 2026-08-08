@@ -1,5 +1,6 @@
 import createClient from "openapi-fetch";
 
+import { resolverBaseUrl } from "./baseUrl";
 import type { components, paths } from "./schema";
 
 /**
@@ -14,10 +15,12 @@ import type { components, paths } from "./schema";
  *
  * El caso no es raro: el dueño abre su propio perfil público para ver
  * cómo le quedó, con la sesión del panel a medio expirar.
+ *
+ * Comparte la resolución de `baseUrl` con `client.ts` (ver `baseUrl.ts`):
+ * lo único que tiene de distinto este cliente es la ausencia del
+ * interceptor de auth, no a qué servidor le habla.
  */
-export const apiPublico = createClient<paths>({
-  baseUrl: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001",
-});
+export const apiPublico = createClient<paths>({ baseUrl: resolverBaseUrl() });
 
 export type NegocioResumen = components["schemas"]["NegocioPublicoResumen"];
 export type NegocioPublico = components["schemas"]["NegocioPublico"];
