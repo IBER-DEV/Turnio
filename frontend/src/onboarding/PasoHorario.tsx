@@ -180,24 +180,26 @@ export function PasoHorario({
       </div>
 
       <div className="flex gap-3">
-        <label className="flex flex-1 flex-col gap-2">
-          <span className="font-label-md text-label-md text-on-surface">Abres</span>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <p className="text-xs font-medium text-on-surface-variant">Abres</p>
           <input
+            id="hora-apertura"
             type="time"
             value={desde}
             onChange={(e) => setDesde(e.target.value)}
             className="w-full rounded-xl border border-outline-variant bg-white px-4 py-3 font-body-md text-body-md text-on-surface outline-hidden focus:border-menta focus:ring-2 focus:ring-menta/20"
           />
-        </label>
-        <label className="flex flex-1 flex-col gap-2">
-          <span className="font-label-md text-label-md text-on-surface">Cierras</span>
+        </div>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <p className="text-xs font-medium text-on-surface-variant">Cierras</p>
           <input
+            id="hora-cierre"
             type="time"
             value={hasta}
             onChange={(e) => setHasta(e.target.value)}
             className="w-full rounded-xl border border-outline-variant bg-white px-4 py-3 font-body-md text-body-md text-on-surface outline-hidden focus:border-menta focus:ring-2 focus:ring-menta/20"
           />
-        </label>
+        </div>
       </div>
 
       <p className="flex items-start gap-2 font-caption text-caption text-on-surface-variant">

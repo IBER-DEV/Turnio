@@ -1,5 +1,5 @@
 import * as Popover from "@radix-ui/react-popover";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CalendarioMes } from "./CalendarioMes";
 import { cn } from "./cn";
@@ -52,6 +52,8 @@ export function DateTimePicker({
   const [mesVista, setMesVista] = useState(fecha.getMonth());
   const [anioVista, setAnioVista] = useState(fecha.getFullYear());
   const [abierto, setAbierto] = useState(false);
+  const slotsRef = useRef<HTMLDivElement>(null);
+  const slotActivoRef = useRef<HTMLButtonElement>(null);
 
   const diaSeleccionado = valor ? fecha.getDate() : -1;
   const mesSeleccionado = valor ? fecha.getMonth() : -1;
@@ -68,13 +70,24 @@ export function DateTimePicker({
   function seleccionarHora(slot: string) {
     const [h, m] = slot.split(":").map(Number);
     const d = valor ? new Date(valor) : new Date();
-    if (!valor) {
-      d.setHours(h, m, 0, 0);
-    } else {
-      d.setHours(h, m, 0, 0);
-    }
+    d.setHours(h, m, 0, 0);
     emitir(d);
   }
+
+  function seleccionarHoraManual(horaStr: string) {
+    if (!horaStr) return;
+    const [h, m] = horaStr.split(":").map(Number);
+    const d = valor ? new Date(valor) : new Date();
+    d.setHours(h, m, 0, 0);
+    emitir(d);
+  }
+
+  // Auto-scroll al slot seleccionado cuando se abre el popover
+  useEffect(() => {
+    if (abierto && slotActivoRef.current && slotsRef.current) {
+      slotActivoRef.current.scrollIntoView({ block: "center", behavior: "instant" });
+    }
+  }, [abierto]);
 
   function emitir(d: Date) {
     const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -143,23 +156,39 @@ export function DateTimePicker({
 
             {/* Selector de hora */}
             <div className="mt-3 border-t border-outline-variant pt-3">
-              <p className="mb-2 font-caption text-caption text-on-surface-variant">Hora</p>
-              <div className="hide-scrollbar grid max-h-[140px] grid-cols-4 gap-1 overflow-y-auto">
-                {SLOTS_HORA.map((slot) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => seleccionarHora(slot)}
-                    className={cn(
-                      "rounded-lg px-2 py-1.5 text-center font-caption text-caption transition-colors",
-                      horaSeleccionada === slot
-                        ? "bg-menta font-bold text-white"
-                        : "text-on-surface hover:bg-menta/10",
-                    )}
-                  >
-                    {slot}
-                  </button>
-                ))}
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="font-caption text-caption text-on-surface-variant">Hora</p>
+                {/* Input manual: permite escribir la hora directamente */}
+                <input
+                  type="time"
+                  value={horaSeleccionada}
+                  onChange={(e) => seleccionarHoraManual(e.target.value)}
+                  className="rounded-lg border border-outline-variant bg-white px-2 py-1 font-caption text-caption text-on-surface outline-hidden focus:border-menta focus:ring-2 focus:ring-menta/20"
+                />
+              </div>
+              <div
+                ref={slotsRef}
+                className="hide-scrollbar grid max-h-[200px] grid-cols-4 gap-1 overflow-y-auto"
+              >
+                {SLOTS_HORA.map((slot) => {
+                  const activo = horaSeleccionada === slot;
+                  return (
+                    <button
+                      key={slot}
+                      ref={activo ? slotActivoRef : undefined}
+                      type="button"
+                      onClick={() => seleccionarHora(slot)}
+                      className={cn(
+                        "rounded-lg px-2 py-2 text-center font-caption text-caption transition-colors",
+                        activo
+                          ? "bg-menta font-bold text-white"
+                          : "text-on-surface hover:bg-menta/10",
+                      )}
+                    >
+                      {slot}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </Popover.Content>
