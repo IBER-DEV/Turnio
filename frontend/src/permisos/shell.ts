@@ -59,10 +59,10 @@ const CARGOS: ItemNav = {
   // principal a la pantalla que sí se usa todos los días.
   secundaria: true,
 };
-// Principal a propósito, no secundaria: cerrar el día y ver cuánto le
-// corresponde a cada barbero es el momento de conversión del producto
-// (reemplaza el Excel dominical) — no algo para esconder en el menú de
-// cuenta. `CARGOS`, arriba, le cedió el lugar en la barra principal.
+// Principal a propósito, no secundaria: cobrar es la pantalla que más se
+// toca en el día, y cerrar el día viendo cuánto le corresponde a cada
+// barbero es el momento de conversión del producto (reemplaza el Excel
+// dominical). `CARGOS`, arriba, le cedió el lugar en la barra principal.
 const CAJA: ItemNav = {
   to: "/caja",
   etiqueta: "Caja",
@@ -76,36 +76,31 @@ const NEGOCIO: ItemNav = {
   capacidad: "puede_editar_negocio",
   secundaria: true,
 };
-// Sin `capacidad`: cualquier miembro puede haber hecho un servicio,
-// incluido el dueño operador único (ver CLAUDE.md, caso n=1).
+// Sin `capacidad`: cualquier miembro tiene trabajo propio que mirar,
+// incluido el dueño operador único (ver CLAUDE.md, caso n=1). El backend
+// deja a cualquiera listar las ventas donde él es el empleado de alguna
+// línea, aunque no pueda cobrar (`CONTRATO.md` 5.13).
+//
+// Reemplaza a "Mis servicios", que existía para registrar trabajo a mano.
+// Ya no hace falta registrarlo —la cita completada genera la cuenta sola—
+// así que la pantalla dejó de ser un formulario y pasó a ser lo que el
+// barbero de verdad quería de ella: qué hice y cuánto me toca.
 //
 // Dos variantes del mismo destino, no una: en `administracion`/`recepcion`
 // la barra inferior de móvil ya tiene sus cinco entradas principales
-// ocupadas (Inicio, Agenda, Servicios, Equipo, Cargos), así que acá es
-// secundaria — cortar pelo no es el trabajo diario de quien administra.
-// Para `operativo` es justo lo contrario: es la pantalla que más usa, así
-// que va principal.
-const MIS_SERVICIOS_SECUNDARIA: ItemNav = {
-  to: "/servicios/mios",
-  etiqueta: "Mis servicios",
+// ocupadas, y cortar pelo no es el trabajo diario de quien administra.
+// Para `operativo` es justo lo contrario: es su pantalla, así que va
+// principal.
+const MI_TRABAJO_SECUNDARIA: ItemNav = {
+  to: "/mi-trabajo",
+  etiqueta: "Mi trabajo",
   icono: "add_task",
   secundaria: true,
 };
-const MIS_SERVICIOS_PRINCIPAL: ItemNav = {
-  to: "/servicios/mios",
-  etiqueta: "Mis servicios",
+const MI_TRABAJO_PRINCIPAL: ItemNav = {
+  to: "/mi-trabajo",
+  etiqueta: "Mi trabajo",
   icono: "add_task",
-};
-// Con `capacidad` y no por `tipo`: un "Validador" puede ser cualquier
-// cargo al que el dueño se la conceda, no un tipo de shell propio (ver
-// CONTRATO.md 5.13). Igual que NEGOCIO, se declara en las tres listas
-// para que aparezca sin importar el tipo del cargo.
-const VALIDAR_SERVICIOS: ItemNav = {
-  to: "/servicios/validar",
-  etiqueta: "Validar servicios",
-  icono: "fact_check",
-  capacidad: "puede_aprobar_servicios",
-  secundaria: true,
 };
 
 export const SHELLS: Record<TipoDeUsuario, Shell> = {
@@ -117,55 +112,71 @@ export const SHELLS: Record<TipoDeUsuario, Shell> = {
       AGENDA,
       SERVICIOS,
       CAJA,
-      MIS_SERVICIOS_SECUNDARIA,
-      VALIDAR_SERVICIOS,
+      MI_TRABAJO_SECUNDARIA,
       EQUIPO,
       CARGOS,
       NEGOCIO,
     ],
   },
-  /** Vive en la agenda del local: entra directo ahí, no a un panel. */
+  /** Vive en el mostrador: entra directo a los cobros pendientes, que es
+   * lo que tiene enfrente cuando el cliente se para a pagar. Antes
+   * aterrizaba en la agenda; desde que existe una cola de cobro real
+   * (2026-08-07), la agenda es lo segundo que mira, no lo primero. */
   recepcion: {
-    inicio: "/agenda",
+    inicio: "/caja",
     navegacion: [
       { to: "/", etiqueta: "Inicio", icono: "dashboard" },
+      CAJA,
       AGENDA,
       SERVICIOS,
-      CAJA,
-      MIS_SERVICIOS_SECUNDARIA,
-      VALIDAR_SERVICIOS,
+      MI_TRABAJO_SECUNDARIA,
       EQUIPO,
       CARGOS,
       NEGOCIO,
     ],
   },
-  /** Su día y nada más, más registrar su propio trabajo. Sin catálogo ni
+  /** Su día y nada más, más el registro de lo que hizo. Sin catálogo ni
    * administración: para un barbero son pantallas de solo lectura que no
    * usa, y llenarle la barra inferior de secciones ajenas le esconde la
-   * que sí necesita. `VALIDAR_SERVICIOS` sigue disponible si el dueño le
-   * concede la capacidad a un cargo operativo (ej. un estilista senior
-   * que valida a los demás). */
+   * que sí necesita. `CAJA` aparece acá solo si el dueño le concede
+   * `puede_cobrar` — el caso del operador único, que cobra lo suyo. */
   operativo: {
     inicio: "/agenda",
     navegacion: [
       { to: "/", etiqueta: "Inicio", icono: "dashboard" },
       AGENDA,
-      MIS_SERVICIOS_PRINCIPAL,
-      VALIDAR_SERVICIOS,
+      MI_TRABAJO_PRINCIPAL,
+      CAJA,
     ],
   },
 };
 
-/** El shell de alguien, ya filtrado por lo que puede hacer. */
+/** El shell de alguien, ya filtrado por lo que puede hacer.
+ *
+ * El `inicio` declarado puede quedar fuera de la navegación filtrada: el
+ * shell de `recepcion` aterriza en `/caja`, que exige `puede_cobrar`, y
+ * el dueño puede tener un cargo de recepción sin esa capacidad. Cuando
+ * pasa, se cae a la primera entrada que sí le quedó.
+ *
+ * No es cosmético: `RutaProtegida` redirige a `shell.inicio` cuando
+ * alguien entra donde no le toca, así que un inicio prohibido sería un
+ * **bucle de redirecciones** — se le manda a `/caja`, se le rebota a
+ * `/caja`, para siempre. La regla general que sale de acá: el `inicio`
+ * de un shell tiene que salir siempre de su navegación ya filtrada,
+ * nunca de la declarada.
+ */
 export function shellDe(
   tipo: TipoDeUsuario | undefined,
   capacidades: Partial<Record<Capacidad, boolean>> | null | undefined,
 ): Shell {
   const shell = SHELLS[tipo ?? "operativo"];
+  const navegacion = shell.navegacion.filter(
+    (item) => !item.capacidad || Boolean(capacidades?.[item.capacidad]),
+  );
+  const alcanzable = navegacion.some((item) => item.to === shell.inicio);
+
   return {
-    inicio: shell.inicio,
-    navegacion: shell.navegacion.filter(
-      (item) => !item.capacidad || Boolean(capacidades?.[item.capacidad]),
-    ),
+    inicio: alcanzable ? shell.inicio : (navegacion[0]?.to ?? "/"),
+    navegacion,
   };
 }

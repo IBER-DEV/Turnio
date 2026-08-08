@@ -172,7 +172,8 @@ def test_cambiar_estado_sigue_transiciones_validas(negocio_con_dueno, servicio_d
     )
 
     cita = services.cambiar_estado_cita(cita=cita, nuevo_estado=Cita.Estado.CONFIRMADA)
-    cita = services.cambiar_estado_cita(cita=cita, nuevo_estado=Cita.Estado.COMPLETADA)
+    cita = services.cambiar_estado_cita(cita=cita, nuevo_estado=Cita.Estado.EN_ATENCION)
+    cita, _venta = services.completar_cita(cita=cita, responsable=membresia)
 
     assert cita.estado == Cita.Estado.COMPLETADA
 
@@ -193,10 +194,33 @@ def test_cambiar_estado_rechaza_transicion_invalida(negocio_con_dueno, servicio_
         nombre_cliente="Cliente Uno",
     )
     cita = services.cambiar_estado_cita(cita=cita, nuevo_estado=Cita.Estado.CONFIRMADA)
-    cita = services.cambiar_estado_cita(cita=cita, nuevo_estado=Cita.Estado.COMPLETADA)
+    cita, _venta = services.completar_cita(cita=cita, responsable=membresia)
 
     with pytest.raises(services.TransicionEstadoInvalida):
         services.cambiar_estado_cita(cita=cita, nuevo_estado=Cita.Estado.CANCELADA)
+
+
+def test_completar_no_pasa_por_cambiar_estado_cita(negocio_con_dueno, servicio_de_prueba):
+    """Completar genera la venta, así que tiene que pasar sí o sí por
+    `completar_cita`. Si `cambiar_estado_cita` lo dejara hacer, quedarían
+    citas completadas sin cuenta que cobrar."""
+    negocio, _dueno, membresia = negocio_con_dueno
+    services.crear_horario(
+        miembro=membresia,
+        dia_semana=DiaSemana.LUNES,
+        hora_inicio=datetime.time(9, 0),
+        hora_fin=datetime.time(12, 0),
+    )
+    cita = services.agendar_cita(
+        negocio=negocio,
+        servicio=servicio_de_prueba,
+        empleado=membresia,
+        fecha_hora_inicio=LUNES_10AM,
+        nombre_cliente="Cliente Uno",
+    )
+
+    with pytest.raises(services.TransicionEstadoInvalida):
+        services.cambiar_estado_cita(cita=cita, nuevo_estado=Cita.Estado.COMPLETADA)
 
 
 # --- Horario semanal en lote (reemplazo atómico) ---

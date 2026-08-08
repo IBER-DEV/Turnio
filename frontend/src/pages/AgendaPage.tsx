@@ -8,6 +8,8 @@ import { useAuth } from "../auth/AuthContext";
 import { Button } from "../ui/Button";
 import { cn } from "../ui/cn";
 import { ACCIONES_POR_ESTADO, ESTILO_ESTADO } from "../ui/EstadoCita";
+import type { AccionCita } from "../ui/EstadoCita";
+import { formatearMoneda } from "../ui/moneda";
 import { Badge, EstadoError, EstadoVacio, SkeletonLista } from "../ui/Feedback";
 import { DatePicker } from "../ui/DatePicker";
 import { DateTimePicker } from "../ui/DateTimePicker";
@@ -27,9 +29,18 @@ type Servicio = components["schemas"]["Servicio"];
 type MiembroEquipo = components["schemas"]["MiembroEquipo"];
 type HorarioNegocio = components["schemas"]["HorarioNegocio"];
 type HorarioTrabajo = components["schemas"]["HorarioTrabajo"];
-type AccionCita = "confirmar" | "completar" | "cancelar";
 
 const DIAS_CORTOS = ["LUN", "MAR", "MIE", "JUE", "VIE", "SAB", "DOM"];
+
+/** Qué se le dice a la persona después de cada transición. `completar`
+ * no está acá porque su mensaje incluye el total de la cuenta recién
+ * creada, que solo se conoce con la respuesta en la mano. */
+const MENSAJE_TRANSICION: Record<Exclude<AccionCita, "completar">, string> = {
+  confirmar: "Cita confirmada.",
+  "en-atencion": "Cliente en atención.",
+  cancelar: "Cita cancelada.",
+  "no-show": "Marcada como no asistió.",
+};
 const CUALQUIERA = "cualquiera";
 
 /** 7 días desde `inicio`, para el selector horizontal del diseño.
@@ -169,11 +180,36 @@ export function AgendaPage() {
 
   async function transicionar(cita: Cita, accion: AccionCita) {
     const path = { id: cita.id };
+
+    // `completar` es la única que no es un cambio de estado a secas:
+    // genera la cuenta por cobrar, y por eso responde `{cita, venta}` en
+    // vez de la cita sola. Se separa acá arriba para no tener que
+    // desambiguar la forma de la respuesta más abajo.
+    if (accion === "completar") {
+      const { data, error } = await conReintentoDeAuth(() =>
+        apiClient.POST("/api/agenda/citas/{id}/completar/", { params: { path } }),
+      );
+      if (error || !data) {
+        mostrar("error", "No se pudo completar la cita.");
+        return;
+      }
+      setCitas((actual) => actual.map((item) => (item.id === cita.id ? data.cita : item)));
+      // El monto sale de la venta, no del precio del catálogo: la venta
+      // congeló el suyo al crearse y son dos números que pueden diferir.
+      mostrar(
+        "exito",
+        `Listo. Quedó una cuenta de ${formatearMoneda(data.venta.total)} por cobrar en caja.`,
+      );
+      return;
+    }
+
     const respuesta = await conReintentoDeAuth(() => {
       if (accion === "confirmar")
         return apiClient.POST("/api/agenda/citas/{id}/confirmar/", { params: { path } });
-      if (accion === "completar")
-        return apiClient.POST("/api/agenda/citas/{id}/completar/", { params: { path } });
+      if (accion === "en-atencion")
+        return apiClient.POST("/api/agenda/citas/{id}/en-atencion/", { params: { path } });
+      if (accion === "no-show")
+        return apiClient.POST("/api/agenda/citas/{id}/no-show/", { params: { path } });
       return apiClient.POST("/api/agenda/citas/{id}/cancelar/", { params: { path } });
     });
 
@@ -185,14 +221,7 @@ export function AgendaPage() {
     setCitas((actual) =>
       actual.map((item) => (item.id === cita.id ? (respuesta.data as Cita) : item)),
     );
-    mostrar(
-      "exito",
-      accion === "confirmar"
-        ? "Cita confirmada."
-        : accion === "completar"
-          ? "Cita completada."
-          : "Cita cancelada.",
-    );
+    mostrar("exito", MENSAJE_TRANSICION[accion]);
   }
 
   return (
@@ -452,15 +481,40 @@ export function AgendaPage() {
                         )}
                       </div>
 
+                      {/* La cuenta que generó esta cita, si ya se
+                          completó. Es el único punto donde la agenda
+                          habla de dinero, y a propósito solo informa: se
+                          cobra en Caja, no acá. */}
+                      {cita.venta_estado && (
+                        <p className="mb-3 flex items-center gap-1.5 font-caption text-caption text-on-surface-variant">
+                          <Icon name="receipt_long" className="text-[14px]" />
+                          {cita.venta_estado === "pagada"
+                            ? "Cuenta cobrada."
+                            : cita.venta_estado === "anulada"
+                              ? "La cuenta se anuló."
+                              : "Quedó una cuenta por cobrar en Caja."}
+                        </p>
+                      )}
+
                       {puedeTransicionar && acciones.length > 0 ? (
-                        <div className="flex gap-2">
+                        // `flex-wrap` y no una sola fila: desde que
+                        // `confirmada` ofrece cuatro acciones, en un
+                        // teléfono angosto no caben sin quedar en botones
+                        // de dos letras que se tocan mal.
+                        <div className="flex flex-wrap gap-2">
                           {acciones.map(({ accion, etiqueta, icono }) => (
                             <Button
                               key={accion}
-                              variante={accion === "cancelar" ? "danger" : "accent"}
+                              variante={
+                                accion === "cancelar" || accion === "no-show"
+                                  ? "danger"
+                                  : accion === "completar"
+                                    ? "primary"
+                                    : "accent"
+                              }
                               icono={icono}
                               tamano="sm"
-                              className="flex-1"
+                              className="min-w-[calc(50%-0.25rem)] flex-1"
                               onClick={() => {
                                 if (accion === "cancelar") setPorCancelar(cita);
                                 else transicionar(cita, accion);

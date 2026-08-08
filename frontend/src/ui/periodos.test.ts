@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { etiquetaDe, moverPeriodo, paraQuery, rangoDe } from "./filtrosPeriodo";
+import { etiquetaDe, moverPeriodo, paraQuery, rangoDe } from "./periodos";
 
 // Martes 28 de julio de 2026.
 const MARTES = new Date(2026, 6, 28);

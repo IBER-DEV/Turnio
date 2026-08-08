@@ -142,7 +142,7 @@
 | Fase 0 — Fundacional | ✅ Completada (2026-07-24) | Solo backend; frontend no tenía tareas en esta fase. Ver `backend/ROADMAP-BACKEND.md`. |
 | Fase 1 — Núcleo operativo multi-empleado | ✅ Completada (2026-07-26) | Backend y frontend entregados y mergeados. Servicios, Empleados, Agenda por empleado con máquina de estados de `Cita`, horario del negocio con herencia, y el modelo de permisos por cargos. Detalle en ambos sub-roadmaps. |
 | Fase 2 — Perfil público y reserva sin cuenta | 🟢 Backend y frontend entregados (2026-07-28) | Backend: perfil público en `turnio.app/{slug}` (con meta tags Open Graph server-side), disponibilidad y reserva **sin cuenta**, throttling y slugs reservados. Ver `CONTRATO.md` 5.11. **Alcance corregido el 2026-07-28**: el MVP es el enlace único que el dueño comparte, no un marketplace de búsqueda — ver decisión #8 abajo. `GET /api/publico/negocios/` (búsqueda) queda construido pero se usará en Fase 6+. Frontend: `PerfilNegocioPage` (`/:slug`) y flujo de reserva en hoja Vaul, verificados en vivo contra el backend real. **Imágenes y personalización entregadas el 2026-07-28** (backend y frontend): logo, portada y galería del negocio, capacidad `puede_editar_negocio`, endpoints de `mi-negocio`, `og:image` y `theme-color` reales al compartir el enlace (ver `CONTRATO.md` 5.12), pantalla `/configuracion/negocio`, y **plantillas por rubro** — barbería (oscura), spa y clínica, cada una con paleta, radios y tipografía propios, más color de acento del negocio con validación de contraste. Falta: decidir cómo se sirven `frontend/dist/` y `/media/` fuera de desarrollo — ver decisión #8. |
-| Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | 🟢 Caja + Comisiones automáticas + auditoría entregadas (2026-08-05); soporte offline queda fuera de esta tanda | Backend y frontend entregados en la misma sesión, rama `feature/fase3-caja-comisiones`. Apertura/cierre de caja (máquina de estados simple), registro de movimientos (ingreso/egreso, vínculo opcional a un `RegistroServicio` aprobado con cálculo y autoasignación de comisión), resumen en caliente (totales, por método de pago, comisión por empleado, aviso de servicios aprobados sin cobrar) y auditoría DIY (una fila por acción de negocio). Cierra el bloqueo #8 (`porcentaje_comision` separado de `puede_editar_precios` con la capacidad nueva `puede_editar_comisiones`). Ver `CONTRATO.md` 5.14, `backend/ROADMAP-BACKEND.md` y `frontend/ROADMAP-FRONTEND.md`. **Soporte offline explícitamente fuera de esta tanda** — es un problema de ingeniería distinto (cola local-first + sync) que merece su propio diseño. |
+| Fase 3 — Dinero (Caja, Comisiones, auditoría, offline) | 🟢 Backend y frontend rediseñados y entregados (2026-08-07); soporte offline fuera de alcance | Primera entrega el 2026-08-05 (caja + comisiones + auditoría). **Rediseñada por completo el 2026-08-07** a pedido del humano, antes de probar con negocios reales: el circuito pasa a ser `Cita completada → Venta pendiente de cobro → Pago → Movimiento de caja`, con una sola cola de cobro. Se eliminan `RegistroServicio` (`/api/servicios/registros/` y sus dos pantallas) y `POST /api/caja/movimientos/`; entran `Venta` / `VentaItem` / `Pago` / `Devolucion` / `ComisionDevengada`, pago mixto y parcial, cierre con **arqueo de efectivo** (solo efectivo entra al cuadre; tarjeta y transferencias se concilian aparte), devoluciones como movimiento inverso (el historial financiero no se altera nunca) y los estados `en_atencion` / `no_show` en `Cita`. Frontend: Caja pasa a *Cobros* / *Hoy* / *Historial*, "Mis servicios" se convierte en `/mi-trabajo` (producción y comisión propias) y el empleado solo pulsa **Terminé**. Cambio con ruptura en tres apps a la vez, entregado por ambos lados el mismo día. Verificado de punta a punta contra el backend real (ver `frontend/ROADMAP-FRONTEND.md`); **falta la pasada manual en navegador**. Ver decisión 11 abajo, `CONTRATO.md` 5.13/5.14 y `DECISIONES.md` #37–#43. **Soporte offline sigue fuera de alcance** — es un problema de ingeniería distinto (cola local-first + sync) que merece su propio diseño. |
 | Fase 4 — Clientes y reportes | Sin empezar | |
 | Fase 5 — Beta y suscripción | Sin empezar | |
 | Fase 6+ — Crecimiento | Sin empezar | |
@@ -282,6 +282,56 @@ NO hacer todavía.
      repo todavía** (`docker-compose.yml` solo tiene `db` + `backend`),
      así que cómo se sirve `frontend/dist/` fuera de desarrollo local
      sigue abierto — ver `backend/ROADMAP-BACKEND.md`.
+
+11. **Rediseño del módulo de dinero (2026-08-07, decisión del humano).**
+    Antes de probar con negocios reales, se rehízo el circuito
+    financiero completo. El planteo fue de uso: *"hay una opción de caja
+    y otra para registrar servicios, que no deja de ser un flujo de la
+    caja"*. Diagnóstico: había **dos puertas de entrada al dinero que no
+    se hablaban**, una cita completada no generaba nada (el barbero
+    registraba el mismo trabajo dos veces) y aprobar y cobrar los hacía
+    la misma persona sobre el mismo objeto.
+
+    La regla que ahora ordena el módulo: **el servicio genera una deuda
+    (`Venta`), el pago genera el movimiento de dinero
+    (`MovimientoCaja`)**. El empleado completa y no toca plata; recepción
+    cobra desde una única cola.
+
+    **Es cambio con ruptura en tres apps a la vez (`caja`, `servicios`,
+    `agenda`), así que backend y frontend se entregaron juntos** — mismo
+    patrón que el cambio de horarios del 2026-07-26. **Ambos lados
+    entregados el mismo día.** Del lado frontend: Caja pasa a tres vistas
+    (*Cobros* / *Hoy* / *Historial*), desaparecen "Mis servicios" y
+    "Validar servicios" —la primera se convierte en `/mi-trabajo`, con la
+    producción y la comisión propias— y el empleado solo pulsa
+    **Terminé**. Queda pendiente la pasada manual en navegador.
+
+    Lo que desaparece: `RegistroServicio` y todo
+    `/api/servicios/registros/` (cobrar **es** aprobar);
+    `POST /api/caja/movimientos/` (ya no se crean ingresos a mano); la
+    capacidad `puede_aprobar_servicios`, reemplazada por
+    `puede_anular_venta` — que **no** es un rename, gobierna otra cosa.
+    Esto revierte en parte el adelanto del punto 10: la base antifraude
+    que aquel módulo trajo **no se perdió**, se mudó (sin
+    `puede_cobrar`, uno solo puede facturar su propio trabajo).
+
+    Lo que entra: `Venta`, `VentaItem`, `Pago`, `Devolucion` y
+    `ComisionDevengada`; pago mixto y parcial como caso normal; cierre
+    de caja con **arqueo real** (solo efectivo — tarjeta y
+    transferencias se concilian aparte); devoluciones como movimiento
+    **inverso**, nunca editando el original; estados `en_atencion` y
+    `no_show` en `Cita`; y `POST /api/agenda/citas/{id}/completar/`
+    idempotente, que ahora responde `{"cita", "venta"}`.
+
+    De paso se arreglaron dos bugs reales: la comisión se calculaba
+    sobre el monto del movimiento de caja (un pago mixto devengaba dos
+    comisiones por el mismo trabajo) y `Venta.total_pagado` leía el
+    caché de `prefetch_related`, dejando la venta en `pendiente` tras el
+    primer cobro.
+
+    227 tests en verde. Detalle en `backend/ROADMAP-BACKEND.md`,
+    `CONTRATO.md` 5.13/5.14 e historial, y el porqué de cada decisión en
+    `DECISIONES.md` #37–#43.
 
 ## Historial de fases
 

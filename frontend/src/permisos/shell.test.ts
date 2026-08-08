@@ -41,16 +41,29 @@ describe("catálogo", () => {
 });
 
 describe("shellDe", () => {
-  it("manda a administración al panel y a los demás a su agenda", () => {
+  it("manda a administración al panel, a recepción a los cobros y al operativo a su agenda", () => {
     expect(shellDe("administracion", TODO).inicio).toBe("/");
-    expect(shellDe("recepcion", TODO).inicio).toBe("/agenda");
+    // Recepción entra a la cola de cobro: es lo que tiene enfrente
+    // cuando el cliente se para a pagar.
+    expect(shellDe("recepcion", TODO).inicio).toBe("/caja");
     expect(shellDe("operativo", NADA).inicio).toBe("/agenda");
   });
 
-  it("le deja al operativo solo lo suyo, más registrar su propio servicio", () => {
+  it("un inicio que la persona no puede abrir cae en la primera entrada que sí", () => {
+    // `RutaProtegida` redirige a `shell.inicio` cuando alguien entra
+    // donde no le toca. Si ese inicio fuera a su vez prohibido, se
+    // rebotaría contra sí mismo para siempre: un recepción sin
+    // `puede_cobrar` quedaría en un bucle de redirecciones a /caja.
+    const shell = shellDe("recepcion", NADA);
+
+    expect(shell.inicio).not.toBe("/caja");
+    expect(shell.navegacion.map((item) => item.to)).toContain(shell.inicio);
+  });
+
+  it("le deja al operativo solo lo suyo", () => {
     const rutas = shellDe("operativo", NADA).navegacion.map((item) => item.to);
 
-    expect(rutas).toEqual(["/", "/agenda", "/servicios/mios"]);
+    expect(rutas).toEqual(["/", "/agenda", "/mi-trabajo"]);
   });
 
   it("oculta las secciones de gestión a quien no las puede usar", () => {
@@ -110,16 +123,20 @@ describe("shellDe", () => {
     expect(shellDe(undefined, NADA).navegacion.map((item) => item.to)).toEqual([
       "/",
       "/agenda",
-      "/servicios/mios",
+      "/mi-trabajo",
     ]);
   });
 
-  it("todo shell arranca en una ruta que él mismo tiene", () => {
+  it("todo shell arranca en una ruta que él mismo tiene, tenga o no capacidades", () => {
     // Un inicio fuera de la navegación deja al usuario en una pantalla a
-    // la que después no puede volver.
+    // la que después no puede volver — o, peor, en un bucle de
+    // redirecciones (ver `shellDe`). Se verifica con **y sin**
+    // capacidades: el caso que rompía era justamente el de sin.
     for (const tipo of Object.keys(SHELLS) as TipoDeUsuario[]) {
-      const shell = shellDe(tipo, TODO);
-      expect(shell.navegacion.map((item) => item.to)).toContain(shell.inicio);
+      for (const capacidades of [TODO, NADA]) {
+        const shell = shellDe(tipo, capacidades);
+        expect(shell.navegacion.map((item) => item.to)).toContain(shell.inicio);
+      }
     }
   });
 });

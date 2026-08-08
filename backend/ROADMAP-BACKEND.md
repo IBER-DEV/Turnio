@@ -1512,3 +1512,114 @@ agrega si en el uso real hace falta verlo desde la app. El pago de la
 comisión (el egreso real cuando el dueño le paga al barbero) no está
 modelado — `comisiones_por_empleado` es informativo, registrar el
 egreso correspondiente es un paso manual.
+
+## 2026-08-07 — Rediseño del módulo de dinero (Venta / Pago / Caja)
+
+Cambio con ruptura en `caja`, `servicios` y `agenda` a la vez. **El
+frontend de este módulo hay que rehacerlo y no se tocó desde esta
+sesión** (regla de `CLAUDE.md`: cada sesión trabaja en su carpeta) —
+ver "Pendiente" y `frontend/ROADMAP-FRONTEND.md`.
+
+### Por qué
+Lo planteó el humano en términos de uso, no técnicos: había dos
+entradas al dinero que no se hablaban ("Caja" y "Registrar servicio"),
+una cita completada no generaba nada —el barbero tenía que registrar el
+mismo trabajo otra vez a mano— y aprobar y cobrar los hacía la misma
+persona sobre el mismo objeto. La regla que ahora ordena el módulo:
+**el servicio genera una deuda (`Venta`), el pago genera el movimiento
+de dinero (`MovimientoCaja`)**.
+
+### Hecho
+- **Modelos nuevos en `apps/caja`**: `Venta`, `VentaItem`, `Pago`,
+  `Devolucion`, `ComisionDevengada`. `Caja` gana el arqueo
+  (`efectivo_esperado`, `efectivo_contado`, `diferencia`, congelados al
+  cerrar). `MovimientoCaja` gana `categoria`, `venta` y un tercer tipo,
+  `devolucion`; pierde `registro_servicio`, `empleado_comision` y
+  `monto_comision`.
+- **`RegistroServicio` eliminado** junto con todo
+  `/api/servicios/registros/`, su señal `servicio_aprobado`, su
+  capacidad `puede_aprobar_servicios` y sus tests. `apps/servicios` se
+  queda solo con el catálogo. `calcular_comision()` se fue de ahí: la
+  fórmula ahora es de la línea de venta, no del servicio
+  (`caja.services.comision_de_item`).
+- **`POST /api/caja/movimientos/` eliminado.** Los ingresos nacen solo
+  de cobrar una venta. Los egresos tienen endpoint propio con
+  `categoria` obligatoria.
+- **Agenda**: `Cita.Estado` gana `en_atencion` y `no_show`;
+  `completar_cita` genera la venta y es idempotente (tres capas:
+  chequeo previo, `select_for_update`, `OneToOne` en `Venta.cita`).
+  `cambiar_estado_cita` ya **no** acepta `completada` — completar tiene
+  efecto de negocio y no puede entrar por el camino genérico.
+  `POST .../completar/` ahora responde `{"cita", "venta"}`.
+- **Capacidades**: 10, igual que antes. Sale `puede_aprobar_servicios`,
+  entra `puede_anular_venta`. En la migración se le respondió `N` al
+  "¿es un rename?" de Django a propósito: trasladar el valor le habría
+  dado a cada Validador existente la capacidad de deshacer cobros.
+- **El arqueo cuenta solo efectivo.** Antes el cierre solo pedía una
+  nota; ahora exige `efectivo_contado` y calcula
+  `inicial + ingresos − egresos − devoluciones`, todo en efectivo.
+  Tarjeta y transferencias se concilian aparte con `por_metodo_pago`.
+  Un faltante **no** bloquea el cierre.
+- **Bug arreglado de paso**: la comisión se calculaba sobre el monto
+  del movimiento de caja, así que un pago mixto devengaba dos
+  comisiones por el mismo trabajo. Ahora se devenga una vez por venta
+  saldada (`DECISIONES.md` #38).
+- **Bug encontrado por los tests**: `Venta.total_pagado` respeta el
+  caché de `prefetch_related`, así que la venta que llega desde la
+  vista calculaba el saldo sobre datos viejos y el primer cobro dejaba
+  la venta en `pendiente`. Toda decisión de dinero pasa ahora por
+  `services.total_pagado_de()`, que agrega contra la base, y las vistas
+  releen con `get_queryset().get(pk=...)` — `refresh_from_db()` no
+  limpia el prefetch (`DECISIONES.md` #43).
+- **Bug corregido al probarlo el humano: 403 al barbero en las
+  transiciones nuevas.** `en_atencion` y `no_show` se agregaron como
+  acciones del `CitaViewSet` pero no se sumaron a `ACCIONES_DE_ESTADO`,
+  así que caían en el `else` que exige `puede_gestionar_agenda` — un
+  empleado sobre **su propia** cita recibía 403. Ningún test lo atrapó
+  porque todos los de transición usan al dueño, que tiene la capacidad y
+  por lo tanto pasa por los dos caminos. El test nuevo es
+  **parametrizado sobre las cinco acciones** con un barbero raso, que es
+  lo que hace que una acción futura no pueda olvidarse, y la tupla quedó
+  comentada explicando el riesgo.
+- **Migraciones incrementales, no un `0001` rehecho.** La primera
+  versión borraba `caja/0001_initial.py` y regeneraba; se descartó
+  porque habría dejado la base de desarrollo (que ya tenía las tablas)
+  imposible de migrar hacia adelante. Se restauró el historial y se
+  generaron `caja/0002`, `servicios/0003`, `agenda/0004` y
+  `usuarios/0008`. Efecto colateral a tener presente:
+  `servicios/migrations/0002` referenciaba
+  `apps.servicios.models.ruta_evidencia`, que se fue con el modelo — se
+  le puso una copia local de esa función dentro de la propia migración,
+  que es lo que hay que hacer siempre que se borra un modelo con
+  `upload_to` (si no, `makemigrations` revienta al cargar el grafo).
+- **`MetodoPagoEnum`** fijado en `ENUM_NAME_OVERRIDES`: es un solo
+  `TextChoices` compartido por `MovimientoCaja`, `Pago` y `Devolucion`,
+  y drf-spectacular avisaba por verlo llegar por tres caminos. Mismo
+  tipo de problema que #36.
+- **40 tests de `apps/caja`** (23 de servicios, 17 de API), reescritos
+  de cero. **232 tests en verde** en la suite completa (venían 254; la
+  baja es que se fueron los ~30 de `RegistroServicio` y sus dos
+  archivos). `openapi.yaml` regenerado sin warnings, `CONTRATO.md` 5.13
+  y 5.14 reescritas con su entrada de historial, `DECISIONES.md`
+  #37–#43.
+
+### Pendiente
+- **Frontend completo de este módulo** — es lo que falta para poder
+  probar con negocios reales. Desaparece la pantalla "Registrar
+  servicio" (`MisServiciosPage`, `ValidarServiciosPage`); Caja pasa a
+  tener tres vistas: *Cobros pendientes* (`?estado=pendiente`),
+  *Movimientos del día* y *Cierre con arqueo*. En la app del empleado
+  queda solo el botón **Completar servicio**, que ahora devuelve la
+  venta. `src/api/schema.ts` hay que regenerarlo.
+- El **pago de la comisión** (el egreso real cuando el dueño le paga al
+  barbero) sigue sin modelarse: `ComisionDevengada` dice cuánto se le
+  debe a cada uno, liquidarlo es un egreso manual de categoría
+  `comisiones`.
+- Sin endpoint de solo lectura para `RegistroAuditoria` — hoy solo se
+  consulta desde el admin de Django.
+- **Catálogo de `Producto`**: `VentaItem` ya admite vender algo fuera de
+  catálogo (descripción y precio a mano), pero el catálogo como tal es
+  Fase 6.
+- **Devoluciones: dominio listo, UI no.** `POST .../devolver/` funciona
+  y está testeado; la pantalla se decide con el frontend.
+- Soporte offline sigue fuera de alcance, como en la tanda anterior.

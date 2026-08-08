@@ -1,360 +1,471 @@
-import datetime
 from decimal import Decimal
 
 import pytest
-from django.utils import timezone
 
 from apps.caja import services
-from apps.caja.models import Caja, MovimientoCaja, RegistroAuditoria
+from apps.caja.models import (
+    Caja,
+    ComisionDevengada,
+    MetodoPago,
+    MovimientoCaja,
+    RegistroAuditoria,
+    Venta,
+)
+from apps.negocios import services as negocios_services
 from apps.servicios import services as servicios_services
 
 pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def negocio_con_barbero_y_cobrador(negocio_con_dueno, servicio_de_prueba, empleado_con):
-    """Dueño (tiene todas las capacidades, incluida `puede_cobrar`), un
-    barbero sin capacidades especiales, y un segundo empleado que valida
-    servicios — necesario porque nadie aprueba lo suyo."""
-    negocio, dueno, membresia_dueno = negocio_con_dueno
+def ctx(negocio_con_dueno, servicio_de_prueba, empleado_con):
+    """Un negocio con dueño (todas las capacidades), un barbero y un
+    servicio de $20.000 con 40% de comisión."""
+    negocio, _dueno, membresia_dueno = negocio_con_dueno
     # `servicio_de_prueba` se crea con `precio="20000"` (string): Django no
     # convierte el valor asignado en `.objects.create()` a `Decimal` hasta
     # que se relee de la base. En la API real siempre llega un `Decimal`
     # ya validado por DRF — este refresh solo iguala el fixture a ese caso.
+    servicio_de_prueba.porcentaje_comision = Decimal("40")
+    servicio_de_prueba.save()
     servicio_de_prueba.refresh_from_db()
-    barbero, _client_barbero = empleado_con(negocio=negocio, email="barbero@caja.test", nombre="Barbero")
-    validador, _client_validador = empleado_con(
-        negocio=negocio,
-        email="validador@caja.test",
-        nombre="Validador",
-        capacidades=["puede_aprobar_servicios"],
-    )
+    barbero, _client = empleado_con(negocio=negocio, email="barbero@caja.test", nombre="Barbero")
     return {
         "negocio": negocio,
         "dueno": membresia_dueno,
         "servicio": servicio_de_prueba,
         "barbero": barbero,
-        "validador": validador,
     }
 
 
-def _registro_aprobado(ctx):
-    registro = servicios_services.registrar_servicio(
+def _venta(ctx, cantidad=1):
+    return services.crear_venta(
         negocio=ctx["negocio"],
-        empleado=ctx["barbero"],
-        servicio=ctx["servicio"],
-        nombre_cliente="Cliente",
-        fecha_hora=timezone.now() - datetime.timedelta(hours=1),
+        creada_por=ctx["dueno"],
+        nombre_cliente="Juan Pérez",
+        items=[
+            {"servicio": ctx["servicio"], "empleado": ctx["barbero"], "cantidad": cantidad}
+        ],
     )
-    return servicios_services.aprobar_registro(registro=registro, revisor=ctx["validador"])
 
 
-# --- abrir_caja ---
+# --- abrir / cerrar caja ---
 
 
-def test_abrir_caja_crea_caja_abierta(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-
+def test_abrir_caja_crea_caja_abierta(ctx):
     caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
 
     assert caja.estado == Caja.Estado.ABIERTA
-    assert caja.abierta_por == ctx["dueno"]
-    assert caja.saldo_inicial == Decimal("0")
+    assert RegistroAuditoria.objects.filter(accion="caja.abrir").exists()
 
 
-def test_abrir_caja_acepta_saldo_inicial(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-
-    caja = services.abrir_caja(
-        negocio=ctx["negocio"], responsable=ctx["dueno"], saldo_inicial=Decimal("50000")
-    )
-
-    assert caja.saldo_inicial == Decimal("50000")
-
-
-def test_abrir_caja_rechaza_si_ya_hay_una_abierta(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
+def test_no_se_pueden_abrir_dos_cajas(ctx):
     services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
 
     with pytest.raises(services.YaHayCajaAbierta):
         services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
 
 
-def test_abrir_caja_deja_registro_de_auditoria(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-
+def test_cerrar_caja_exige_contar_el_efectivo(ctx):
     caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
 
-    auditoria = RegistroAuditoria.objects.get(accion="caja.abrir")
-    assert auditoria.negocio == ctx["negocio"]
-    assert auditoria.actor == ctx["dueno"]
-    assert auditoria.detalle["caja_id"] == caja.id
+    with pytest.raises(services.ArqueoRequerido):
+        services.cerrar_caja(caja=caja, responsable=ctx["dueno"], efectivo_contado=None)
 
 
-# --- registrar_movimiento ---
-
-
-def test_registrar_movimiento_ingreso_simple(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-
-    movimiento = services.registrar_movimiento(
-        caja=caja,
+def test_arqueo_solo_cuenta_efectivo(ctx):
+    """Un cobro por Nequi no estuvo nunca en el cajón: no puede inflar el
+    esperado ni generar un faltante falso."""
+    caja = services.abrir_caja(
+        negocio=ctx["negocio"], responsable=ctx["dueno"], saldo_inicial=Decimal("100000")
+    )
+    venta_efectivo = _venta(ctx)
+    services.registrar_pago(
+        venta=venta_efectivo,
         registrado_por=ctx["dueno"],
-        tipo=MovimientoCaja.Tipo.INGRESO,
         monto=Decimal("20000"),
-        concepto="Corte de cabello",
-        metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO,
+        metodo_pago=MetodoPago.EFECTIVO,
     )
-
-    assert movimiento.caja == caja
-    assert movimiento.monto_comision is None
-    assert movimiento.empleado_comision is None
-
-
-def test_registrar_movimiento_rechaza_sobre_caja_cerrada(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-    services.cerrar_caja(caja=caja, responsable=ctx["dueno"])
-
-    with pytest.raises(services.NoHayCajaAbierta):
-        services.registrar_movimiento(
-            caja=caja,
-            registrado_por=ctx["dueno"],
-            tipo=MovimientoCaja.Tipo.INGRESO,
-            monto=Decimal("1000"),
-            concepto="x",
-            metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO,
-        )
-
-
-def test_registrar_movimiento_calcula_comision_desde_registro_servicio_aprobado(
-    negocio_con_barbero_y_cobrador,
-):
-    ctx = negocio_con_barbero_y_cobrador
-    ctx["servicio"].porcentaje_comision = Decimal("70")
-    ctx["servicio"].save(update_fields=["porcentaje_comision"])
-    registro = _registro_aprobado(ctx)
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-
-    movimiento = services.registrar_movimiento(
-        caja=caja,
+    venta_nequi = _venta(ctx)
+    services.registrar_pago(
+        venta=venta_nequi,
         registrado_por=ctx["dueno"],
-        tipo=MovimientoCaja.Tipo.INGRESO,
-        monto=ctx["servicio"].precio,
-        concepto=ctx["servicio"].nombre,
-        metodo_pago=MovimientoCaja.MetodoPago.NEQUI,
-        registro_servicio=registro,
+        monto=Decimal("20000"),
+        metodo_pago=MetodoPago.NEQUI,
     )
 
-    esperado = (ctx["servicio"].precio * Decimal("70") / Decimal("100")).quantize(Decimal("0.01"))
-    assert movimiento.monto_comision == esperado
-    assert movimiento.empleado_comision == ctx["barbero"]
+    arqueo = services.arqueo_de(caja)
+
+    assert arqueo["ingresos_efectivo"] == Decimal("20000")
+    assert arqueo["efectivo_esperado"] == Decimal("120000")
+    # Los $20.000 de Nequi sí existen, pero para conciliar aparte.
+    assert services.resumen_de(caja)["total_ingresos"] == Decimal("40000")
 
 
-def test_registrar_movimiento_ignora_empleado_comision_manual_si_hay_registro(
-    negocio_con_barbero_y_cobrador,
-):
-    """El vínculo con un `RegistroServicio` sobreescribe cualquier
-    `empleado_comision` que se haya mandado — nadie se asigna la
-    comisión del trabajo de otro."""
-    ctx = negocio_con_barbero_y_cobrador
-    registro = _registro_aprobado(ctx)
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+def test_arqueo_resta_egresos_y_devoluciones_en_efectivo(ctx):
+    """La fórmula completa: inicial + ingresos − egresos − devoluciones.
 
-    movimiento = services.registrar_movimiento(
-        caja=caja,
+    Es el test que fija que una devolución **no** se cuente dos veces:
+    tiene tipo propio y no es un egreso.
+    """
+    caja = services.abrir_caja(
+        negocio=ctx["negocio"], responsable=ctx["dueno"], saldo_inicial=Decimal("100000")
+    )
+    venta = _venta(ctx)
+    services.registrar_pago(
+        venta=venta,
         registrado_por=ctx["dueno"],
-        tipo=MovimientoCaja.Tipo.INGRESO,
-        monto=ctx["servicio"].precio,
-        concepto=ctx["servicio"].nombre,
-        metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO,
-        registro_servicio=registro,
-        empleado_comision=ctx["validador"],  # intento de asignársela a otro
+        monto=Decimal("20000"),
+        metodo_pago=MetodoPago.EFECTIVO,
     )
-
-    assert movimiento.empleado_comision == ctx["barbero"]
-
-
-def test_registrar_movimiento_rechaza_registro_no_aprobado(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    registro_pendiente = servicios_services.registrar_servicio(
+    services.registrar_egreso(
         negocio=ctx["negocio"],
-        empleado=ctx["barbero"],
-        servicio=ctx["servicio"],
-        nombre_cliente="Cliente",
-        fecha_hora=timezone.now() - datetime.timedelta(hours=1),
-    )
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-
-    with pytest.raises(services.RegistroServicioNoAprobado):
-        services.registrar_movimiento(
-            caja=caja,
-            registrado_por=ctx["dueno"],
-            tipo=MovimientoCaja.Tipo.INGRESO,
-            monto=Decimal("20000"),
-            concepto="x",
-            metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO,
-            registro_servicio=registro_pendiente,
-        )
-
-
-def test_registrar_movimiento_rechaza_registro_ya_vinculado(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    registro = _registro_aprobado(ctx)
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-    services.registrar_movimiento(
-        caja=caja,
         registrado_por=ctx["dueno"],
-        tipo=MovimientoCaja.Tipo.INGRESO,
-        monto=ctx["servicio"].precio,
-        concepto="x",
-        metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO,
-        registro_servicio=registro,
+        monto=Decimal("50000"),
+        concepto="Compra de shampoo",
+        categoria=MovimientoCaja.CategoriaEgreso.INSUMOS,
+        metodo_pago=MetodoPago.EFECTIVO,
     )
-
-    with pytest.raises(services.RegistroServicioYaVinculado):
-        services.registrar_movimiento(
-            caja=caja,
-            registrado_por=ctx["dueno"],
-            tipo=MovimientoCaja.Tipo.INGRESO,
-            monto=ctx["servicio"].precio,
-            concepto="duplicado",
-            metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO,
-            registro_servicio=registro,
-        )
-
-
-def test_registrar_movimiento_deja_registro_de_auditoria(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-
-    movimiento = services.registrar_movimiento(
-        caja=caja,
+    services.devolver(
+        venta=venta,
         registrado_por=ctx["dueno"],
-        tipo=MovimientoCaja.Tipo.EGRESO,
         monto=Decimal("5000"),
-        concepto="Insumos",
+        metodo_pago=MetodoPago.EFECTIVO,
+        motivo="Cliente insatisfecho",
     )
 
-    auditoria = RegistroAuditoria.objects.get(accion="caja.movimiento.crear")
-    assert auditoria.detalle["movimiento_id"] == movimiento.id
+    arqueo = services.arqueo_de(caja)
+
+    assert arqueo["egresos_efectivo"] == Decimal("50000")
+    assert arqueo["devoluciones_efectivo"] == Decimal("5000")
+    assert arqueo["efectivo_esperado"] == Decimal("65000")
 
 
-# --- cerrar_caja ---
+def test_cierre_congela_la_diferencia(ctx):
+    caja = services.abrir_caja(
+        negocio=ctx["negocio"], responsable=ctx["dueno"], saldo_inicial=Decimal("100000")
+    )
+
+    caja = services.cerrar_caja(
+        caja=caja, responsable=ctx["dueno"], efectivo_contado=Decimal("98000")
+    )
+
+    assert caja.estado == Caja.Estado.CERRADA
+    assert caja.efectivo_esperado == Decimal("100000")
+    assert caja.diferencia == Decimal("-2000")
 
 
-def test_cerrar_caja_marca_cerrada_y_guarda_quien_y_cuando(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+def test_un_faltante_no_bloquea_el_cierre(ctx):
+    """Negarse a cerrar no hace desaparecer el faltante y sí deja al
+    negocio sin poder operar mañana."""
+    caja = services.abrir_caja(
+        negocio=ctx["negocio"], responsable=ctx["dueno"], saldo_inicial=Decimal("100000")
+    )
 
-    cerrada = services.cerrar_caja(caja=caja, responsable=ctx["dueno"], nota_cierre="Todo cuadró.")
+    caja = services.cerrar_caja(
+        caja=caja, responsable=ctx["dueno"], efectivo_contado=Decimal("0")
+    )
 
-    assert cerrada.estado == Caja.Estado.CERRADA
-    assert cerrada.cerrada_por == ctx["dueno"]
-    assert cerrada.cerrada_en is not None
-    assert cerrada.nota_cierre == "Todo cuadró."
+    assert caja.estado == Caja.Estado.CERRADA
+    assert caja.diferencia == Decimal("-100000")
 
 
-def test_cerrar_caja_dos_veces_falla(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-    services.cerrar_caja(caja=caja, responsable=ctx["dueno"])
+# --- ventas ---
+
+
+def test_crear_venta_congela_precio_y_comision(ctx):
+    venta = _venta(ctx)
+
+    item = venta.items.get()
+    assert venta.total == Decimal("20000")
+    assert item.precio_unitario == Decimal("20000")
+    assert item.porcentaje_comision == Decimal("40")
+
+    # Cambiar el catálogo no reescribe la venta de ayer.
+    ctx["servicio"].precio = Decimal("35000")
+    ctx["servicio"].porcentaje_comision = Decimal("10")
+    ctx["servicio"].save()
+    venta.refresh_from_db()
+    item.refresh_from_db()
+
+    assert venta.total == Decimal("20000")
+    assert item.precio_unitario == Decimal("20000")
+    assert item.porcentaje_comision == Decimal("40")
+
+
+def test_crear_venta_no_mueve_plata_ni_exige_caja_abierta(ctx):
+    """El servicio genera la deuda; el pago genera el movimiento."""
+    venta = _venta(ctx)
+
+    assert venta.estado == Venta.Estado.PENDIENTE
+    assert MovimientoCaja.objects.count() == 0
+
+
+def test_venta_sin_items_no_existe(ctx):
+    with pytest.raises(services.VentaSinItems):
+        services.crear_venta(
+            negocio=ctx["negocio"],
+            creada_por=ctx["dueno"],
+            nombre_cliente="Juan",
+            items=[],
+        )
+
+
+def test_venta_con_item_de_otro_negocio_se_rechaza(ctx, empleado_con):
+    """Última red del aislamiento multi-tenant, después de los querysets."""
+    otro_negocio, _dueno, _membresia = negocios_services.registrar_negocio(
+        nombre_negocio="Otra Barbería",
+        email_dueno="otro@test.com",
+        password_dueno="claveSegura123",
+        nombre_dueno="Otro",
+    )
+    servicio_ajeno = servicios_services.crear_servicio(
+        negocio=otro_negocio, nombre="Corte ajeno", precio="30000", duracion_minutos=30
+    )
+
+    with pytest.raises(services.RecursoDeOtroNegocio):
+        services.crear_venta(
+            negocio=ctx["negocio"],
+            creada_por=ctx["dueno"],
+            nombre_cliente="Juan",
+            items=[{"servicio": servicio_ajeno, "empleado": ctx["barbero"]}],
+        )
+
+
+# --- cobro ---
+
+
+def test_cobrar_exige_caja_abierta(ctx):
+    venta = _venta(ctx)
 
     with pytest.raises(services.NoHayCajaAbierta):
-        services.cerrar_caja(caja=caja, responsable=ctx["dueno"])
+        services.registrar_pago(
+            venta=venta,
+            registrado_por=ctx["dueno"],
+            monto=Decimal("20000"),
+            metodo_pago=MetodoPago.EFECTIVO,
+        )
 
 
-def test_cerrar_caja_deja_registro_de_auditoria(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
+def test_cobro_completo_crea_movimiento_y_devenga_comision(ctx):
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+
+    pago = services.registrar_pago(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("20000"),
+        metodo_pago=MetodoPago.EFECTIVO,
+    )
+    venta.refresh_from_db()
+
+    assert venta.estado == Venta.Estado.PAGADA
+    assert pago.movimiento.tipo == MovimientoCaja.Tipo.INGRESO
+    assert pago.movimiento.venta_id == venta.id
+
+    comision = ComisionDevengada.objects.get()
+    assert comision.empleado_id == ctx["barbero"].id
+    assert comision.monto == Decimal("8000")  # 40% de 20.000
+
+
+def test_pago_mixto_devenga_la_comision_una_sola_vez(ctx):
+    """Con pagos parciales, la comisión es de la **venta**, no de cada
+    pago: si se calculara por movimiento, este caso pagaría dos veces."""
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+
+    services.registrar_pago(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("8000"),
+        metodo_pago=MetodoPago.EFECTIVO,
+    )
+    venta.refresh_from_db()
+    assert venta.estado == Venta.Estado.PARCIAL
+    assert not ComisionDevengada.objects.exists()
+
+    services.registrar_pago(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("12000"),
+        metodo_pago=MetodoPago.TARJETA,
+    )
+    venta.refresh_from_db()
+
+    assert venta.estado == Venta.Estado.PAGADA
+    assert venta.pagos.count() == 2
+    assert ComisionDevengada.objects.count() == 1
+    assert ComisionDevengada.objects.get().monto == Decimal("8000")
+
+
+def test_no_se_puede_cobrar_de_mas(ctx):
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+
+    with pytest.raises(services.MontoExcedeSaldo):
+        services.registrar_pago(
+            venta=venta,
+            registrado_por=ctx["dueno"],
+            monto=Decimal("25000"),
+            metodo_pago=MetodoPago.EFECTIVO,
+        )
+
+
+def test_no_se_puede_cobrar_dos_veces_la_misma_venta(ctx):
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+    services.registrar_pago(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("20000"),
+        metodo_pago=MetodoPago.EFECTIVO,
+    )
+    venta.refresh_from_db()
+
+    with pytest.raises(services.VentaNoCobrable):
+        services.registrar_pago(
+            venta=venta,
+            registrado_por=ctx["dueno"],
+            monto=Decimal("20000"),
+            metodo_pago=MetodoPago.EFECTIVO,
+        )
+
+
+# --- devoluciones y anulación ---
+
+
+def test_devolver_no_toca_el_movimiento_original(ctx):
+    """La garantía de fondo: el historial financiero no se altera
+    retroactivamente."""
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+    pago = services.registrar_pago(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("20000"),
+        metodo_pago=MetodoPago.EFECTIVO,
+    )
+    movimiento_original = pago.movimiento
+
+    services.devolver(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("20000"),
+        metodo_pago=MetodoPago.EFECTIVO,
+        motivo="Quedó mal el corte",
+    )
+
+    movimiento_original.refresh_from_db()
+    assert movimiento_original.monto == Decimal("20000")
+    assert movimiento_original.tipo == MovimientoCaja.Tipo.INGRESO
+    assert MovimientoCaja.objects.count() == 2
+    assert MovimientoCaja.objects.filter(tipo=MovimientoCaja.Tipo.DEVOLUCION).count() == 1
+
+
+def test_devolver_exige_motivo(ctx):
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+    services.registrar_pago(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("20000"),
+        metodo_pago=MetodoPago.EFECTIVO,
+    )
+
+    with pytest.raises(services.MotivoRequerido):
+        services.devolver(
+            venta=venta,
+            registrado_por=ctx["dueno"],
+            monto=Decimal("20000"),
+            metodo_pago=MetodoPago.EFECTIVO,
+            motivo="   ",
+        )
+
+
+def test_no_se_puede_devolver_mas_de_lo_cobrado(ctx):
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+    services.registrar_pago(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("10000"),
+        metodo_pago=MetodoPago.EFECTIVO,
+    )
+
+    with pytest.raises(services.MontoExcedeLoPagado):
+        services.devolver(
+            venta=venta,
+            registrado_por=ctx["dueno"],
+            monto=Decimal("15000"),
+            metodo_pago=MetodoPago.EFECTIVO,
+            motivo="Error de cobro",
+        )
+
+
+def test_anular_venta_cobrada_devuelve_y_revierte_comision(ctx):
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+    services.registrar_pago(
+        venta=venta,
+        registrado_por=ctx["dueno"],
+        monto=Decimal("20000"),
+        metodo_pago=MetodoPago.EFECTIVO,
+    )
+    venta.refresh_from_db()
+    assert ComisionDevengada.objects.count() == 1
+
+    venta = services.anular_venta(
+        venta=venta, responsable=ctx["dueno"], motivo="Se cobró al cliente equivocado"
+    )
+
+    assert venta.estado == Venta.Estado.ANULADA
+    assert venta.total_pagado == Decimal("0")
+    assert not ComisionDevengada.objects.exists()
+    # Los dos movimientos siguen en el libro: el cobro y su reverso.
+    assert MovimientoCaja.objects.count() == 2
+    auditoria = RegistroAuditoria.objects.get(accion="venta.anular")
+    assert auditoria.detalle["devuelto"] == "20000.00"
+
+
+def test_venta_anulada_no_se_vuelve_a_cobrar(ctx):
+    services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
+    venta = _venta(ctx)
+    venta = services.anular_venta(venta=venta, responsable=ctx["dueno"], motivo="Error")
+
+    with pytest.raises(services.VentaNoCobrable):
+        services.registrar_pago(
+            venta=venta,
+            registrado_por=ctx["dueno"],
+            monto=Decimal("20000"),
+            metodo_pago=MetodoPago.EFECTIVO,
+        )
+
+
+def test_anular_dos_veces_falla(ctx):
+    venta = _venta(ctx)
+    services.anular_venta(venta=venta, responsable=ctx["dueno"], motivo="Error")
+
+    with pytest.raises(services.VentaYaAnulada):
+        services.anular_venta(venta=venta, responsable=ctx["dueno"], motivo="Otra vez")
+
+
+# --- egresos ---
+
+
+def test_egreso_resta_de_la_caja_y_queda_categorizado(ctx):
     caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
 
-    services.cerrar_caja(caja=caja, responsable=ctx["dueno"])
-
-    assert RegistroAuditoria.objects.filter(accion="caja.cerrar").exists()
-
-
-# --- resumen_de ---
-
-
-def test_resumen_de_calcula_totales_ingresos_egresos_neto(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-    services.registrar_movimiento(
-        caja=caja, registrado_por=ctx["dueno"], tipo=MovimientoCaja.Tipo.INGRESO,
-        monto=Decimal("30000"), concepto="Corte", metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO,
-    )
-    services.registrar_movimiento(
-        caja=caja, registrado_por=ctx["dueno"], tipo=MovimientoCaja.Tipo.EGRESO,
-        monto=Decimal("5000"), concepto="Insumos",
+    movimiento = services.registrar_egreso(
+        negocio=ctx["negocio"],
+        registrado_por=ctx["dueno"],
+        monto=Decimal("80000"),
+        concepto="Compra proveedor XYZ",
+        categoria=MovimientoCaja.CategoriaEgreso.INSUMOS,
+        metodo_pago=MetodoPago.EFECTIVO,
     )
 
+    assert movimiento.tipo == MovimientoCaja.Tipo.EGRESO
+    assert movimiento.venta_id is None
     resumen = services.resumen_de(caja)
-
-    assert resumen["total_ingresos"] == Decimal("30000")
-    assert resumen["total_egresos"] == Decimal("5000")
-    assert resumen["neto"] == Decimal("25000")
-
-
-def test_resumen_de_agrupa_por_metodo_de_pago(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-    services.registrar_movimiento(
-        caja=caja, registrado_por=ctx["dueno"], tipo=MovimientoCaja.Tipo.INGRESO,
-        monto=Decimal("20000"), concepto="a", metodo_pago=MovimientoCaja.MetodoPago.NEQUI,
-    )
-    services.registrar_movimiento(
-        caja=caja, registrado_por=ctx["dueno"], tipo=MovimientoCaja.Tipo.INGRESO,
-        monto=Decimal("10000"), concepto="b", metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO,
-    )
-
-    resumen = services.resumen_de(caja)
-
-    assert resumen["por_metodo_pago"] == {"nequi": Decimal("20000"), "efectivo": Decimal("10000")}
-
-
-def test_resumen_de_agrupa_comisiones_por_empleado(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    ctx["servicio"].porcentaje_comision = Decimal("50")
-    ctx["servicio"].save(update_fields=["porcentaje_comision"])
-    registro = _registro_aprobado(ctx)
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-    services.registrar_movimiento(
-        caja=caja, registrado_por=ctx["dueno"], tipo=MovimientoCaja.Tipo.INGRESO,
-        monto=ctx["servicio"].precio, concepto="Corte",
-        metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO, registro_servicio=registro,
-    )
-
-    resumen = services.resumen_de(caja)
-
-    assert len(resumen["comisiones_por_empleado"]) == 1
-    fila = resumen["comisiones_por_empleado"][0]
-    assert fila["empleado"] == ctx["barbero"].id
-    assert fila["monto"] == (ctx["servicio"].precio * Decimal("50") / Decimal("100")).quantize(
-        Decimal("0.01")
-    )
-
-
-def test_resumen_de_cuenta_servicios_aprobados_sin_cobrar(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    _registro_sin_cobrar = _registro_aprobado(ctx)
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-
-    resumen = services.resumen_de(caja)
-
-    assert resumen["servicios_aprobados_sin_cobrar"] == 1
-
-
-def test_resumen_de_no_cuenta_servicios_ya_cobrados(negocio_con_barbero_y_cobrador):
-    ctx = negocio_con_barbero_y_cobrador
-    registro = _registro_aprobado(ctx)
-    caja = services.abrir_caja(negocio=ctx["negocio"], responsable=ctx["dueno"])
-    services.registrar_movimiento(
-        caja=caja, registrado_por=ctx["dueno"], tipo=MovimientoCaja.Tipo.INGRESO,
-        monto=ctx["servicio"].precio, concepto="Corte",
-        metodo_pago=MovimientoCaja.MetodoPago.EFECTIVO, registro_servicio=registro,
-    )
-
-    resumen = services.resumen_de(caja)
-
-    assert resumen["servicios_aprobados_sin_cobrar"] == 0
+    assert resumen["total_egresos"] == Decimal("80000")
+    assert resumen["egresos_por_categoria"]["insumos"] == Decimal("80000")

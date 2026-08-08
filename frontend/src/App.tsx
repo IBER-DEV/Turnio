@@ -31,11 +31,8 @@ const RegistroNegocioPage = lazy(() =>
 const PerfilNegocioPage = lazy(() =>
   import("./pages/publico/PerfilNegocioPage").then((m) => ({ default: m.PerfilNegocioPage })),
 );
-const MisServiciosPage = lazy(() =>
-  import("./pages/servicios/MisServiciosPage").then((m) => ({ default: m.MisServiciosPage })),
-);
-const ValidarServiciosPage = lazy(() =>
-  import("./pages/servicios/ValidarServiciosPage").then((m) => ({ default: m.ValidarServiciosPage })),
+const MiTrabajoPage = lazy(() =>
+  import("./pages/MiTrabajoPage").then((m) => ({ default: m.MiTrabajoPage })),
 );
 const CajaPage = lazy(() => import("./pages/caja/CajaPage").then((m) => ({ default: m.CajaPage })));
 
@@ -121,32 +118,27 @@ function App() {
                   </RutaProtegida>
                 }
               />
-              {/* Sin `capacidad`: cualquier miembro puede haber hecho un
-                  servicio, incluido el dueño operador único. */}
+              {/* Sin `capacidad`: cualquier miembro tiene trabajo propio
+                  que mirar, incluido el dueño operador único. El backend
+                  ya acota el listado a lo suyo. */}
               <Route
-                path="/servicios/mios"
+                path="/mi-trabajo"
                 element={
                   <RutaProtegida>
                     <Layout>
-                      <MisServiciosPage />
+                      <MiTrabajoPage />
                     </Layout>
                   </RutaProtegida>
                 }
               />
-              <Route
-                path="/servicios/validar"
-                element={
-                  <RutaProtegida capacidad="puede_aprobar_servicios">
-                    <Layout>
-                      <ValidarServiciosPage />
-                    </Layout>
-                  </RutaProtegida>
-                }
-              />
+              {/* `puede_cobrar` **o** `puede_ver_reportes`: quien solo ve
+                  reportes entra al histórico de cajas sin poder cobrar
+                  (`CONTRATO.md` 5.14), y la pantalla ya esconde las
+                  acciones que no le corresponden. */}
               <Route
                 path="/caja"
                 element={
-                  <RutaProtegida capacidad="puede_cobrar">
+                  <RutaProtegida capacidades={["puede_cobrar", "puede_ver_reportes"]}>
                     <Layout>
                       <CajaPage />
                     </Layout>

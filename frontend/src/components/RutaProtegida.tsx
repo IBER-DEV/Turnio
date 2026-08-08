@@ -9,8 +9,9 @@ export type { Capacidad };
 
 /** Exige sesión iniciada; si no hay membresía, redirige a /login.
  *
- * Con `capacidad`, además exige que su **cargo** se la conceda. Se usa
- * en pantallas que son **de gestión de punta a punta** (Equipo, Cargos):
+ * Con `capacidad` (una) o `capacidades` (basta **cualquiera** de ellas),
+ * además exige que su **cargo** se la conceda. Se usa en pantallas que
+ * son **de gestión de punta a punta** (Equipo, Cargos):
  * ahí no tiene sentido dejar entrar en modo lectura, porque lo único
  * que se ve son datos de administración que quien no gestiona no
  * necesita. El backend aplica la misma regla, así que esto no es la
@@ -28,9 +29,15 @@ export type { Capacidad };
 export function RutaProtegida({
   children,
   capacidad,
+  capacidades,
 }: {
   children: ReactNode;
   capacidad?: Capacidad;
+  /** Basta con tener **una** de ellas. Existe desde Caja (2026-08-07):
+   * esa pantalla la abre tanto quien cobra como quien solo mira
+   * reportes, y modelarlo con dos rutas distintas al mismo componente
+   * habría sido peor. */
+  capacidades?: Capacidad[];
 }) {
   const { cargando, membresia } = useAuth();
   const { puede, shell } = usePermisos();
@@ -43,7 +50,8 @@ export function RutaProtegida({
     return <Navigate to="/login" replace />;
   }
 
-  if (capacidad && !puede(capacidad)) {
+  const exigidas = capacidades ?? (capacidad ? [capacidad] : []);
+  if (exigidas.length > 0 && !exigidas.some((nombre) => puede(nombre))) {
     return <Navigate to={shell.inicio} replace />;
   }
 

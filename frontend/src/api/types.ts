@@ -11,13 +11,9 @@ import type { components } from "./schema";
  */
 export type ServicioInput = Omit<components["schemas"]["Servicio"], "id">;
 export type HorarioTrabajoInput = Omit<components["schemas"]["HorarioTrabajo"], "id">;
-export type MovimientoCajaInput = Omit<
-  components["schemas"]["MovimientoCaja"],
-  | "id"
-  | "caja"
-  | "empleado_comision_nombre"
-  | "monto_comision"
-  | "registrado_por"
-  | "registrado_por_nombre"
-  | "creado_en"
->;
+
+// `MovimientoCajaInput` se fue con el rediseño del módulo de dinero
+// (2026-08-07): los movimientos ya no se crean a mano desde el frontend
+// —nacen de cobrar una venta o de registrar un egreso, cada uno con su
+// endpoint y su propio serializer de entrada— así que no queda ningún
+// `ModelSerializer` de caja con este problema.

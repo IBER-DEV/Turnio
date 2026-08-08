@@ -1664,3 +1664,154 @@ migrate`, sin tocar código.
   `formatearMoneda` — no urgente, anotado en el comentario del propio
   `ui/moneda.ts`.
 
+## 2026-08-07 — Rediseño del módulo de dinero (frontend)
+
+La otra mitad del cambio con ruptura que entregó backend el mismo día
+(ver `../backend/ROADMAP-BACKEND.md` y `../CONTRATO.md` 5.13/5.14). La
+regla que ordena todo: **el servicio genera una deuda (`Venta`), el pago
+genera el movimiento de caja**.
+
+### Qué desapareció
+- **`MisServiciosPage` y `ValidarServiciosPage`**, con sus rutas
+  `/servicios/mios` y `/servicios/validar`. El circuito de "registrar
+  trabajo → alguien lo aprueba" ya no existe: cobrar es aprobar.
+- **El formulario de "Registrar movimiento"** de `CajaHoy`. Era la
+  puerta por la que entraba un ingreso que ninguna venta explicaba. Hay
+  un test que verifica que el botón **no** existe.
+- `ui/EstadoRegistroServicio.ts` y la capacidad `puede_aprobar_servicios`
+  del catálogo (entró `puede_anular_venta`, en el grupo "Dinero"; el área
+  "Servicios realizados" se disolvió con ella).
+
+### Qué entró
+- **`pages/caja/` reorganizada en tres vistas**: *Cobros* (la cola de
+  cobro, y la que abre por defecto), *Hoy* (el estado del cajón) e
+  *Historial*. Recepción aterriza directo en `/caja` — desde que existe
+  una cola de cobro real, la agenda es lo segundo que mira.
+- **`CobrosPendientes`** — trae `?estado=pendiente` y `?estado=parcial`
+  en dos llamadas (el filtro del backend acepta un valor); las parciales
+  van primero porque ya tienen plata puesta. Cobrar actualiza la fila en
+  memoria en vez de recargar todo: en el mostrador, con el cliente
+  esperando, el refresco completo se nota.
+- **`ModalCobrar`** con pago parcial y mixto — el monto arranca en el
+  saldo completo (el caso normal) y quien parte el pago lo baja. Dos
+  pasadas por el modal son un pago mixto, igual que en el backend.
+- **`ModalCierre`** — el arqueo, con la diferencia calculada **mientras
+  se teclea**: quien contó mal se entera ahí, no después de cerrar. Lo
+  no-efectivo se lista aparte, sin diferencia asociada.
+- **`ModalEgreso`** con categoría obligatoria, **`ModalDeshacer`**
+  (devolver/anular, ambas con motivo) y **`ModalVenta`** para la cuenta
+  sin cita, con varias líneas y **un empleado por línea**.
+- **`MiTrabajoPage`** (`/mi-trabajo`) reemplaza a "Mis servicios". Deja
+  de ser un formulario y pasa a ser lo que el barbero de verdad quería:
+  su día, su producción y su comisión, separando la ganada de la que
+  todavía está por cobrarse. Suma **solo sus líneas**: en una cuenta
+  hecha entre dos, la mitad del otro no es suya.
+- **Agenda**: `en_atencion` y `no_show` con sus acciones, y `completar`
+  con su respuesta nueva (`{cita, venta}`) — el toast dice cuánto quedó
+  por cobrar, leído de la venta y no del precio del catálogo, que son dos
+  números que pueden diferir. La cita muestra el estado de su cuenta y
+  nada más: se cobra en Caja.
+
+### Decisiones y hallazgos
+- **`ACCIONES_POR_ESTADO` no ofrece todo lo que el backend acepta.**
+  Desde `agendada` el backend permite ir a `en_atencion` directo; la UI
+  no lo ofrece porque saltarse "Confirmar" es un caso de borde y una fila
+  de cuatro botones en un teléfono se toca mal. La lista de acciones es
+  una decisión de producto, no un espejo de la máquina de estados.
+- **Bug encontrado y corregido: bucle de redirecciones en el shell.**
+  Recepción aterriza en `/caja`, que exige `puede_cobrar`, pero el dueño
+  puede crear un cargo de recepción sin esa capacidad. Como
+  `RutaProtegida` redirige a `shell.inicio`, esa persona rebotaba de
+  `/caja` a `/caja` para siempre. `shellDe()` ahora cae a la primera
+  entrada de la navegación **ya filtrada**. La regla general: el `inicio`
+  de un shell sale siempre de la navegación filtrada, nunca de la
+  declarada. Hay test, y el de "todo shell arranca en una ruta que él
+  mismo tiene" ahora corre **con y sin** capacidades — el caso que
+  fallaba era el de sin.
+- **Bug encontrado por el humano al probarlo: el selector de "¿quién lo
+  hizo?" salía vacío para recepción.** La cola de cobro pedía el equipo a
+  `GET /api/negocios/empleados/`, que es la vista de **gestión** y exige
+  `puede_gestionar_empleados` incluso para leer — recepción recibía 403 y
+  la lista quedaba en cero, justo para el cargo que más usa esa pantalla.
+  `CONTRATO.md` 5.4 ya decía la regla ("si solo necesitas nombres, usa
+  `/equipo/`") y no la seguí. Corregido a `GET /api/negocios/equipo/`,
+  con test de regresión: el mock revienta ante cualquier endpoint no
+  declarado, así que volver al equivocado falla el test en vez de
+  aparecer en producción. **Lección para la próxima pantalla que liste
+  gente**: la pregunta no es "¿qué endpoint devuelve empleados?" sino
+  "¿con qué capacidad va a entrar quien mira esta pantalla?".
+- **"Atendiendo" (`en_atencion`) se quitó de la UI** — decisión del
+  humano al probarlo, y tiene razón: marcarlo es un toque más por cliente
+  a cambio de nada. El barbero sabe a quién tiene en la silla y el
+  sistema no hace nada distinto por saberlo. El estado sigue existiendo
+  en el dominio y su endpoint funciona; ganaría sentido el día que
+  alguien **que no está haciendo el trabajo** necesite ver el local en
+  vivo (una recepción con sala de espera en un salón grande). La tabla
+  `ACCIONES_POR_ESTADO` dejó de ser un espejo de `TRANSICIONES_VALIDAS`
+  y pasó a ser explícitamente otra cosa: el backend define qué es
+  **posible**, esa tabla define qué **se ofrece**.
+- **Hallazgo colateral, corregido en la primitiva**: el trigger de
+  `SelectCustom` es un `<button>` de Radix, y el `<label>` de al lado no
+  lo nombraba (un `<button>` no se asocia con `htmlFor`). Un lector de
+  pantalla anunciaba "botón, Efectivo" sin decir de qué campo — con tres
+  selectores seguidos en el modal de gasto, indistinguibles. Se le
+  cableó `aria-labelledby` + `aria-describedby`. Salió al escribir el
+  test de arriba, que no podía encontrar el combo por su nombre
+  accesible: **la consulta accesible fallando era el síntoma, no un
+  problema del test**.
+- **Defecto de contrato reportado y corregido del lado backend**:
+  `Cita.venta_id`/`venta_estado` salían no-nulables en el schema pese a
+  ser `null` en toda cita sin venta. Se corrigió en el serializer
+  (`allow_null=True`) en vez de castear en el frontend — el tipo
+  generado ahora dice la verdad. De paso se les fijó nombre estable a
+  `MetodoPagoEnum`, `VentaEstadoEnum` y `CategoriaEgresoEnum` en
+  `ENUM_NAME_OVERRIDES`.
+- **`RutaProtegida` acepta `capacidades` (una lista, basta cualquiera).**
+  `/caja` la abre tanto quien cobra como quien solo ve reportes, y
+  modelarlo con dos rutas al mismo componente habría sido peor.
+- **`FiltroPeriodo` y `filtrosPeriodo` se mudaron a `src/ui/`** (como
+  `FiltroPeriodo.tsx` y `periodos.ts`). Vivían en `pages/servicios/`
+  cuando sus consumidores eran esas pantallas; ahora los usan el
+  histórico de caja y "Mi trabajo", que no comparten sección.
+- **`dinero.ts` declara `METODOS_PAGO` y `CATEGORIAS_EGRESO` como
+  `Record` completos** sobre el enum del schema, no como listas sueltas:
+  si el backend agrega un método de pago, el frontend **deja de
+  compilar** hasta que alguien decida cómo se llama en la UI. Mismo
+  criterio que `permisos/catalogo.ts`.
+
+### Verificación
+- **72 tests en verde** (venían 70), `tsc -b` limpio, `oxlint` sin
+  errores nuevos y `npm run build` OK. Los tests de `CajaHoy` se
+  reescribieron enteros: los nuevos fijan que no hay forma de registrar
+  un ingreso a mano, que el arqueo deja el Nequi fuera del cajón, y que
+  la diferencia se calcula antes de enviar nada.
+- **Prueba de humo completa contra el backend real en Docker** (`curl`,
+  sin navegador), recorriendo los mismos endpoints que llama la UI:
+  registrar negocio → servicio con 40% de comisión → horario → agendar
+  → confirmar → completar (nace la venta de `$35.000`, con precio y
+  comisión congelados) → **completar otra vez y recibir la misma venta**
+  (idempotencia) → cola de cobro → cobrar sin caja abierta (`400`) →
+  abrir caja con base `$100.000` → **pago mixto** `$15.000` efectivo +
+  `$20.000` Nequi (`parcial` → `pagada`, 2 pagos, comisión devengada una
+  sola vez: `$14.000`) → gasto de `$50.000` → **arqueo esperado
+  `$65.000`**, con los `$20.000` de Nequi fuera del cajón y listados
+  aparte → cerrar contando `$63.000` y obtener `diferencia = -2.000`.
+
+### Pendiente
+- **Verificación manual en navegador**, que no se hizo en esta tanda: no
+  hay automatización de navegador en este entorno, así que lo verificado
+  es la suite, el build y el contrato real por HTTP. Vale la pena mirar
+  a ojo, con dos sesiones (una con `puede_cobrar`, otra sin), la cola de
+  cobro en un teléfono angosto y la fila de cuatro acciones de una cita
+  `confirmada`.
+- **Devoluciones parciales no tienen entrada propia en la UI.**
+  `ModalDeshacer` soporta el modo `devolver` y está cableado, pero hoy
+  solo se llega a él por "Anular". Falta decidir dónde vive el botón:
+  el candidato natural es el detalle de una venta ya pagada, que todavía
+  no existe como pantalla.
+- **Sin pantalla de detalle de venta.** `VentaCard` muestra items,
+  estado y saldo, que alcanza para cobrar; ver los pagos uno por uno
+  (útil para conciliar un mixto) necesitaría una vista propia.
+- Migrar los usos existentes de formateo de moneda suelto
+  (`ServiciosPage.tsx`, `ModalCatalogo.tsx`, `publico/secciones.tsx`) a
+  `formatearMoneda` — sigue sin urgir.

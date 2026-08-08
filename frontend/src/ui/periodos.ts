@@ -60,7 +60,7 @@ function paraApi(fecha: Date): string {
 }
 
 /** `fecha_desde`/`fecha_hasta` en el formato que espera la API
- * (`CONTRATO.md` 5.13): `YYYY-MM-DD`, inclusive en ambos extremos. */
+ * (`CONTRATO.md` 5.13/5.14): `YYYY-MM-DD`, inclusive en ambos extremos. */
 export function paraQuery(rango: RangoFechas): { fecha_desde: string; fecha_hasta: string } {
   return { fecha_desde: paraApi(rango.desde), fecha_hasta: paraApi(rango.hasta) };
 }

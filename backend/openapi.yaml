@@ -291,6 +291,33 @@ paths:
     post:
       operationId: agenda_citas_completar_create
       description: |-
+        El empleado terminó el trabajo. Marca la cita como `completada` y **genera la venta pendiente de cobro** con el servicio de la cita, que aparece de inmediato en la cola de recepción (`GET /api/caja/ventas/?estado=pendiente`).
+
+        No mueve plata ni requiere caja abierta: completar crea la deuda, cobrarla es otro acto, de otra persona (`POST /api/caja/ventas/{id}/cobrar/`).
+
+        **Idempotente**: llamarlo dos veces devuelve la misma venta, no crea una segunda. Responde `200` con la cita ya completada y la venta asociada.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitaCompletada'
+          description: ''
+  /api/agenda/citas/{id}/confirmar/:
+    post:
+      operationId: agenda_citas_confirmar_create
+      description: |-
         Agenda: crear y consultar citas, y transicionar su estado.
 
         Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
@@ -325,9 +352,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Cita'
           description: ''
-  /api/agenda/citas/{id}/confirmar/:
+  /api/agenda/citas/{id}/en-atencion/:
     post:
-      operationId: agenda_citas_confirmar_create
+      operationId: agenda_citas_en_atencion_create
       description: |-
         Agenda: crear y consultar citas, y transicionar su estado.
 
@@ -345,6 +372,30 @@ paths:
         `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
         cliente, así que la agenda completa **es** la libreta de clientes del
         negocio (ver `CONTRATO.md` sección 5.8).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cita.
+        required: true
+      tags:
+      - agenda
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cita'
+          description: ''
+  /api/agenda/citas/{id}/no-show/:
+    post:
+      operationId: agenda_citas_no_show_create
+      description: 'El cliente no llegó y no avisó. Distinto de `cancelar`: la franja
+        se libera igual, pero para el negocio son hechos distintos y conviene poder
+        contarlos por separado.'
       parameters:
       - in: path
         name: id
@@ -695,13 +746,17 @@ paths:
     get:
       operationId: caja_list
       description: |-
-        La caja del negocio: histórico, apertura, movimientos y cierre.
+        La jornada de caja: histórico, apertura, egresos y cierre con arqueo.
 
-        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        Leer (`list`/`retrieve`) exige `puede_cobrar` **o**
         `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-        opera la caja del día necesita poder mirar cierres pasados para
-        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-        movimientos exigen `puede_cobrar` sin excepción.
+        opera la caja del día necesita mirar cierres pasados para cuadrar, y
+        quien solo ve reportes también. Abrir, cerrar y registrar egresos
+        exigen `puede_cobrar` sin excepción.
+
+        Los **ingresos** no se crean acá: entran cobrando una venta
+        (`POST /api/caja/ventas/{id}/cobrar/`). Es la regla central del
+        módulo — la plata que entra siempre tiene una cuenta que la explica.
       parameters:
       - in: query
         name: fecha_desde
@@ -732,13 +787,17 @@ paths:
     get:
       operationId: caja_retrieve
       description: |-
-        La caja del negocio: histórico, apertura, movimientos y cierre.
+        La jornada de caja: histórico, apertura, egresos y cierre con arqueo.
 
-        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        Leer (`list`/`retrieve`) exige `puede_cobrar` **o**
         `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-        opera la caja del día necesita poder mirar cierres pasados para
-        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-        movimientos exigen `puede_cobrar` sin excepción.
+        opera la caja del día necesita mirar cierres pasados para cuadrar, y
+        quien solo ve reportes también. Abrir, cerrar y registrar egresos
+        exigen `puede_cobrar` sin excepción.
+
+        Los **ingresos** no se crean acá: entran cobrando una venta
+        (`POST /api/caja/ventas/{id}/cobrar/`). Es la regla central del
+        módulo — la plata que entra siempre tiene una cuenta que la explica.
       parameters:
       - in: path
         name: id
@@ -761,13 +820,17 @@ paths:
     post:
       operationId: caja_abrir_create
       description: |-
-        La caja del negocio: histórico, apertura, movimientos y cierre.
+        La jornada de caja: histórico, apertura, egresos y cierre con arqueo.
 
-        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        Leer (`list`/`retrieve`) exige `puede_cobrar` **o**
         `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-        opera la caja del día necesita poder mirar cierres pasados para
-        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-        movimientos exigen `puede_cobrar` sin excepción.
+        opera la caja del día necesita mirar cierres pasados para cuadrar, y
+        quien solo ve reportes también. Abrir, cerrar y registrar egresos
+        exigen `puede_cobrar` sin excepción.
+
+        Los **ingresos** no se crean acá: entran cobrando una venta
+        (`POST /api/caja/ventas/{id}/cobrar/`). Es la regla central del
+        módulo — la plata que entra siempre tiene una cuenta que la explica.
       tags:
       - caja
       requestBody:
@@ -794,13 +857,17 @@ paths:
     get:
       operationId: caja_actual_retrieve
       description: |-
-        La caja del negocio: histórico, apertura, movimientos y cierre.
+        La jornada de caja: histórico, apertura, egresos y cierre con arqueo.
 
-        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+        Leer (`list`/`retrieve`) exige `puede_cobrar` **o**
         `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-        opera la caja del día necesita poder mirar cierres pasados para
-        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-        movimientos exigen `puede_cobrar` sin excepción.
+        opera la caja del día necesita mirar cierres pasados para cuadrar, y
+        quien solo ve reportes también. Abrir, cerrar y registrar egresos
+        exigen `puede_cobrar` sin excepción.
+
+        Los **ingresos** no se crean acá: entran cobrando una venta
+        (`POST /api/caja/ventas/{id}/cobrar/`). Es la regla central del
+        módulo — la plata que entra siempre tiene una cuenta que la explica.
       tags:
       - caja
       security:
@@ -816,13 +883,11 @@ paths:
     post:
       operationId: caja_cerrar_create
       description: |-
-        La caja del negocio: histórico, apertura, movimientos y cierre.
+        Cierra la caja con arqueo. `efectivo_contado` es obligatorio.
 
-        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
-        `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-        opera la caja del día necesita poder mirar cierres pasados para
-        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-        movimientos exigen `puede_cobrar` sin excepción.
+        El esperado se calcula **solo con efectivo**: saldo inicial + ingresos en efectivo − egresos en efectivo − devoluciones en efectivo. Tarjeta y transferencias no pasan por el cajón y se concilian aparte (ver `resumen.por_metodo_pago`).
+
+        Una diferencia negativa (faltante) **no bloquea** el cierre: queda registrada y auditada.
       tags:
       - caja
       requestBody:
@@ -836,6 +901,7 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/CerrarCaja'
+        required: true
       security:
       - jwtAuth: []
       responses:
@@ -845,30 +911,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/CajaDetalle'
           description: ''
-  /api/caja/movimientos/:
+  /api/caja/egresos/:
     post:
-      operationId: caja_movimientos_create
-      description: |-
-        La caja del negocio: histórico, apertura, movimientos y cierre.
-
-        Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
-        `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-        opera la caja del día necesita poder mirar cierres pasados para
-        cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-        movimientos exigen `puede_cobrar` sin excepción.
+      operationId: caja_egresos_create
+      description: Registra plata que sale por un gasto del negocio (insumos, arriendo,
+        domicilio). No tiene venta asociada por diseño, y es distinto de una devolución
+        a un cliente — que se hace desde la venta y tiene su propio tipo de movimiento.
       tags:
       - caja
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MovimientoCaja'
+              $ref: '#/components/schemas/Egreso'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/MovimientoCaja'
+              $ref: '#/components/schemas/Egreso'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/MovimientoCaja'
+              $ref: '#/components/schemas/Egreso'
         required: true
       security:
       - jwtAuth: []
@@ -878,6 +939,279 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MovimientoCaja'
+          description: ''
+  /api/caja/ventas/:
+    get:
+      operationId: caja_ventas_list
+      description: |-
+        Las cuentas del negocio: qué se debe, qué se cobró.
+
+        Reemplaza al viejo `POST /api/servicios/registros/` y a su circuito de
+        aprobación. La regla que ordena todo el módulo: **el servicio genera
+        la deuda, el pago genera el movimiento de caja**. Crear una venta no
+        mueve plata ni necesita caja abierta; cobrarla sí.
+
+        Quién puede qué:
+
+        - **crear** — cualquier miembro activo. Sin `puede_cobrar`, solo puede
+          facturar líneas de trabajo **propio** (ver `VentaSerializer`), para
+          que nadie le cargue trabajo ni comisión a un compañero. Lo normal es
+          que no haga falta: la venta la genera sola la cita al completarse.
+        - **listar/ver** — sin `puede_cobrar` ni `puede_ver_reportes`, solo las
+          ventas en las que uno participó. Una venta ajena responde 404, igual
+          que una inexistente (`CONTRATO.md` 5.2).
+        - **cobrar** — `puede_cobrar`.
+        - **devolver / anular** — `puede_anular_venta`. Son las dos acciones
+          que mueven dinero hacia atrás y por eso viven en una capacidad
+          aparte de la de cobrar.
+
+        Sin `PUT`/`PATCH`/`DELETE`: una venta equivocada se **anula** (y si ya
+        tenía cobros, se devuelve), nunca se edita ni se borra. El historial
+        financiero no se altera retroactivamente.
+      parameters:
+      - in: query
+        name: empleado
+        schema:
+          type: integer
+        description: Filtra por quién realizó alguna de las líneas.
+      - in: query
+        name: estado
+        schema:
+          type: string
+          enum:
+          - anulada
+          - pagada
+          - parcial
+          - pendiente
+        description: Filtra por estado. `?estado=pendiente` es la **cola de cobro**
+          de recepción.
+      - in: query
+        name: fecha_desde
+        schema:
+          type: string
+        description: YYYY-MM-DD, inclusive.
+      - in: query
+        name: fecha_hasta
+        schema:
+          type: string
+        description: YYYY-MM-DD, inclusive.
+      tags:
+      - caja
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Venta'
+          description: ''
+    post:
+      operationId: caja_ventas_create
+      description: |-
+        Las cuentas del negocio: qué se debe, qué se cobró.
+
+        Reemplaza al viejo `POST /api/servicios/registros/` y a su circuito de
+        aprobación. La regla que ordena todo el módulo: **el servicio genera
+        la deuda, el pago genera el movimiento de caja**. Crear una venta no
+        mueve plata ni necesita caja abierta; cobrarla sí.
+
+        Quién puede qué:
+
+        - **crear** — cualquier miembro activo. Sin `puede_cobrar`, solo puede
+          facturar líneas de trabajo **propio** (ver `VentaSerializer`), para
+          que nadie le cargue trabajo ni comisión a un compañero. Lo normal es
+          que no haga falta: la venta la genera sola la cita al completarse.
+        - **listar/ver** — sin `puede_cobrar` ni `puede_ver_reportes`, solo las
+          ventas en las que uno participó. Una venta ajena responde 404, igual
+          que una inexistente (`CONTRATO.md` 5.2).
+        - **cobrar** — `puede_cobrar`.
+        - **devolver / anular** — `puede_anular_venta`. Son las dos acciones
+          que mueven dinero hacia atrás y por eso viven en una capacidad
+          aparte de la de cobrar.
+
+        Sin `PUT`/`PATCH`/`DELETE`: una venta equivocada se **anula** (y si ya
+        tenía cobros, se devuelve), nunca se edita ni se borra. El historial
+        financiero no se altera retroactivamente.
+      tags:
+      - caja
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Venta'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Venta'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Venta'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venta'
+          description: ''
+  /api/caja/ventas/{id}/:
+    get:
+      operationId: caja_ventas_retrieve
+      description: |-
+        Las cuentas del negocio: qué se debe, qué se cobró.
+
+        Reemplaza al viejo `POST /api/servicios/registros/` y a su circuito de
+        aprobación. La regla que ordena todo el módulo: **el servicio genera
+        la deuda, el pago genera el movimiento de caja**. Crear una venta no
+        mueve plata ni necesita caja abierta; cobrarla sí.
+
+        Quién puede qué:
+
+        - **crear** — cualquier miembro activo. Sin `puede_cobrar`, solo puede
+          facturar líneas de trabajo **propio** (ver `VentaSerializer`), para
+          que nadie le cargue trabajo ni comisión a un compañero. Lo normal es
+          que no haga falta: la venta la genera sola la cita al completarse.
+        - **listar/ver** — sin `puede_cobrar` ni `puede_ver_reportes`, solo las
+          ventas en las que uno participó. Una venta ajena responde 404, igual
+          que una inexistente (`CONTRATO.md` 5.2).
+        - **cobrar** — `puede_cobrar`.
+        - **devolver / anular** — `puede_anular_venta`. Son las dos acciones
+          que mueven dinero hacia atrás y por eso viven en una capacidad
+          aparte de la de cobrar.
+
+        Sin `PUT`/`PATCH`/`DELETE`: una venta equivocada se **anula** (y si ya
+        tenía cobros, se devuelve), nunca se edita ni se borra. El historial
+        financiero no se altera retroactivamente.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this venta.
+        required: true
+      tags:
+      - caja
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venta'
+          description: ''
+  /api/caja/ventas/{id}/anular/:
+    post:
+      operationId: caja_ventas_anular_create
+      description: 'Anula la venta. Si ya tenía cobros, genera la devolución por lo
+        cobrado (y por lo tanto exige caja abierta). Revierte las comisiones devengadas.
+        Es terminal: una venta anulada no se vuelve a cobrar.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this venta.
+        required: true
+      tags:
+      - caja
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnularVenta'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnularVenta'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnularVenta'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venta'
+          description: ''
+  /api/caja/ventas/{id}/cobrar/:
+    post:
+      operationId: caja_ventas_cobrar_create
+      description: |-
+        Cobra la venta, total o parcialmente. Crea el pago **y** su movimiento de caja en la misma transacción, así que exige caja abierta.
+
+        Un pago mixto son dos llamadas a este endpoint sobre la misma venta, una por método. Cuando lo cobrado alcanza el total, la venta pasa a `pagada` y recién ahí se devengan las comisiones.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this venta.
+        required: true
+      tags:
+      - caja
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cobrar'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cobrar'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cobrar'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venta'
+          description: ''
+  /api/caja/ventas/{id}/devolver/:
+    post:
+      operationId: caja_ventas_devolver_create
+      description: 'Devuelve plata al cliente. **No edita ni borra** el cobro original:
+        genera un movimiento nuevo de tipo `devolucion`, de modo que las dos mitades
+        del hecho quedan en el libro.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this venta.
+        required: true
+      tags:
+      - caja
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Devolver'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Devolver'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Devolver'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venta'
           description: ''
   /api/negocios/cargos/:
     get:
@@ -1874,273 +2208,6 @@ paths:
                 items:
                   $ref: '#/components/schemas/Servicio'
           description: ''
-  /api/servicios/registros/:
-    get:
-      operationId: servicios_registros_list
-      description: |-
-        Registro y validación de servicios realizados.
-
-        Crear no exige ninguna capacidad: cualquier miembro activo puede
-        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-        suyo propio** — `empleado` sale de la membresía del token, nunca del
-        body (ver `perform_create`), para que nadie registre trabajo a
-        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-        **obligatorio**: alguien que administra el negocio puede estar
-        cargando el trabajo de un barbero que no usa la app, y el registro
-        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-        tipeó (ver `RegistroServicioSerializer.validate`).
-
-        Listar devuelve solo los propios salvo que se tenga
-        `puede_aprobar_servicios`, que ve los de todo el negocio, con
-        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-        suyo aunque tenga el permiso (ver `services._validar_revision`) —
-        incluye a quien registró a nombre de otro y luego se pone a sí mismo
-        como empleado: sigue sin poder aprobarse.
-
-        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-        su propio rastro de auditoría.
-      parameters:
-      - in: query
-        name: empleado
-        schema:
-          type: integer
-        description: 'Filtra por quién lo registró. Sin `puede_aprobar_servicios`
-          no tiene efecto útil: el listado ya está acotado a uno mismo.'
-      - in: query
-        name: estado
-        schema:
-          type: string
-          enum:
-          - aprobado
-          - pendiente
-          - rechazado
-        description: Filtra por estado. Sin este parámetro, devuelve todos.
-      - in: query
-        name: fecha_desde
-        schema:
-          type: string
-        description: Filtra desde esta fecha, inclusive (YYYY-MM-DD).
-      - in: query
-        name: fecha_hasta
-        schema:
-          type: string
-        description: Filtra hasta esta fecha, inclusive (YYYY-MM-DD).
-      tags:
-      - servicios
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RegistroServicio'
-          description: ''
-    post:
-      operationId: servicios_registros_create
-      description: |-
-        Registro y validación de servicios realizados.
-
-        Crear no exige ninguna capacidad: cualquier miembro activo puede
-        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-        suyo propio** — `empleado` sale de la membresía del token, nunca del
-        body (ver `perform_create`), para que nadie registre trabajo a
-        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-        **obligatorio**: alguien que administra el negocio puede estar
-        cargando el trabajo de un barbero que no usa la app, y el registro
-        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-        tipeó (ver `RegistroServicioSerializer.validate`).
-
-        Listar devuelve solo los propios salvo que se tenga
-        `puede_aprobar_servicios`, que ve los de todo el negocio, con
-        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-        suyo aunque tenga el permiso (ver `services._validar_revision`) —
-        incluye a quien registró a nombre de otro y luego se pone a sí mismo
-        como empleado: sigue sin poder aprobarse.
-
-        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-        su propio rastro de auditoría.
-      tags:
-      - servicios
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegistroServicio'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/RegistroServicio'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/RegistroServicio'
-        required: true
-      security:
-      - jwtAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegistroServicio'
-          description: ''
-  /api/servicios/registros/{id}/:
-    get:
-      operationId: servicios_registros_retrieve
-      description: |-
-        Registro y validación de servicios realizados.
-
-        Crear no exige ninguna capacidad: cualquier miembro activo puede
-        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-        suyo propio** — `empleado` sale de la membresía del token, nunca del
-        body (ver `perform_create`), para que nadie registre trabajo a
-        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-        **obligatorio**: alguien que administra el negocio puede estar
-        cargando el trabajo de un barbero que no usa la app, y el registro
-        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-        tipeó (ver `RegistroServicioSerializer.validate`).
-
-        Listar devuelve solo los propios salvo que se tenga
-        `puede_aprobar_servicios`, que ve los de todo el negocio, con
-        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-        suyo aunque tenga el permiso (ver `services._validar_revision`) —
-        incluye a quien registró a nombre de otro y luego se pone a sí mismo
-        como empleado: sigue sin poder aprobarse.
-
-        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-        su propio rastro de auditoría.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this registro servicio.
-        required: true
-      tags:
-      - servicios
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegistroServicio'
-          description: ''
-  /api/servicios/registros/{id}/aprobar/:
-    post:
-      operationId: servicios_registros_aprobar_create
-      description: |-
-        Registro y validación de servicios realizados.
-
-        Crear no exige ninguna capacidad: cualquier miembro activo puede
-        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-        suyo propio** — `empleado` sale de la membresía del token, nunca del
-        body (ver `perform_create`), para que nadie registre trabajo a
-        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-        **obligatorio**: alguien que administra el negocio puede estar
-        cargando el trabajo de un barbero que no usa la app, y el registro
-        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-        tipeó (ver `RegistroServicioSerializer.validate`).
-
-        Listar devuelve solo los propios salvo que se tenga
-        `puede_aprobar_servicios`, que ve los de todo el negocio, con
-        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-        suyo aunque tenga el permiso (ver `services._validar_revision`) —
-        incluye a quien registró a nombre de otro y luego se pone a sí mismo
-        como empleado: sigue sin poder aprobarse.
-
-        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-        su propio rastro de auditoría.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this registro servicio.
-        required: true
-      tags:
-      - servicios
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegistroServicio'
-          description: ''
-  /api/servicios/registros/{id}/rechazar/:
-    post:
-      operationId: servicios_registros_rechazar_create
-      description: |-
-        Registro y validación de servicios realizados.
-
-        Crear no exige ninguna capacidad: cualquier miembro activo puede
-        registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-        suyo propio** — `empleado` sale de la membresía del token, nunca del
-        body (ver `perform_create`), para que nadie registre trabajo a
-        nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-        **obligatorio**: alguien que administra el negocio puede estar
-        cargando el trabajo de un barbero que no usa la app, y el registro
-        tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-        tipeó (ver `RegistroServicioSerializer.validate`).
-
-        Listar devuelve solo los propios salvo que se tenga
-        `puede_aprobar_servicios`, que ve los de todo el negocio, con
-        `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-        para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-        excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-        suyo aunque tenga el permiso (ver `services._validar_revision`) —
-        incluye a quien registró a nombre de otro y luego se pone a sí mismo
-        como empleado: sigue sin poder aprobarse.
-
-        Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-        que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-        su propio rastro de auditoría.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this registro servicio.
-        required: true
-      tags:
-      - servicios
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Rechazo'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/Rechazo'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/Rechazo'
-        required: true
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegistroServicio'
-          description: ''
 components:
   schemas:
     AbrirCaja:
@@ -2151,9 +2218,26 @@ components:
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
           default: '0.00'
-    BlankEnum:
-      enum:
-      - ''
+    AnularVenta:
+      type: object
+      properties:
+        motivo:
+          type: string
+          maxLength: 500
+        metodo_devolucion:
+          allOf:
+          - $ref: '#/components/schemas/MetodoPagoEnum'
+          description: |-
+            Con qué se le devuelve la plata al cliente, si la venta ya tenía cobros. Por defecto, el método del primer pago.
+
+            * `efectivo` - Efectivo
+            * `tarjeta` - Tarjeta
+            * `nequi` - Nequi
+            * `daviplata` - Daviplata
+            * `bre_b` - Bre-B
+            * `otro` - Otro
+      required:
+      - motivo
     CajaDetalle:
       type: object
       description: 'El detalle de una caja: sus movimientos y el resumen agregado.'
@@ -2170,6 +2254,7 @@ components:
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
           readOnly: true
+          description: Efectivo con el que arranca el cajón (la base).
         abierta_por:
           type: integer
           readOnly: true
@@ -2196,6 +2281,28 @@ components:
         nota_cierre:
           type: string
           readOnly: true
+        efectivo_esperado:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: saldo_inicial + ingresos en efectivo − egresos en efectivo
+            − devoluciones en efectivo, al momento del cierre.
+        efectivo_contado:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: Lo que la persona contó de verdad en el cajón.
+        diferencia:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: efectivo_contado − efectivo_esperado. Negativo es faltante.
         movimientos:
           type: array
           items:
@@ -2212,6 +2319,9 @@ components:
       - cerrada_en
       - cerrada_por
       - cerrada_por_nombre
+      - diferencia
+      - efectivo_contado
+      - efectivo_esperado
       - estado
       - id
       - movimientos
@@ -2244,6 +2354,7 @@ components:
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
           readOnly: true
+          description: Efectivo con el que arranca el cajón (la base).
         abierta_por:
           type: integer
           readOnly: true
@@ -2270,6 +2381,28 @@ components:
         nota_cierre:
           type: string
           readOnly: true
+        efectivo_esperado:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: saldo_inicial + ingresos en efectivo − egresos en efectivo
+            − devoluciones en efectivo, al momento del cierre.
+        efectivo_contado:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: Lo que la persona contó de verdad en el cajón.
+        diferencia:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: efectivo_contado − efectivo_esperado. Negativo es faltante.
       required:
       - abierta_en
       - abierta_por
@@ -2277,6 +2410,9 @@ components:
       - cerrada_en
       - cerrada_por
       - cerrada_por_nombre
+      - diferencia
+      - efectivo_contado
+      - efectivo_esperado
       - estado
       - id
       - nota_cierre
@@ -2319,20 +2455,59 @@ components:
           type: boolean
         puede_editar_negocio:
           type: boolean
-        puede_aprobar_servicios:
+        puede_anular_venta:
           type: boolean
       required:
       - id
       - miembros
       - nombre
+    CategoriaEgresoEnum:
+      enum:
+      - insumos
+      - servicios_publicos
+      - arriendo
+      - transporte
+      - mantenimiento
+      - nomina
+      - comisiones
+      - otros
+      type: string
+      description: |-
+        * `insumos` - Insumos
+        * `servicios_publicos` - Servicios públicos
+        * `arriendo` - Arriendo
+        * `transporte` - Transporte
+        * `mantenimiento` - Mantenimiento
+        * `nomina` - Nómina
+        * `comisiones` - Comisiones
+        * `otros` - Otros
     CerrarCaja:
       type: object
+      description: |-
+        Entrada del cierre. `efectivo_contado` es **obligatorio**: cerrar
+        sin contar el cajón es lo que hacía que el módulo no sirviera para
+        detectar un faltante.
       properties:
+        efectivo_contado:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: Lo que se contó de verdad en el cajón, en efectivo.
         nota_cierre:
           type: string
           default: ''
+      required:
+      - efectivo_contado
     Cita:
       type: object
+      description: |-
+        Una cita de la agenda.
+
+        `venta_id` y `venta_estado` son la **única** referencia al dinero que
+        trae la cita, y son de la venta asociada, no campos propios: el
+        estado financiero no se duplica acá (ver `apps.agenda.models.Cita`).
+        Vienen en `null` mientras no exista venta, que es todo el tiempo hasta
+        que alguien completa la cita.
       properties:
         id:
           type: integer
@@ -2366,6 +2541,16 @@ components:
           maxLength: 30
         notas:
           type: string
+        venta_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        venta_estado:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/VentaEstadoEnum'
+          - $ref: '#/components/schemas/NullEnum'
       required:
       - empleado
       - empleado_nombre
@@ -2376,6 +2561,27 @@ components:
       - nombre_cliente
       - servicio
       - servicio_nombre
+      - venta_estado
+      - venta_id
+    CitaCompletada:
+      type: object
+      description: |-
+        Respuesta de `POST /api/agenda/citas/{id}/completar/`.
+
+        Devuelve la venta entera y no solo su id para que el empleado vea en
+        la misma pantalla cuánto quedó a cobrar, sin una segunda llamada — y
+        para que el frontend pueda mostrar el total sin adivinarlo a partir
+        del precio del catálogo, que no es el que se congeló en la venta.
+      properties:
+        cita:
+          $ref: '#/components/schemas/Cita'
+        venta:
+          allOf:
+          - $ref: '#/components/schemas/Venta'
+          readOnly: true
+      required:
+      - cita
+      - venta
     CitaCreate:
       type: object
       description: |-
@@ -2408,14 +2614,95 @@ components:
       enum:
       - agendada
       - confirmada
+      - en_atencion
       - completada
       - cancelada
+      - no_show
       type: string
       description: |-
         * `agendada` - Agendada
         * `confirmada` - Confirmada
+        * `en_atencion` - En atención
         * `completada` - Completada
         * `cancelada` - Cancelada
+        * `no_show` - No asistió
+    Cobrar:
+      type: object
+      description: |-
+        Entrada de `POST /api/caja/ventas/{id}/cobrar/`.
+
+        Un pago mixto son **dos llamadas** a este endpoint sobre la misma
+        venta, una por método. Se prefirió eso a recibir una lista de pagos
+        en un solo request porque cada pago es un hecho independiente que
+        puede fallar por su cuenta (la caja se cerró entremedio, el monto
+        excede el saldo), y un error parcial dentro de una lista es
+        justamente lo que no se quiere en el dominio de dinero.
+      properties:
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        metodo_pago:
+          $ref: '#/components/schemas/MetodoPagoEnum'
+      required:
+      - metodo_pago
+      - monto
+    Devolucion:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        metodo_pago:
+          allOf:
+          - $ref: '#/components/schemas/MetodoPagoEnum'
+          readOnly: true
+        motivo:
+          type: string
+          readOnly: true
+        registrado_por:
+          type: integer
+          readOnly: true
+        registrado_por_nombre:
+          type: string
+          readOnly: true
+        movimiento:
+          type: integer
+          readOnly: true
+        creado_en:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - creado_en
+      - id
+      - metodo_pago
+      - monto
+      - motivo
+      - movimiento
+      - registrado_por
+      - registrado_por_nombre
+    Devolver:
+      type: object
+      properties:
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        metodo_pago:
+          $ref: '#/components/schemas/MetodoPagoEnum'
+        motivo:
+          type: string
+          maxLength: 500
+      required:
+      - metodo_pago
+      - monto
+      - motivo
     DiaSemanaEnum:
       enum:
       - 0
@@ -2434,6 +2721,36 @@ components:
         * `4` - Viernes
         * `5` - Sábado
         * `6` - Domingo
+    Egreso:
+      type: object
+      description: Entrada de `POST /api/caja/egresos/`.
+      properties:
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        concepto:
+          type: string
+          maxLength: 200
+        categoria:
+          $ref: '#/components/schemas/CategoriaEgresoEnum'
+        metodo_pago:
+          allOf:
+          - $ref: '#/components/schemas/MetodoPagoEnum'
+          default: efectivo
+          description: |-
+            Con qué se pagó. Solo `efectivo` afecta el arqueo del cajón; el resto se concilia contra el extracto de su plataforma.
+
+            * `efectivo` - Efectivo
+            * `tarjeta` - Tarjeta
+            * `nequi` - Nequi
+            * `daviplata` - Daviplata
+            * `bre_b` - Bre-B
+            * `otro` - Otro
+      required:
+      - categoria
+      - concepto
+      - monto
     EmpleadoAlta:
       type: object
       description: 'Empleado adicional: sus datos de acceso y en qué cargo entra.'
@@ -2667,6 +2984,7 @@ components:
     MetodoPagoEnum:
       enum:
       - efectivo
+      - tarjeta
       - nequi
       - daviplata
       - bre_b
@@ -2674,6 +2992,7 @@ components:
       type: string
       description: |-
         * `efectivo` - Efectivo
+        * `tarjeta` - Tarjeta
         * `nequi` - Nequi
         * `daviplata` - Daviplata
         * `bre_b` - Bre-B
@@ -2863,8 +3182,14 @@ components:
     MovimientoCaja:
       type: object
       description: |-
-        Un ingreso o egreso. Alta y consulta — no hay edición (ver el
-        modelo: es un libro contable, inmutable tras crearse).
+        Una línea del libro. **Solo lectura**: los movimientos no se crean
+        sueltos ni se editan.
+
+        Un ingreso nace de cobrar una venta (`POST /api/caja/ventas/{id}/cobrar/`),
+        una devolución de devolver (`.../devolver/`), y un egreso tiene su
+        propio endpoint (`POST /api/caja/egresos/`). No hay un "crear
+        movimiento" genérico a propósito: era la puerta por la que entraba
+        plata que ninguna venta explicaba.
       properties:
         id:
           type: integer
@@ -2873,32 +3198,28 @@ components:
           type: integer
           readOnly: true
         tipo:
-          $ref: '#/components/schemas/MovimientoCajaTipoEnum'
+          allOf:
+          - $ref: '#/components/schemas/MovimientoCajaTipoEnum'
+          readOnly: true
         metodo_pago:
-          oneOf:
+          allOf:
           - $ref: '#/components/schemas/MetodoPagoEnum'
-          - $ref: '#/components/schemas/BlankEnum'
+          readOnly: true
         monto:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          description: Siempre positivo. El signo lo da `tipo`, no el monto.
         concepto:
           type: string
-          maxLength: 200
-        registro_servicio:
-          type: integer
-          nullable: true
-        empleado_comision:
-          type: integer
-          nullable: true
-        empleado_comision_nombre:
-          type: string
           readOnly: true
-          nullable: true
-        monto_comision:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        categoria:
+          allOf:
+          - $ref: '#/components/schemas/CategoriaEgresoEnum'
+          readOnly: true
+        venta:
+          type: integer
           readOnly: true
           nullable: true
         registrado_por:
@@ -2913,23 +3234,26 @@ components:
           readOnly: true
       required:
       - caja
+      - categoria
       - concepto
       - creado_en
-      - empleado_comision_nombre
       - id
+      - metodo_pago
       - monto
-      - monto_comision
       - registrado_por
       - registrado_por_nombre
       - tipo
+      - venta
     MovimientoCajaTipoEnum:
       enum:
       - ingreso
       - egreso
+      - devolucion
       type: string
       description: |-
         * `ingreso` - Ingreso
         * `egreso` - Egreso
+        * `devolucion` - Devolución
     Negocio:
       type: object
       properties:
@@ -3058,6 +3382,9 @@ components:
       - ciudad
       - nombre
       - slug
+    NullEnum:
+      enum:
+      - null
     OrdenFotos:
       type: object
       description: 'El cuerpo de `PUT .../fotos/orden/`: la galería entera, en orden.'
@@ -3071,6 +3398,42 @@ components:
           maxItems: 10
       required:
       - ids
+    Pago:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        metodo_pago:
+          allOf:
+          - $ref: '#/components/schemas/MetodoPagoEnum'
+          readOnly: true
+        registrado_por:
+          type: integer
+          readOnly: true
+        registrado_por_nombre:
+          type: string
+          readOnly: true
+        movimiento:
+          type: integer
+          readOnly: true
+        creado_en:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - creado_en
+      - id
+      - metodo_pago
+      - monto
+      - movimiento
+      - registrado_por
+      - registrado_por_nombre
     PatchedCargo:
       type: object
       description: |-
@@ -3109,10 +3472,18 @@ components:
           type: boolean
         puede_editar_negocio:
           type: boolean
-        puede_aprobar_servicios:
+        puede_anular_venta:
           type: boolean
     PatchedCita:
       type: object
+      description: |-
+        Una cita de la agenda.
+
+        `venta_id` y `venta_estado` son la **única** referencia al dinero que
+        trae la cita, y son de la venta asociada, no campos propios: el
+        estado financiero no se duplica acá (ver `apps.agenda.models.Cita`).
+        Vienen en `null` mientras no exista venta, que es todo el tiempo hasta
+        que alguien completa la cita.
       properties:
         id:
           type: integer
@@ -3146,6 +3517,16 @@ components:
           maxLength: 30
         notas:
           type: string
+        venta_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        venta_estado:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/VentaEstadoEnum'
+          - $ref: '#/components/schemas/NullEnum'
     PatchedHorarioTrabajo:
       type: object
       properties:
@@ -3299,17 +3680,6 @@ components:
       - especialidad
       - id
       - nombre
-    Rechazo:
-      type: object
-      description: |-
-        Entrada de `POST .../registros/{id}/rechazar/`: el motivo es
-        obligatorio — es lo que el empleado va a leer en su propio historial.
-      properties:
-        motivo:
-          type: string
-          maxLength: 500
-      required:
-      - motivo
     RegistroNegocio:
       type: object
       properties:
@@ -3357,101 +3727,6 @@ components:
       - access
       - negocio
       - refresh
-    RegistroServicio:
-      type: object
-      description: |-
-        Un registro de servicio realizado: alta y consulta.
-
-        `estado`, `aprobado_por` y `fecha_revision` son de solo lectura
-        porque los fija el servidor a través de las acciones
-        `aprobar`/`rechazar`, nunca el cliente.
-
-        `empleado` es un caso especial: **casi siempre** lo fija el servidor
-        también (ver `RegistroServicioViewSet.perform_create`), pero quien
-        tiene `puede_aprobar_servicios` puede —y debe— elegir a nombre de
-        quién registra, para dejar constancia de un servicio que un barbero
-        sin acceso a la app no pudo cargar él mismo. Por eso viaja como
-        campo normal (no en `read_only_fields`) y su exigencia se resuelve en
-        `validate()`, según quién hace el request.
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        empleado:
-          type: integer
-          description: Quién realizó el servicio. Solo se puede elegir con `puede_aprobar_servicios`;
-            sin esa capacidad, el campo se ignora y siempre queda el propio solicitante.
-        empleado_nombre:
-          type: string
-          readOnly: true
-        servicio:
-          type: integer
-        servicio_nombre:
-          type: string
-          readOnly: true
-        nombre_cliente:
-          type: string
-          maxLength: 150
-        telefono_cliente:
-          type: string
-          maxLength: 30
-        fecha_hora:
-          type: string
-          format: date-time
-          description: Cuándo ocurrió el servicio. No puede ser futura.
-        observaciones:
-          type: string
-        evidencia:
-          type: string
-          format: uri
-          nullable: true
-        estado:
-          allOf:
-          - $ref: '#/components/schemas/RegistroServicioEstadoEnum'
-          readOnly: true
-        aprobado_por:
-          type: integer
-          readOnly: true
-          nullable: true
-        aprobado_por_nombre:
-          type: string
-          readOnly: true
-          nullable: true
-        fecha_revision:
-          type: string
-          format: date-time
-          readOnly: true
-          nullable: true
-        motivo_rechazo:
-          type: string
-          readOnly: true
-        creado_en:
-          type: string
-          format: date-time
-          readOnly: true
-      required:
-      - aprobado_por
-      - aprobado_por_nombre
-      - creado_en
-      - empleado_nombre
-      - estado
-      - fecha_hora
-      - fecha_revision
-      - id
-      - motivo_rechazo
-      - nombre_cliente
-      - servicio
-      - servicio_nombre
-    RegistroServicioEstadoEnum:
-      enum:
-      - pendiente
-      - aprobado
-      - rechazado
-      type: string
-      description: |-
-        * `pendiente` - Pendiente
-        * `aprobado` - Aprobado
-        * `rechazado` - Rechazado
     Reserva:
       type: object
       description: |-
@@ -3528,6 +3803,10 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total_devoluciones:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
         neto:
           type: string
           format: decimal
@@ -3538,21 +3817,54 @@ components:
             type: string
             format: decimal
             pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        egresos_por_categoria:
+          type: object
+          additionalProperties:
+            type: string
+            format: decimal
+            pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
         comisiones_por_empleado:
           type: array
           items:
             $ref: '#/components/schemas/ResumenComision'
-        servicios_aprobados_sin_cobrar:
+        ventas_sin_cobrar:
           type: integer
-          description: Cuántos RegistroServicio aprobados durante esta caja no tienen
-            ningún movimiento vinculado. Informativo, no bloquea el cierre.
+          description: Cuántas ventas del negocio siguen pendientes o parciales. Informativo,
+            no bloquea el cierre.
+        saldo_inicial:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        ingresos_efectivo:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        egresos_efectivo:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        devoluciones_efectivo:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        efectivo_esperado:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
       required:
       - comisiones_por_empleado
+      - devoluciones_efectivo
+      - efectivo_esperado
+      - egresos_efectivo
+      - egresos_por_categoria
+      - ingresos_efectivo
       - neto
       - por_metodo_pago
-      - servicios_aprobados_sin_cobrar
+      - saldo_inicial
+      - total_devoluciones
       - total_egresos
       - total_ingresos
+      - ventas_sin_cobrar
     ResumenComision:
       type: object
       properties:
@@ -3703,6 +4015,171 @@ components:
       required:
       - access
       - refresh
+    Venta:
+      type: object
+      description: |-
+        Una cuenta: qué se hizo, cuánto vale, cuánto se cobró.
+
+        `estado`, `total` y todo lo relacionado con el cobro son de solo
+        lectura: los fija el servidor a través de `cobrar`, `devolver` y
+        `anular`. El cliente solo manda el cliente, los items y (si aplica)
+        la evidencia.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cita:
+          type: integer
+          readOnly: true
+          nullable: true
+        nombre_cliente:
+          type: string
+          maxLength: 150
+        telefono_cliente:
+          type: string
+          maxLength: 30
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VentaItem'
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        total_pagado:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        saldo_pendiente:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        estado:
+          allOf:
+          - $ref: '#/components/schemas/VentaEstadoEnum'
+          readOnly: true
+        observaciones:
+          type: string
+        evidencia:
+          type: string
+          format: uri
+          nullable: true
+        pagos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pago'
+          readOnly: true
+        devoluciones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Devolucion'
+          readOnly: true
+        creada_por:
+          type: integer
+          readOnly: true
+        creada_por_nombre:
+          type: string
+          readOnly: true
+        anulada_por:
+          type: integer
+          readOnly: true
+          nullable: true
+        anulada_en:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        motivo_anulacion:
+          type: string
+          readOnly: true
+        creado_en:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - anulada_en
+      - anulada_por
+      - cita
+      - creada_por
+      - creada_por_nombre
+      - creado_en
+      - devoluciones
+      - estado
+      - id
+      - items
+      - motivo_anulacion
+      - nombre_cliente
+      - pagos
+      - saldo_pendiente
+      - total
+      - total_pagado
+    VentaEstadoEnum:
+      enum:
+      - pendiente
+      - parcial
+      - pagada
+      - anulada
+      type: string
+      description: |-
+        * `pendiente` - Pendiente de cobro
+        * `parcial` - Pagada parcialmente
+        * `pagada` - Pagada
+        * `anulada` - Anulada
+    VentaItem:
+      type: object
+      description: |-
+        Una línea de la venta.
+
+        Al **crear**, se manda `servicio` (y de ahí se copian descripción,
+        precio y comisión) o bien `descripcion` + `precio_unitario` a mano,
+        para vender algo que todavía no tiene catálogo. `empleado` es siempre
+        obligatorio: es la fuente de verdad de la comisión.
+
+        Al **leer**, `descripcion`, `precio_unitario` y `porcentaje_comision`
+        son los valores congelados al momento de la venta, no los del
+        catálogo de hoy.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        servicio:
+          type: integer
+          nullable: true
+        empleado:
+          type: integer
+        empleado_nombre:
+          type: string
+          readOnly: true
+        descripcion:
+          type: string
+          maxLength: 200
+        precio_unitario:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+        porcentaje_comision:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          readOnly: true
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+      required:
+      - empleado
+      - empleado_nombre
+      - id
+      - porcentaje_comision
+      - subtotal
   securitySchemes:
     jwtAuth:
       type: http

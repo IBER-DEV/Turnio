@@ -18,12 +18,36 @@ class TransicionEstadoInvalida(Exception):
     """La cita no puede pasar de su estado actual al estado pedido."""
 
 
+class CitaNoCompletable(Exception):
+    """La cita no está en un estado desde el que se pueda completar."""
+
+
+#: `en_atencion` es opcional: se puede pasar de `confirmada` a
+#: `completada` directo, porque en un local de dos sillas nadie va a
+#: marcar que el cliente se sentó. `completada`, `cancelada` y `no_show`
+#: son terminales — lo que pase después con la plata es asunto de la
+#: `Venta`, no de la cita.
 TRANSICIONES_VALIDAS = {
-    Cita.Estado.AGENDADA: {Cita.Estado.CONFIRMADA, Cita.Estado.CANCELADA},
-    Cita.Estado.CONFIRMADA: {Cita.Estado.COMPLETADA, Cita.Estado.CANCELADA},
+    Cita.Estado.AGENDADA: {
+        Cita.Estado.CONFIRMADA,
+        Cita.Estado.EN_ATENCION,
+        Cita.Estado.CANCELADA,
+        Cita.Estado.NO_SHOW,
+    },
+    Cita.Estado.CONFIRMADA: {
+        Cita.Estado.EN_ATENCION,
+        Cita.Estado.COMPLETADA,
+        Cita.Estado.CANCELADA,
+        Cita.Estado.NO_SHOW,
+    },
+    Cita.Estado.EN_ATENCION: {Cita.Estado.COMPLETADA, Cita.Estado.CANCELADA},
     Cita.Estado.COMPLETADA: set(),
     Cita.Estado.CANCELADA: set(),
+    Cita.Estado.NO_SHOW: set(),
 }
+
+#: Estados que **no** ocupan el calendario: su franja vuelve a ofrecerse.
+ESTADOS_LIBERAN_CUPO = {Cita.Estado.CANCELADA, Cita.Estado.NO_SHOW}
 
 
 def crear_horario(*, miembro, dia_semana, hora_inicio, hora_fin):
@@ -190,7 +214,7 @@ def empleado_disponible(*, empleado, inicio, fin):
 
     hay_cruce = (
         Cita.objects.filter(empleado=empleado)
-        .exclude(estado=Cita.Estado.CANCELADA)
+        .exclude(estado__in=ESTADOS_LIBERAN_CUPO)
         .filter(fecha_hora_inicio__lt=fin, fecha_hora_fin__gt=inicio)
         .exists()
     )
@@ -244,7 +268,7 @@ def huecos_disponibles(*, negocio, servicio, fecha, ahora=None):
     ocupacion = {}
     for cita in (
         Cita.objects.filter(negocio=negocio)
-        .exclude(estado=Cita.Estado.CANCELADA)
+        .exclude(estado__in=ESTADOS_LIBERAN_CUPO)
         .filter(fecha_hora_inicio__lt=fin_dia, fecha_hora_fin__gt=inicio_dia)
     ):
         ocupacion.setdefault(cita.empleado_id, []).append(cita)
@@ -322,6 +346,20 @@ def agendar_cita(
 
 
 def cambiar_estado_cita(*, cita, nuevo_estado):
+    """Mueve la cita por su máquina de estados.
+
+    **No acepta `completada`**: completar tiene un efecto de negocio
+    (genera la venta) y por eso vive en `completar_cita`. Dejar que esta
+    función lo hiciera abriría un camino por el que una cita queda
+    completada sin cuenta que cobrar — exactamente el agujero que el
+    rediseño del módulo de dinero vino a cerrar.
+    """
+    if nuevo_estado == Cita.Estado.COMPLETADA:
+        raise TransicionEstadoInvalida(
+            "Para completar una cita usa `completar_cita`: completar genera la "
+            "venta que después se cobra."
+        )
+
     transiciones_permitidas = TRANSICIONES_VALIDAS[cita.estado]
     if nuevo_estado not in transiciones_permitidas:
         raise TransicionEstadoInvalida(
@@ -330,3 +368,60 @@ def cambiar_estado_cita(*, cita, nuevo_estado):
     cita.estado = nuevo_estado
     cita.save(update_fields=["estado", "actualizado_en"])
     return cita
+
+
+@transaction.atomic
+def completar_cita(*, cita, responsable):
+    """El empleado terminó el trabajo: la cita se completa y **nace la
+    venta pendiente de cobro**.
+
+    Es el punto donde se cruzan agenda y dinero, y el que reemplaza al
+    viejo "registrar servicio" a mano: el barbero pulsa Completar y la
+    cuenta le aparece sola a recepción. El barbero no toca plata; su
+    responsabilidad termina acá.
+
+    **Idempotente por diseño.** Dos toques al botón, o un reintento por
+    red mala en un local comercial, no pueden generar dos cuentas para el
+    mismo cliente. Tres capas, de más amable a más terminante:
+
+    1. si la cita ya tiene venta, se devuelve esa misma sin crear nada;
+    2. `select_for_update` sobre la cita serializa dos requests
+       simultáneos, de modo que el segundo lee el estado ya escrito por el
+       primero en vez de decidir sobre datos viejos;
+    3. el `OneToOne` de `Venta.cita` en la base es la garantía final.
+
+    Devuelve `(cita, venta)`.
+    """
+    # Import local y no en la cabecera: `apps.caja.models.Venta` apunta a
+    # `agenda.Cita`, y aunque hoy lo hace por string (así que no hay ciclo
+    # real), importar caja desde acá arriba deja a las dos apps
+    # acopladas en tiempo de carga sin necesidad. Agenda depende de caja
+    # en **una** función, y así se ve.
+    from apps.caja import services as caja_services
+    from apps.caja.models import Venta
+
+    # Relee bajo lock: sin esto, dos requests concurrentes evalúan el
+    # `hasattr` de abajo contra el mismo estado previo y los dos crean.
+    cita = Cita.objects.select_for_update().select_related("servicio", "empleado").get(pk=cita.pk)
+
+    venta_existente = Venta.objects.filter(cita=cita).first()
+    if venta_existente is not None:
+        return cita, venta_existente
+
+    if cita.estado not in (Cita.Estado.CONFIRMADA, Cita.Estado.EN_ATENCION, Cita.Estado.AGENDADA):
+        raise CitaNoCompletable(
+            f"Una cita '{cita.get_estado_display().lower()}' no se puede completar."
+        )
+
+    venta = caja_services.crear_venta(
+        negocio=cita.negocio,
+        creada_por=responsable,
+        cita=cita,
+        nombre_cliente=cita.nombre_cliente,
+        telefono_cliente=cita.telefono_cliente,
+        items=[{"servicio": cita.servicio, "empleado": cita.empleado}],
+    )
+
+    cita.estado = Cita.Estado.COMPLETADA
+    cita.save(update_fields=["estado", "actualizado_en"])
+    return cita, venta

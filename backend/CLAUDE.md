@@ -20,9 +20,11 @@ un cambio tuyo lo afecta), pasa por `../CONTRATO.md` y anótalo en
   usuario autenticado (ver `apps.common.permissions`). Nunca expongas
   datos cruzados entre negocios: un recurso ajeno responde 404, igual
   que uno inexistente (ver `CONTRATO.md` sección 5.2).
-- Los flujos críticos de dinero (registrar servicio, cobrar en caja)
+- Los flujos críticos de dinero (completar una cita, cobrar una venta)
   deben diseñarse pensando en soporte offline futuro: evita
-  dependencias síncronas innecesarias en esos modelos.
+  dependencias síncronas innecesarias en esos modelos. Por eso
+  `completar_cita` es idempotente — con red mala, el reintento es el
+  caso normal, no el borde.
 - Sigue principios REST estándar en la API. Usa serializers de DRF con
   validación explícita, no lógica de negocio en las vistas.
 - **Capa de servicios de aplicación**: toda lógica de negocio (calcular
@@ -56,10 +58,26 @@ un cambio tuyo lo afecta), pasa por `../CONTRATO.md` y anótalo en
   tenant). Usa un modelo de log simple o `django-simple-history`; no
   construyas un sistema de eventos de dominio separado para esto.
 - **Máquinas de estado simples** para `Cita`
-  (`agendada → confirmada → completada → cancelada`, Fase 1) y `Caja`
-  (`abierta → cerrada`, Fase 3). Valida las transiciones dentro de la
-  capa de servicios. No introduzcas una librería de state machine
-  pesada ni un motor de workflows genérico.
+  (`agendada → confirmada → en_atencion → completada`, más `cancelada` y
+  `no_show`), `Venta` (`pendiente → parcial → pagada`, más `anulada`) y
+  `Caja` (`abierta → cerrada`). Valida las transiciones dentro de la capa
+  de servicios. No introduzcas una librería de state machine pesada ni un
+  motor de workflows genérico.
+- **La regla que ordena el módulo de dinero** (rediseño 2026-08-07):
+  **el servicio genera una deuda (`Venta`), el pago genera el movimiento
+  de dinero (`MovimientoCaja`)**. Consecuencias que no se negocian:
+  - El estado de la `Cita` no dice nada sobre el dinero. `completada` ≠
+    pagada. El estado financiero vive en la `Venta` y **no se duplica**.
+  - `MovimientoCaja` es inmutable. Un cobro equivocado se corrige con una
+    `Devolucion` (movimiento nuevo, de signo contrario), nunca editando o
+    borrando el original — tampoco desde el admin de Django.
+  - La comisión sale de `VentaItem.empleado` + `VentaItem.porcentaje_comision`,
+    **congelados** al crear la línea, y se devenga una sola vez cuando la
+    venta queda saldada. Nunca del `Servicio` del catálogo ni del monto
+    de un pago.
+  - El arqueo de caja cuenta **solo efectivo**; los demás métodos se
+    concilian aparte.
+  Ver `../CONTRATO.md` 5.13 y 5.14, y `../DECISIONES.md` #37–#43.
 - **No implementes un event bus o arquitectura de eventos de dominio
   formal en el MVP.** Si un mismo hecho de negocio (ej: "cita
   completada") necesita disparar varios efectos desacoplados

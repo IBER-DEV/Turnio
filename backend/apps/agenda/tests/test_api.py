@@ -129,7 +129,10 @@ def test_flujo_confirmar_completar_cita(cliente_autenticado_dueno, negocio_con_d
 
     completar = cliente_autenticado_dueno.post(f"/api/agenda/citas/{cita_id}/completar/")
     assert completar.status_code == 200
-    assert completar.data["estado"] == "completada"
+    assert completar.data["cita"]["estado"] == "completada"
+    # Completar genera la cuenta pendiente de cobro: es el punto donde la
+    # agenda entrega el trabajo al módulo de dinero.
+    assert completar.data["venta"]["estado"] == "pendiente"
 
     cancelar = cliente_autenticado_dueno.post(f"/api/agenda/citas/{cita_id}/cancelar/")
     assert cancelar.status_code == 400
@@ -500,7 +503,32 @@ def test_empleado_sin_gestionar_agenda_puede_completar_lo_suyo(
     respuesta = client.post(f"/api/agenda/citas/{cita.id}/completar/")
 
     assert respuesta.status_code == 200, respuesta.data
-    assert respuesta.data["estado"] == "completada"
+    assert respuesta.data["cita"]["estado"] == "completada"
+
+
+@pytest.mark.parametrize("accion", ["confirmar", "en-atencion", "completar", "cancelar", "no-show"])
+def test_toda_transicion_la_puede_hacer_el_empleado_sobre_su_propia_cita(
+    negocio_con_dueno, servicio_de_prueba, accion
+):
+    """Parametrizado a propósito, y no un test por acción.
+
+    `en_atencion` y `no_show` se agregaron sin sumarlas a
+    `CitaViewSet.ACCIONES_DE_ESTADO`, así que caían en el permiso de
+    administración y le devolvían 403 al barbero sobre **su propia**
+    cita. No lo atrapó ningún test porque todos los de transición usaban
+    al dueño, que tiene `puede_gestionar_agenda` y por lo tanto pasa por
+    los dos caminos. Recorrer la lista completa es lo que hace que una
+    acción nueva no pueda olvidarse.
+    """
+    negocio, _dueno, _membresia = negocio_con_dueno
+    membresia_raso, client = _barbero_sin_gestion_de_agenda(negocio)
+    cita = _cita_para(negocio, membresia_raso, servicio_de_prueba)
+    if accion in ("completar", "en-atencion"):
+        client.post(f"/api/agenda/citas/{cita.id}/confirmar/")
+
+    respuesta = client.post(f"/api/agenda/citas/{cita.id}/{accion}/")
+
+    assert respuesta.status_code == 200, f"{accion}: {respuesta.status_code} {respuesta.data}"
 
 
 def test_empleado_sin_gestionar_agenda_puede_cancelar_lo_suyo(

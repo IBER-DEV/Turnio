@@ -1,12 +1,16 @@
-import { Icon } from "../../ui/Icon";
-import { ToggleGroup, ToggleGroupItem } from "../../ui/ToggleGroup";
-import { etiquetaDe, moverPeriodo, rangoDe } from "./filtrosPeriodo";
-import type { Periodo } from "./filtrosPeriodo";
+import { Icon } from "./Icon";
+import { ToggleGroup, ToggleGroupItem } from "./ToggleGroup";
+import { etiquetaDe, moverPeriodo, rangoDe } from "./periodos";
+import type { Periodo } from "./periodos";
 
 /** Selector de período (día/semana/mes) + navegación hacia
- * atrás/adelante, compartido entre `MisServiciosPage` y
- * `ValidarServiciosPage` — ambas necesitan exactamente el mismo cálculo
- * de rango, así que vive una sola vez acá en vez de repetirse. */
+ * atrás/adelante.
+ *
+ * Vivía en `pages/servicios/` cuando sus dos consumidores eran las
+ * pantallas de registro de servicios. Con el rediseño del módulo de
+ * dinero (2026-08-07) esas pantallas desaparecieron y lo siguen usando
+ * el histórico de caja y "Mi trabajo", que no son de la misma sección —
+ * así que se mudó a `ui/`, que es donde vive lo compartido. */
 export function FiltroPeriodo({
   periodo,
   referencia,

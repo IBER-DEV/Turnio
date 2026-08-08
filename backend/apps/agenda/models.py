@@ -74,11 +74,29 @@ class HorarioTrabajo(TenantScopedModel):
 
 
 class Cita(TenantScopedModel):
+    """Un turno reservado con un empleado.
+
+    **El estado de la cita no dice nada sobre el dinero.** `completada`
+    significa "el trabajo se hizo", no "está pagado": esas son dos cosas
+    distintas y confundirlas fue el origen del enredo que este módulo
+    dejó atrás. El estado financiero vive en la `Venta` asociada
+    (`cita.venta`, ver `apps.caja.models.Venta`) y no se duplica acá — si
+    no hay venta, no se generó ninguna todavía.
+    """
+
     class Estado(models.TextChoices):
         AGENDADA = "agendada", "Agendada"
         CONFIRMADA = "confirmada", "Confirmada"
+        # El cliente está en la silla. Opcional: en un local chico se pasa
+        # de `confirmada` a `completada` directo, sin marcar este paso.
+        EN_ATENCION = "en_atencion", "En atención"
         COMPLETADA = "completada", "Completada"
         CANCELADA = "cancelada", "Cancelada"
+        # Distinto de `cancelada`: nadie avisó, el empleado perdió el
+        # turno. Se separan porque para el negocio son hechos distintos —
+        # uno se puede reagendar, el otro es una pérdida que conviene
+        # poder contar por cliente.
+        NO_SHOW = "no_show", "No asistió"
 
     negocio = models.ForeignKey(
         "negocios.Negocio", on_delete=models.CASCADE, related_name="citas"

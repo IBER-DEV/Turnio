@@ -1,13 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
 
 import { apiClient } from "../../api/client";
-import type { components } from "../../api/schema";
 import { usePermisos } from "../../permisos/usePermisos";
 import { ToastProvider } from "../../ui/Toast";
 import { CajaHoy } from "./CajaHoy";
+import type { CajaDetalle } from "./dinero";
 
 vi.mock("../../api/client", () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn() },
@@ -20,59 +20,47 @@ vi.mock("../../permisos/usePermisos", () => ({
 const GET = apiClient.GET as unknown as Mock;
 const POST = apiClient.POST as unknown as Mock;
 
-type Servicio = components["schemas"]["Servicio"];
-type RegistroServicio = components["schemas"]["RegistroServicio"];
-type CajaDetalle = components["schemas"]["CajaDetalle"];
-
-const SERVICIO: Servicio = {
-  id: 1,
-  nombre: "Corte clásico",
-  precio: "25000",
-  duracion_minutos: 30,
-  activo: true,
-};
-
-const REGISTRO: RegistroServicio = {
-  id: 7,
-  empleado_nombre: "Andrés Gómez",
-  servicio: 1,
-  servicio_nombre: "Corte clásico",
-  nombre_cliente: "Juan Pérez",
-  fecha_hora: "2026-08-05T14:00:00Z",
-  estado: "aprobado",
-  aprobado_por: 2,
-  aprobado_por_nombre: "Dueño",
-  fecha_revision: "2026-08-05T14:10:00Z",
-  motivo_rechazo: "",
-  creado_en: "2026-08-05T14:00:00Z",
-};
-
+/** Caja abierta con base de $100.000, un cobro de $50.000 en efectivo y
+ * uno de $30.000 por Nequi. El esperado del cajón son $150.000: el
+ * Nequi **no** entra, que es la regla que estos tests protegen. */
 const CAJA_ABIERTA: CajaDetalle = {
   id: 3,
   estado: "abierta",
-  saldo_inicial: "0",
+  saldo_inicial: "100000.00",
   abierta_por: 2,
   abierta_por_nombre: "Dueño",
-  abierta_en: "2026-08-05T08:00:00Z",
+  abierta_en: "2026-08-07T08:00:00Z",
   cerrada_por: null,
   cerrada_por_nombre: null,
   cerrada_en: null,
   nota_cierre: "",
+  efectivo_esperado: null,
+  efectivo_contado: null,
+  diferencia: null,
   movimientos: [],
   resumen: {
-    total_ingresos: "0",
-    total_egresos: "0",
-    neto: "0",
-    por_metodo_pago: {},
+    total_ingresos: "80000.00",
+    total_egresos: "0.00",
+    total_devoluciones: "0.00",
+    neto: "80000.00",
+    por_metodo_pago: { efectivo: "50000.00", nequi: "30000.00" },
+    egresos_por_categoria: {},
     comisiones_por_empleado: [],
-    servicios_aprobados_sin_cobrar: 0,
+    ventas_sin_cobrar: 0,
+    saldo_inicial: "100000.00",
+    ingresos_efectivo: "50000.00",
+    egresos_efectivo: "0.00",
+    devoluciones_efectivo: "0.00",
+    efectivo_esperado: "150000.00",
   },
 };
 
 /** Cada test decide qué responde cada ruta. `conReintentoDeAuth` (sin
  * mockear, corre real) lee `response.status`, así que toda respuesta
  * necesita ese campo aunque el test no lo use. */
-function mockearGet(respuestas: Record<string, { data?: unknown; error?: unknown; status: number }>) {
+function mockearGet(
+  respuestas: Record<string, { data?: unknown; error?: unknown; status: number }>,
+) {
   GET.mockImplementation(async (ruta: string) => {
     const entrada = respuestas[ruta];
     if (entrada === undefined) throw new Error(`GET no configurado para ${ruta}`);
@@ -101,11 +89,7 @@ beforeEach(() => {
 
 describe("CajaHoy", () => {
   it("sin caja abierta (404) muestra el estado vacío para abrirla, no un error", async () => {
-    mockearGet({
-      "/api/caja/actual/": { status: 404 },
-      "/api/servicios/": { data: [SERVICIO], status: 200 },
-      "/api/servicios/registros/": { data: [], status: 200 },
-    });
+    mockearGet({ "/api/caja/actual/": { status: 404 } });
 
     renderCajaHoy();
 
@@ -114,97 +98,102 @@ describe("CajaHoy", () => {
   });
 
   it("un error real al cargar sí muestra el estado de error", async () => {
-    mockearGet({
-      "/api/caja/actual/": { status: 404 },
-      "/api/servicios/": { error: { detail: "falló" }, status: 500 },
-      "/api/servicios/registros/": { data: [], status: 200 },
-    });
+    mockearGet({ "/api/caja/actual/": { error: { detail: "falló" }, status: 500 } });
 
     renderCajaHoy();
 
     expect(await screen.findByText(/No pudimos cargar la caja/)).toBeInTheDocument();
   });
 
-  it("el formulario oculta método de pago y vínculo a servicio cuando el tipo es egreso", async () => {
-    const usuario = userEvent.setup();
-    mockearGet({
-      "/api/caja/actual/": { data: CAJA_ABIERTA, status: 200 },
-      "/api/servicios/": { data: [SERVICIO], status: 200 },
-      "/api/servicios/registros/": { data: [REGISTRO], status: 200 },
-    });
+  it("no ofrece registrar ingresos: la plata que entra viene de cobrar una cuenta", async () => {
+    mockearGet({ "/api/caja/actual/": { data: CAJA_ABIERTA, status: 200 } });
 
     renderCajaHoy();
-    await usuario.click((await screen.findAllByRole("button", { name: "Registrar movimiento" }))[0]);
+    await screen.findByText("Registrar gasto");
 
-    // Con tipo=ingreso (default) hay dos combos: método de pago y el
-    // vínculo opcional a un RegistroServicio aprobado.
-    expect(screen.getAllByRole("combobox")).toHaveLength(2);
-
-    await usuario.click(screen.getByRole("radio", { name: "Egreso" }));
-
-    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
-    expect(screen.queryByText("Método de pago")).toBeNull();
-    expect(screen.queryByText(/¿Viene de un servicio ya validado\?/)).toBeNull();
-
-    await usuario.click(screen.getByRole("radio", { name: "Ingreso" }));
-    expect(screen.getAllByRole("combobox")).toHaveLength(2);
+    // El viejo "Registrar movimiento" permitía inventar un ingreso sin
+    // venta detrás. Que no exista es el punto entero del rediseño.
+    expect(screen.queryByRole("button", { name: /Registrar movimiento/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /ingreso/i })).toBeNull();
   });
 
-  it("elegir un RegistroServicio fija el empleado de comisión, sin poder editarlo", async () => {
+  it("el arqueo espera solo el efectivo: el cobro por Nequi no entra al cajón", async () => {
     const usuario = userEvent.setup();
-    mockearGet({
-      "/api/caja/actual/": { data: CAJA_ABIERTA, status: 200 },
-      "/api/servicios/": { data: [SERVICIO], status: 200 },
-      "/api/servicios/registros/": { data: [REGISTRO], status: 200 },
-    });
+    mockearGet({ "/api/caja/actual/": { data: CAJA_ABIERTA, status: 200 } });
 
     renderCajaHoy();
-    await usuario.click((await screen.findAllByRole("button", { name: "Registrar movimiento" }))[0]);
+    await usuario.click(await screen.findByRole("button", { name: "Cerrar caja" }));
 
-    const combos = screen.getAllByRole("combobox");
-    // El segundo combo es el de vínculo a servicio (el primero es
-    // método de pago).
-    await usuario.click(combos[1]);
-    await usuario.click(await screen.findByRole("option", { name: /Corte clásico/ }));
+    // Se busca dentro del diálogo y no en toda la pantalla: el mismo
+    // total también se muestra en la tarjeta de resumen de atrás, así que
+    // una búsqueda global encontraría dos y no probaría nada.
+    const dialogo = within(await screen.findByRole("dialog"));
 
-    expect(await screen.findByText("Comisión para:")).toBeInTheDocument();
-    expect(screen.getByText("Andrés Gómez")).toBeInTheDocument();
-    // No hay ningún input editable para el empleado — es texto fijo.
-    expect(screen.queryByLabelText(/empleado/i)).toBeNull();
-
-    // Y autocompletó concepto/monto desde el servicio vinculado.
-    expect(screen.getByDisplayValue("Corte clásico")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("25000")).toBeInTheDocument();
+    // 100.000 de base + 50.000 en efectivo = 150.000. Los 30.000 de
+    // Nequi quedan fuera, listados aparte para conciliar.
+    expect(dialogo.getByText("Debería haber")).toBeInTheDocument();
+    expect(dialogo.getByText("$ 150.000")).toBeInTheDocument();
+    expect(dialogo.getByText("Cobros que no pasaron por el cajón")).toBeInTheDocument();
+    expect(dialogo.getByText("Nequi")).toBeInTheDocument();
   });
 
-  it("registrar un movimiento manda el body y refresca la caja", async () => {
+  it("calcula el faltante mientras se teclea, antes de enviar nada", async () => {
     const usuario = userEvent.setup();
-    mockearGet({
-      "/api/caja/actual/": { data: CAJA_ABIERTA, status: 200 },
-      "/api/servicios/": { data: [SERVICIO], status: 200 },
-      "/api/servicios/registros/": { data: [], status: 200 },
-    });
+    mockearGet({ "/api/caja/actual/": { data: CAJA_ABIERTA, status: 200 } });
+
+    renderCajaHoy();
+    await usuario.click(await screen.findByRole("button", { name: "Cerrar caja" }));
+    await usuario.type(await screen.findByLabelText("¿Cuánto contaste?"), "148000");
+
+    expect(await screen.findByText("Faltan $ 2.000.")).toBeInTheDocument();
+    expect(POST).not.toHaveBeenCalled();
+  });
+
+  it("cerrar manda el efectivo contado", async () => {
+    const usuario = userEvent.setup();
+    mockearGet({ "/api/caja/actual/": { data: CAJA_ABIERTA, status: 200 } });
     POST.mockResolvedValue({
-      data: { ...CAJA_ABIERTA },
+      data: { ...CAJA_ABIERTA, estado: "cerrada" },
       error: undefined,
-      response: { status: 201 },
+      response: { status: 200 },
     });
 
     renderCajaHoy();
-    await usuario.click((await screen.findAllByRole("button", { name: "Registrar movimiento" }))[0]);
+    await usuario.click(await screen.findByRole("button", { name: "Cerrar caja" }));
 
-    await usuario.type(screen.getByLabelText("Monto"), "15000");
-    await usuario.type(screen.getByLabelText("Concepto"), "Corte rápido");
-    await usuario.click(screen.getByRole("button", { name: "Registrar" }));
+    const dialogo = within(await screen.findByRole("dialog"));
+    await usuario.type(dialogo.getByLabelText("¿Cuánto contaste?"), "150000");
+    await usuario.click(dialogo.getByRole("button", { name: "Cerrar caja" }));
 
     await waitFor(() => {
       expect(POST).toHaveBeenCalledWith(
-        "/api/caja/movimientos/",
+        "/api/caja/cerrar/",
+        expect.objectContaining({
+          body: expect.objectContaining({ efectivo_contado: "150000" }),
+        }),
+      );
+    });
+  });
+
+  it("un gasto viaja con su categoría", async () => {
+    const usuario = userEvent.setup();
+    mockearGet({ "/api/caja/actual/": { data: CAJA_ABIERTA, status: 200 } });
+    POST.mockResolvedValue({ data: { id: 9 }, error: undefined, response: { status: 201 } });
+
+    renderCajaHoy();
+    await usuario.click(await screen.findByRole("button", { name: "Registrar gasto" }));
+    await usuario.type(screen.getByLabelText("¿En qué se gastó?"), "Compra de shampoo");
+    await usuario.type(screen.getByLabelText("Monto"), "50000");
+    await usuario.click(screen.getByRole("button", { name: "Registrar gasto" }));
+
+    await waitFor(() => {
+      expect(POST).toHaveBeenCalledWith(
+        "/api/caja/egresos/",
         expect.objectContaining({
           body: expect.objectContaining({
-            tipo: "ingreso",
-            monto: "15000",
-            concepto: "Corte rápido",
+            monto: "50000",
+            concepto: "Compra de shampoo",
+            categoria: "insumos",
             metodo_pago: "efectivo",
           }),
         }),

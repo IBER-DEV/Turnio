@@ -188,22 +188,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Agenda: crear y consultar citas, y transicionar su estado.
+         * @description El empleado terminó el trabajo. Marca la cita como `completada` y **genera la venta pendiente de cobro** con el servicio de la cita, que aparece de inmediato en la cola de recepción (`GET /api/caja/ventas/?estado=pendiente`).
          *
-         *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
-         *     crear: si se omite, el servicio de agenda asigna automáticamente el
-         *     primer empleado disponible ("cualquiera disponible").
+         *     No mueve plata ni requiere caja abierta: completar crea la deuda, cobrarla es otro acto, de otra persona (`POST /api/caja/ventas/{id}/cobrar/`).
          *
-         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
-         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
-         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
-         *     llegó no es un acto administrativo, es el empleado haciendo su
-         *     trabajo. Ver `CONTRATO.md` sección 5.6.
-         *
-         *     Listar devuelve solo las citas propias salvo que se tenga
-         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
-         *     cliente, así que la agenda completa **es** la libreta de clientes del
-         *     negocio (ver `CONTRATO.md` sección 5.8).
+         *     **Idempotente**: llamarlo dos veces devuelve la misma venta, no crea una segunda. Responde `200` con la cita ya completada y la venta asociada.
          */
         post: operations["agenda_citas_completar_create"];
         delete?: never;
@@ -240,6 +229,57 @@ export interface paths {
          *     negocio (ver `CONTRATO.md` sección 5.8).
          */
         post: operations["agenda_citas_confirmar_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agenda/citas/{id}/en-atencion/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Agenda: crear y consultar citas, y transicionar su estado.
+         *
+         *     Crear requiere `puede_gestionar_agenda`. `empleado` es opcional al
+         *     crear: si se omite, el servicio de agenda asigna automáticamente el
+         *     primer empleado disponible ("cualquiera disponible").
+         *
+         *     Transicionar (`confirmar`/`completar`/`cancelar`) lo puede hacer quien
+         *     tenga `puede_gestionar_agenda` sobre **cualquier** cita del negocio, o
+         *     cualquier miembro sobre **sus propias** citas: marcar que el cliente
+         *     llegó no es un acto administrativo, es el empleado haciendo su
+         *     trabajo. Ver `CONTRATO.md` sección 5.6.
+         *
+         *     Listar devuelve solo las citas propias salvo que se tenga
+         *     `puede_ver_agenda_completa`: cada cita trae nombre y teléfono del
+         *     cliente, así que la agenda completa **es** la libreta de clientes del
+         *     negocio (ver `CONTRATO.md` sección 5.8).
+         */
+        post: operations["agenda_citas_en_atencion_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agenda/citas/{id}/no-show/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description El cliente no llegó y no avisó. Distinto de `cancelar`: la franja se libera igual, pero para el negocio son hechos distintos y conviene poder contarlos por separado. */
+        post: operations["agenda_citas_no_show_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -429,13 +469,17 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         * @description La jornada de caja: histórico, apertura, egresos y cierre con arqueo.
          *
-         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     Leer (`list`/`retrieve`) exige `puede_cobrar` **o**
          *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-         *     opera la caja del día necesita poder mirar cierres pasados para
-         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-         *     movimientos exigen `puede_cobrar` sin excepción.
+         *     opera la caja del día necesita mirar cierres pasados para cuadrar, y
+         *     quien solo ve reportes también. Abrir, cerrar y registrar egresos
+         *     exigen `puede_cobrar` sin excepción.
+         *
+         *     Los **ingresos** no se crean acá: entran cobrando una venta
+         *     (`POST /api/caja/ventas/{id}/cobrar/`). Es la regla central del
+         *     módulo — la plata que entra siempre tiene una cuenta que la explica.
          */
         get: operations["caja_list"];
         put?: never;
@@ -454,13 +498,17 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         * @description La jornada de caja: histórico, apertura, egresos y cierre con arqueo.
          *
-         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     Leer (`list`/`retrieve`) exige `puede_cobrar` **o**
          *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-         *     opera la caja del día necesita poder mirar cierres pasados para
-         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-         *     movimientos exigen `puede_cobrar` sin excepción.
+         *     opera la caja del día necesita mirar cierres pasados para cuadrar, y
+         *     quien solo ve reportes también. Abrir, cerrar y registrar egresos
+         *     exigen `puede_cobrar` sin excepción.
+         *
+         *     Los **ingresos** no se crean acá: entran cobrando una venta
+         *     (`POST /api/caja/ventas/{id}/cobrar/`). Es la regla central del
+         *     módulo — la plata que entra siempre tiene una cuenta que la explica.
          */
         get: operations["caja_retrieve"];
         put?: never;
@@ -481,13 +529,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         * @description La jornada de caja: histórico, apertura, egresos y cierre con arqueo.
          *
-         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     Leer (`list`/`retrieve`) exige `puede_cobrar` **o**
          *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-         *     opera la caja del día necesita poder mirar cierres pasados para
-         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-         *     movimientos exigen `puede_cobrar` sin excepción.
+         *     opera la caja del día necesita mirar cierres pasados para cuadrar, y
+         *     quien solo ve reportes también. Abrir, cerrar y registrar egresos
+         *     exigen `puede_cobrar` sin excepción.
+         *
+         *     Los **ingresos** no se crean acá: entran cobrando una venta
+         *     (`POST /api/caja/ventas/{id}/cobrar/`). Es la regla central del
+         *     módulo — la plata que entra siempre tiene una cuenta que la explica.
          */
         post: operations["caja_abrir_create"];
         delete?: never;
@@ -504,13 +556,17 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         * @description La jornada de caja: histórico, apertura, egresos y cierre con arqueo.
          *
-         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
+         *     Leer (`list`/`retrieve`) exige `puede_cobrar` **o**
          *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-         *     opera la caja del día necesita poder mirar cierres pasados para
-         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-         *     movimientos exigen `puede_cobrar` sin excepción.
+         *     opera la caja del día necesita mirar cierres pasados para cuadrar, y
+         *     quien solo ve reportes también. Abrir, cerrar y registrar egresos
+         *     exigen `puede_cobrar` sin excepción.
+         *
+         *     Los **ingresos** no se crean acá: entran cobrando una venta
+         *     (`POST /api/caja/ventas/{id}/cobrar/`). Es la regla central del
+         *     módulo — la plata que entra siempre tiene una cuenta que la explica.
          */
         get: operations["caja_actual_retrieve"];
         put?: never;
@@ -531,13 +587,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         * @description Cierra la caja con arqueo. `efectivo_contado` es obligatorio.
          *
-         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
-         *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-         *     opera la caja del día necesita poder mirar cierres pasados para
-         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-         *     movimientos exigen `puede_cobrar` sin excepción.
+         *     El esperado se calcula **solo con efectivo**: saldo inicial + ingresos en efectivo − egresos en efectivo − devoluciones en efectivo. Tarjeta y transferencias no pasan por el cajón y se concilian aparte (ver `resumen.por_metodo_pago`).
+         *
+         *     Una diferencia negativa (faltante) **no bloquea** el cierre: queda registrada y auditada.
          */
         post: operations["caja_cerrar_create"];
         delete?: never;
@@ -546,7 +600,151 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/caja/movimientos/": {
+    "/api/caja/egresos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Registra plata que sale por un gasto del negocio (insumos, arriendo, domicilio). No tiene venta asociada por diseño, y es distinto de una devolución a un cliente — que se hace desde la venta y tiene su propio tipo de movimiento. */
+        post: operations["caja_egresos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/ventas/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Las cuentas del negocio: qué se debe, qué se cobró.
+         *
+         *     Reemplaza al viejo `POST /api/servicios/registros/` y a su circuito de
+         *     aprobación. La regla que ordena todo el módulo: **el servicio genera
+         *     la deuda, el pago genera el movimiento de caja**. Crear una venta no
+         *     mueve plata ni necesita caja abierta; cobrarla sí.
+         *
+         *     Quién puede qué:
+         *
+         *     - **crear** — cualquier miembro activo. Sin `puede_cobrar`, solo puede
+         *       facturar líneas de trabajo **propio** (ver `VentaSerializer`), para
+         *       que nadie le cargue trabajo ni comisión a un compañero. Lo normal es
+         *       que no haga falta: la venta la genera sola la cita al completarse.
+         *     - **listar/ver** — sin `puede_cobrar` ni `puede_ver_reportes`, solo las
+         *       ventas en las que uno participó. Una venta ajena responde 404, igual
+         *       que una inexistente (`CONTRATO.md` 5.2).
+         *     - **cobrar** — `puede_cobrar`.
+         *     - **devolver / anular** — `puede_anular_venta`. Son las dos acciones
+         *       que mueven dinero hacia atrás y por eso viven en una capacidad
+         *       aparte de la de cobrar.
+         *
+         *     Sin `PUT`/`PATCH`/`DELETE`: una venta equivocada se **anula** (y si ya
+         *     tenía cobros, se devuelve), nunca se edita ni se borra. El historial
+         *     financiero no se altera retroactivamente.
+         */
+        get: operations["caja_ventas_list"];
+        put?: never;
+        /**
+         * @description Las cuentas del negocio: qué se debe, qué se cobró.
+         *
+         *     Reemplaza al viejo `POST /api/servicios/registros/` y a su circuito de
+         *     aprobación. La regla que ordena todo el módulo: **el servicio genera
+         *     la deuda, el pago genera el movimiento de caja**. Crear una venta no
+         *     mueve plata ni necesita caja abierta; cobrarla sí.
+         *
+         *     Quién puede qué:
+         *
+         *     - **crear** — cualquier miembro activo. Sin `puede_cobrar`, solo puede
+         *       facturar líneas de trabajo **propio** (ver `VentaSerializer`), para
+         *       que nadie le cargue trabajo ni comisión a un compañero. Lo normal es
+         *       que no haga falta: la venta la genera sola la cita al completarse.
+         *     - **listar/ver** — sin `puede_cobrar` ni `puede_ver_reportes`, solo las
+         *       ventas en las que uno participó. Una venta ajena responde 404, igual
+         *       que una inexistente (`CONTRATO.md` 5.2).
+         *     - **cobrar** — `puede_cobrar`.
+         *     - **devolver / anular** — `puede_anular_venta`. Son las dos acciones
+         *       que mueven dinero hacia atrás y por eso viven en una capacidad
+         *       aparte de la de cobrar.
+         *
+         *     Sin `PUT`/`PATCH`/`DELETE`: una venta equivocada se **anula** (y si ya
+         *     tenía cobros, se devuelve), nunca se edita ni se borra. El historial
+         *     financiero no se altera retroactivamente.
+         */
+        post: operations["caja_ventas_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/ventas/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Las cuentas del negocio: qué se debe, qué se cobró.
+         *
+         *     Reemplaza al viejo `POST /api/servicios/registros/` y a su circuito de
+         *     aprobación. La regla que ordena todo el módulo: **el servicio genera
+         *     la deuda, el pago genera el movimiento de caja**. Crear una venta no
+         *     mueve plata ni necesita caja abierta; cobrarla sí.
+         *
+         *     Quién puede qué:
+         *
+         *     - **crear** — cualquier miembro activo. Sin `puede_cobrar`, solo puede
+         *       facturar líneas de trabajo **propio** (ver `VentaSerializer`), para
+         *       que nadie le cargue trabajo ni comisión a un compañero. Lo normal es
+         *       que no haga falta: la venta la genera sola la cita al completarse.
+         *     - **listar/ver** — sin `puede_cobrar` ni `puede_ver_reportes`, solo las
+         *       ventas en las que uno participó. Una venta ajena responde 404, igual
+         *       que una inexistente (`CONTRATO.md` 5.2).
+         *     - **cobrar** — `puede_cobrar`.
+         *     - **devolver / anular** — `puede_anular_venta`. Son las dos acciones
+         *       que mueven dinero hacia atrás y por eso viven en una capacidad
+         *       aparte de la de cobrar.
+         *
+         *     Sin `PUT`/`PATCH`/`DELETE`: una venta equivocada se **anula** (y si ya
+         *     tenía cobros, se devuelve), nunca se edita ni se borra. El historial
+         *     financiero no se altera retroactivamente.
+         */
+        get: operations["caja_ventas_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/ventas/{id}/anular/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Anula la venta. Si ya tenía cobros, genera la devolución por lo cobrado (y por lo tanto exige caja abierta). Revierte las comisiones devengadas. Es terminal: una venta anulada no se vuelve a cobrar. */
+        post: operations["caja_ventas_anular_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/ventas/{id}/cobrar/": {
         parameters: {
             query?: never;
             header?: never;
@@ -556,15 +754,28 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description La caja del negocio: histórico, apertura, movimientos y cierre.
+         * @description Cobra la venta, total o parcialmente. Crea el pago **y** su movimiento de caja en la misma transacción, así que exige caja abierta.
          *
-         *     Leer (`list`/`retrieve`, el histórico) exige `puede_cobrar` **o**
-         *     `puede_ver_reportes` — cualquiera de las dos alcanza, porque quien
-         *     opera la caja del día necesita poder mirar cierres pasados para
-         *     cuadrar, y quien solo ve reportes también. Abrir, cerrar y registrar
-         *     movimientos exigen `puede_cobrar` sin excepción.
+         *     Un pago mixto son dos llamadas a este endpoint sobre la misma venta, una por método. Cuando lo cobrado alcanza el total, la venta pasa a `pagada` y recién ahí se devengan las comisiones.
          */
-        post: operations["caja_movimientos_create"];
+        post: operations["caja_ventas_cobrar_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/caja/ventas/{id}/devolver/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Devuelve plata al cliente. **No edita ni borra** el cobro original: genera un movimiento nuevo de tipo `devolucion`, de modo que las dos mitades del hecho quedan en el libro. */
+        post: operations["caja_ventas_devolver_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1157,200 +1368,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/servicios/registros/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * @description Registro y validación de servicios realizados.
-         *
-         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
-         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
-         *     body (ver `perform_create`), para que nadie registre trabajo a
-         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-         *     **obligatorio**: alguien que administra el negocio puede estar
-         *     cargando el trabajo de un barbero que no usa la app, y el registro
-         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-         *     tipeó (ver `RegistroServicioSerializer.validate`).
-         *
-         *     Listar devuelve solo los propios salvo que se tenga
-         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
-         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
-         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
-         *     como empleado: sigue sin poder aprobarse.
-         *
-         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-         *     su propio rastro de auditoría.
-         */
-        get: operations["servicios_registros_list"];
-        put?: never;
-        /**
-         * @description Registro y validación de servicios realizados.
-         *
-         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
-         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
-         *     body (ver `perform_create`), para que nadie registre trabajo a
-         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-         *     **obligatorio**: alguien que administra el negocio puede estar
-         *     cargando el trabajo de un barbero que no usa la app, y el registro
-         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-         *     tipeó (ver `RegistroServicioSerializer.validate`).
-         *
-         *     Listar devuelve solo los propios salvo que se tenga
-         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
-         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
-         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
-         *     como empleado: sigue sin poder aprobarse.
-         *
-         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-         *     su propio rastro de auditoría.
-         */
-        post: operations["servicios_registros_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/servicios/registros/{id}/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * @description Registro y validación de servicios realizados.
-         *
-         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
-         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
-         *     body (ver `perform_create`), para que nadie registre trabajo a
-         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-         *     **obligatorio**: alguien que administra el negocio puede estar
-         *     cargando el trabajo de un barbero que no usa la app, y el registro
-         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-         *     tipeó (ver `RegistroServicioSerializer.validate`).
-         *
-         *     Listar devuelve solo los propios salvo que se tenga
-         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
-         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
-         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
-         *     como empleado: sigue sin poder aprobarse.
-         *
-         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-         *     su propio rastro de auditoría.
-         */
-        get: operations["servicios_registros_retrieve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/servicios/registros/{id}/aprobar/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * @description Registro y validación de servicios realizados.
-         *
-         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
-         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
-         *     body (ver `perform_create`), para que nadie registre trabajo a
-         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-         *     **obligatorio**: alguien que administra el negocio puede estar
-         *     cargando el trabajo de un barbero que no usa la app, y el registro
-         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-         *     tipeó (ver `RegistroServicioSerializer.validate`).
-         *
-         *     Listar devuelve solo los propios salvo que se tenga
-         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
-         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
-         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
-         *     como empleado: sigue sin poder aprobarse.
-         *
-         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-         *     su propio rastro de auditoría.
-         */
-        post: operations["servicios_registros_aprobar_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/servicios/registros/{id}/rechazar/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * @description Registro y validación de servicios realizados.
-         *
-         *     Crear no exige ninguna capacidad: cualquier miembro activo puede
-         *     registrar un servicio. Sin `puede_aprobar_servicios`, siempre es **el
-         *     suyo propio** — `empleado` sale de la membresía del token, nunca del
-         *     body (ver `perform_create`), para que nadie registre trabajo a
-         *     nombre de otro. Con esa capacidad, en cambio, elegir `empleado` es
-         *     **obligatorio**: alguien que administra el negocio puede estar
-         *     cargando el trabajo de un barbero que no usa la app, y el registro
-         *     tiene que quedar asociado a quien de verdad lo hizo, no a quien lo
-         *     tipeó (ver `RegistroServicioSerializer.validate`).
-         *
-         *     Listar devuelve solo los propios salvo que se tenga
-         *     `puede_aprobar_servicios`, que ve los de todo el negocio, con
-         *     `?estado=`, `?fecha_desde=`/`?fecha_hasta=` y `?empleado=` opcionales
-         *     para filtrar. Aprobar y rechazar exigen esa misma capacidad, sin
-         *     excepción de propiedad: a diferencia de `Cita`, acá nadie revisa lo
-         *     suyo aunque tenga el permiso (ver `services._validar_revision`) —
-         *     incluye a quien registró a nombre de otro y luego se pone a sí mismo
-         *     como empleado: sigue sin poder aprobarse.
-         *
-         *     Inmutable tras crearse: sin `PUT`/`PATCH`/`DELETE`. La única forma de
-         *     que un registro cambie es a través de `aprobar`/`rechazar`, que dejan
-         *     su propio rastro de auditoría.
-         */
-        post: operations["servicios_registros_rechazar_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1362,13 +1379,28 @@ export interface components {
              */
             saldo_inicial: string;
         };
-        /** @enum {unknown} */
-        BlankEnum: "";
+        AnularVenta: {
+            motivo: string;
+            /**
+             * @description Con qué se le devuelve la plata al cliente, si la venta ya tenía cobros. Por defecto, el método del primer pago.
+             *
+             *     * `efectivo` - Efectivo
+             *     * `tarjeta` - Tarjeta
+             *     * `nequi` - Nequi
+             *     * `daviplata` - Daviplata
+             *     * `bre_b` - Bre-B
+             *     * `otro` - Otro
+             */
+            metodo_devolucion?: components["schemas"]["MetodoPagoEnum"];
+        };
         /** @description El detalle de una caja: sus movimientos y el resumen agregado. */
         CajaDetalle: {
             readonly id: number;
             readonly estado: components["schemas"]["CajaEstadoEnum"];
-            /** Format: decimal */
+            /**
+             * Format: decimal
+             * @description Efectivo con el que arranca el cajón (la base).
+             */
             readonly saldo_inicial: string;
             readonly abierta_por: number;
             readonly abierta_por_nombre: string;
@@ -1379,6 +1411,21 @@ export interface components {
             /** Format: date-time */
             readonly cerrada_en: string | null;
             readonly nota_cierre: string;
+            /**
+             * Format: decimal
+             * @description saldo_inicial + ingresos en efectivo − egresos en efectivo − devoluciones en efectivo, al momento del cierre.
+             */
+            readonly efectivo_esperado: string | null;
+            /**
+             * Format: decimal
+             * @description Lo que la persona contó de verdad en el cajón.
+             */
+            readonly efectivo_contado: string | null;
+            /**
+             * Format: decimal
+             * @description efectivo_contado − efectivo_esperado. Negativo es faltante.
+             */
+            readonly diferencia: string | null;
             readonly movimientos: components["schemas"]["MovimientoCaja"][];
             readonly resumen: components["schemas"]["ResumenCaja"];
         };
@@ -1395,7 +1442,10 @@ export interface components {
         CajaLista: {
             readonly id: number;
             readonly estado: components["schemas"]["CajaEstadoEnum"];
-            /** Format: decimal */
+            /**
+             * Format: decimal
+             * @description Efectivo con el que arranca el cajón (la base).
+             */
             readonly saldo_inicial: string;
             readonly abierta_por: number;
             readonly abierta_por_nombre: string;
@@ -1406,6 +1456,21 @@ export interface components {
             /** Format: date-time */
             readonly cerrada_en: string | null;
             readonly nota_cierre: string;
+            /**
+             * Format: decimal
+             * @description saldo_inicial + ingresos en efectivo − egresos en efectivo − devoluciones en efectivo, al momento del cierre.
+             */
+            readonly efectivo_esperado: string | null;
+            /**
+             * Format: decimal
+             * @description Lo que la persona contó de verdad en el cajón.
+             */
+            readonly efectivo_contado: string | null;
+            /**
+             * Format: decimal
+             * @description efectivo_contado − efectivo_esperado. Negativo es faltante.
+             */
+            readonly diferencia: string | null;
         };
         /**
          * @description Un cargo del negocio: nombre, tipo y qué concede.
@@ -1428,12 +1493,43 @@ export interface components {
             puede_configurar_horarios?: boolean;
             puede_ver_agenda_completa?: boolean;
             puede_editar_negocio?: boolean;
-            puede_aprobar_servicios?: boolean;
+            puede_anular_venta?: boolean;
         };
+        /**
+         * @description * `insumos` - Insumos
+         *     * `servicios_publicos` - Servicios públicos
+         *     * `arriendo` - Arriendo
+         *     * `transporte` - Transporte
+         *     * `mantenimiento` - Mantenimiento
+         *     * `nomina` - Nómina
+         *     * `comisiones` - Comisiones
+         *     * `otros` - Otros
+         * @enum {string}
+         */
+        CategoriaEgresoEnum: "insumos" | "servicios_publicos" | "arriendo" | "transporte" | "mantenimiento" | "nomina" | "comisiones" | "otros";
+        /**
+         * @description Entrada del cierre. `efectivo_contado` es **obligatorio**: cerrar
+         *     sin contar el cajón es lo que hacía que el módulo no sirviera para
+         *     detectar un faltante.
+         */
         CerrarCaja: {
+            /**
+             * Format: decimal
+             * @description Lo que se contó de verdad en el cajón, en efectivo.
+             */
+            efectivo_contado: string;
             /** @default  */
             nota_cierre: string;
         };
+        /**
+         * @description Una cita de la agenda.
+         *
+         *     `venta_id` y `venta_estado` son la **única** referencia al dinero que
+         *     trae la cita, y son de la venta asociada, no campos propios: el
+         *     estado financiero no se duplica acá (ver `apps.agenda.models.Cita`).
+         *     Vienen en `null` mientras no exista venta, que es todo el tiempo hasta
+         *     que alguien completa la cita.
+         */
         Cita: {
             readonly id: number;
             servicio: number;
@@ -1448,6 +1544,20 @@ export interface components {
             nombre_cliente: string;
             telefono_cliente?: string;
             notas?: string;
+            readonly venta_id: number | null;
+            readonly venta_estado: (components["schemas"]["VentaEstadoEnum"] | components["schemas"]["NullEnum"]) | null;
+        };
+        /**
+         * @description Respuesta de `POST /api/agenda/citas/{id}/completar/`.
+         *
+         *     Devuelve la venta entera y no solo su id para que el empleado vea en
+         *     la misma pantalla cuánto quedó a cobrar, sin una segunda llamada — y
+         *     para que el frontend pueda mostrar el total sin adivinarlo a partir
+         *     del precio del catálogo, que no es el que se congeló en la venta.
+         */
+        CitaCompletada: {
+            cita: components["schemas"]["Cita"];
+            readonly venta: components["schemas"]["Venta"];
         };
         /**
          * @description Entrada para agendar una cita. `empleado` es opcional: si se
@@ -1467,11 +1577,46 @@ export interface components {
         /**
          * @description * `agendada` - Agendada
          *     * `confirmada` - Confirmada
+         *     * `en_atencion` - En atención
          *     * `completada` - Completada
          *     * `cancelada` - Cancelada
+         *     * `no_show` - No asistió
          * @enum {string}
          */
-        CitaEstadoEnum: "agendada" | "confirmada" | "completada" | "cancelada";
+        CitaEstadoEnum: "agendada" | "confirmada" | "en_atencion" | "completada" | "cancelada" | "no_show";
+        /**
+         * @description Entrada de `POST /api/caja/ventas/{id}/cobrar/`.
+         *
+         *     Un pago mixto son **dos llamadas** a este endpoint sobre la misma
+         *     venta, una por método. Se prefirió eso a recibir una lista de pagos
+         *     en un solo request porque cada pago es un hecho independiente que
+         *     puede fallar por su cuenta (la caja se cerró entremedio, el monto
+         *     excede el saldo), y un error parcial dentro de una lista es
+         *     justamente lo que no se quiere en el dominio de dinero.
+         */
+        Cobrar: {
+            /** Format: decimal */
+            monto: string;
+            metodo_pago: components["schemas"]["MetodoPagoEnum"];
+        };
+        Devolucion: {
+            readonly id: number;
+            /** Format: decimal */
+            readonly monto: string;
+            readonly metodo_pago: components["schemas"]["MetodoPagoEnum"];
+            readonly motivo: string;
+            readonly registrado_por: number;
+            readonly registrado_por_nombre: string;
+            readonly movimiento: number;
+            /** Format: date-time */
+            readonly creado_en: string;
+        };
+        Devolver: {
+            /** Format: decimal */
+            monto: string;
+            metodo_pago: components["schemas"]["MetodoPagoEnum"];
+            motivo: string;
+        };
         /**
          * @description * `0` - Lunes
          *     * `1` - Martes
@@ -1483,6 +1628,25 @@ export interface components {
          * @enum {integer}
          */
         DiaSemanaEnum: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+        /** @description Entrada de `POST /api/caja/egresos/`. */
+        Egreso: {
+            /** Format: decimal */
+            monto: string;
+            concepto: string;
+            categoria: components["schemas"]["CategoriaEgresoEnum"];
+            /**
+             * @description Con qué se pagó. Solo `efectivo` afecta el arqueo del cajón; el resto se concilia contra el extracto de su plataforma.
+             *
+             *     * `efectivo` - Efectivo
+             *     * `tarjeta` - Tarjeta
+             *     * `nequi` - Nequi
+             *     * `daviplata` - Daviplata
+             *     * `bre_b` - Bre-B
+             *     * `otro` - Otro
+             * @default efectivo
+             */
+            metodo_pago: components["schemas"]["MetodoPagoEnum"];
+        };
         /** @description Empleado adicional: sus datos de acceso y en qué cargo entra. */
         EmpleadoAlta: {
             /** Format: email */
@@ -1605,13 +1769,14 @@ export interface components {
         };
         /**
          * @description * `efectivo` - Efectivo
+         *     * `tarjeta` - Tarjeta
          *     * `nequi` - Nequi
          *     * `daviplata` - Daviplata
          *     * `bre_b` - Bre-B
          *     * `otro` - Otro
          * @enum {string}
          */
-        MetodoPagoEnum: "efectivo" | "nequi" | "daviplata" | "bre_b" | "otro";
+        MetodoPagoEnum: "efectivo" | "tarjeta" | "nequi" | "daviplata" | "bre_b" | "otro";
         /**
          * @description Forma de la respuesta de GET /api/negocios/mi-membresia/.
          *
@@ -1707,22 +1872,28 @@ export interface components {
             activo?: boolean;
         };
         /**
-         * @description Un ingreso o egreso. Alta y consulta — no hay edición (ver el
-         *     modelo: es un libro contable, inmutable tras crearse).
+         * @description Una línea del libro. **Solo lectura**: los movimientos no se crean
+         *     sueltos ni se editan.
+         *
+         *     Un ingreso nace de cobrar una venta (`POST /api/caja/ventas/{id}/cobrar/`),
+         *     una devolución de devolver (`.../devolver/`), y un egreso tiene su
+         *     propio endpoint (`POST /api/caja/egresos/`). No hay un "crear
+         *     movimiento" genérico a propósito: era la puerta por la que entraba
+         *     plata que ninguna venta explicaba.
          */
         MovimientoCaja: {
             readonly id: number;
             readonly caja: number;
-            tipo: components["schemas"]["MovimientoCajaTipoEnum"];
-            metodo_pago?: components["schemas"]["MetodoPagoEnum"] | components["schemas"]["BlankEnum"];
-            /** Format: decimal */
-            monto: string;
-            concepto: string;
-            registro_servicio?: number | null;
-            empleado_comision?: number | null;
-            readonly empleado_comision_nombre: string | null;
-            /** Format: decimal */
-            readonly monto_comision: string | null;
+            readonly tipo: components["schemas"]["MovimientoCajaTipoEnum"];
+            readonly metodo_pago: components["schemas"]["MetodoPagoEnum"];
+            /**
+             * Format: decimal
+             * @description Siempre positivo. El signo lo da `tipo`, no el monto.
+             */
+            readonly monto: string;
+            readonly concepto: string;
+            readonly categoria: components["schemas"]["CategoriaEgresoEnum"];
+            readonly venta: number | null;
             readonly registrado_por: number;
             readonly registrado_por_nombre: string;
             /** Format: date-time */
@@ -1731,9 +1902,10 @@ export interface components {
         /**
          * @description * `ingreso` - Ingreso
          *     * `egreso` - Egreso
+         *     * `devolucion` - Devolución
          * @enum {string}
          */
-        MovimientoCajaTipoEnum: "ingreso" | "egreso";
+        MovimientoCajaTipoEnum: "ingreso" | "egreso" | "devolucion";
         Negocio: {
             readonly id: number;
             readonly nombre: string;
@@ -1769,10 +1941,23 @@ export interface components {
             readonly nombre: string;
             readonly ciudad: string;
         };
+        /** @enum {unknown} */
+        NullEnum: null;
         /** @description El cuerpo de `PUT .../fotos/orden/`: la galería entera, en orden. */
         OrdenFotos: {
             /** @description Ids de TODAS las fotos del negocio, en el orden en que deben mostrarse. Una lista parcial se rechaza. */
             ids: number[];
+        };
+        Pago: {
+            readonly id: number;
+            /** Format: decimal */
+            readonly monto: string;
+            readonly metodo_pago: components["schemas"]["MetodoPagoEnum"];
+            readonly registrado_por: number;
+            readonly registrado_por_nombre: string;
+            readonly movimiento: number;
+            /** Format: date-time */
+            readonly creado_en: string;
         };
         /**
          * @description Un cargo del negocio: nombre, tipo y qué concede.
@@ -1795,8 +1980,17 @@ export interface components {
             puede_configurar_horarios?: boolean;
             puede_ver_agenda_completa?: boolean;
             puede_editar_negocio?: boolean;
-            puede_aprobar_servicios?: boolean;
+            puede_anular_venta?: boolean;
         };
+        /**
+         * @description Una cita de la agenda.
+         *
+         *     `venta_id` y `venta_estado` son la **única** referencia al dinero que
+         *     trae la cita, y son de la venta asociada, no campos propios: el
+         *     estado financiero no se duplica acá (ver `apps.agenda.models.Cita`).
+         *     Vienen en `null` mientras no exista venta, que es todo el tiempo hasta
+         *     que alguien completa la cita.
+         */
         PatchedCita: {
             readonly id?: number;
             servicio?: number;
@@ -1811,6 +2005,8 @@ export interface components {
             nombre_cliente?: string;
             telefono_cliente?: string;
             notas?: string;
+            readonly venta_id?: number | null;
+            readonly venta_estado?: (components["schemas"]["VentaEstadoEnum"] | components["schemas"]["NullEnum"]) | null;
         };
         PatchedHorarioTrabajo: {
             readonly id?: number;
@@ -1892,13 +2088,6 @@ export interface components {
             readonly nombre: string;
             readonly especialidad: string;
         };
-        /**
-         * @description Entrada de `POST .../registros/{id}/rechazar/`: el motivo es
-         *     obligatorio — es lo que el empleado va a leer en su propio historial.
-         */
-        Rechazo: {
-            motivo: string;
-        };
         RegistroNegocio: {
             nombre_negocio: string;
             ciudad?: string;
@@ -1916,54 +2105,6 @@ export interface components {
             access: string;
             refresh: string;
         };
-        /**
-         * @description Un registro de servicio realizado: alta y consulta.
-         *
-         *     `estado`, `aprobado_por` y `fecha_revision` son de solo lectura
-         *     porque los fija el servidor a través de las acciones
-         *     `aprobar`/`rechazar`, nunca el cliente.
-         *
-         *     `empleado` es un caso especial: **casi siempre** lo fija el servidor
-         *     también (ver `RegistroServicioViewSet.perform_create`), pero quien
-         *     tiene `puede_aprobar_servicios` puede —y debe— elegir a nombre de
-         *     quién registra, para dejar constancia de un servicio que un barbero
-         *     sin acceso a la app no pudo cargar él mismo. Por eso viaja como
-         *     campo normal (no en `read_only_fields`) y su exigencia se resuelve en
-         *     `validate()`, según quién hace el request.
-         */
-        RegistroServicio: {
-            readonly id: number;
-            /** @description Quién realizó el servicio. Solo se puede elegir con `puede_aprobar_servicios`; sin esa capacidad, el campo se ignora y siempre queda el propio solicitante. */
-            empleado?: number;
-            readonly empleado_nombre: string;
-            servicio: number;
-            readonly servicio_nombre: string;
-            nombre_cliente: string;
-            telefono_cliente?: string;
-            /**
-             * Format: date-time
-             * @description Cuándo ocurrió el servicio. No puede ser futura.
-             */
-            fecha_hora: string;
-            observaciones?: string;
-            /** Format: uri */
-            evidencia?: string | null;
-            readonly estado: components["schemas"]["RegistroServicioEstadoEnum"];
-            readonly aprobado_por: number | null;
-            readonly aprobado_por_nombre: string | null;
-            /** Format: date-time */
-            readonly fecha_revision: string | null;
-            readonly motivo_rechazo: string;
-            /** Format: date-time */
-            readonly creado_en: string;
-        };
-        /**
-         * @description * `pendiente` - Pendiente
-         *     * `aprobado` - Aprobado
-         *     * `rechazado` - Rechazado
-         * @enum {string}
-         */
-        RegistroServicioEstadoEnum: "pendiente" | "aprobado" | "rechazado";
         /**
          * @description Lo que manda un cliente para reservar. Sin cuenta: nombre y teléfono.
          *
@@ -2008,13 +2149,28 @@ export interface components {
             /** Format: decimal */
             total_egresos: string;
             /** Format: decimal */
+            total_devoluciones: string;
+            /** Format: decimal */
             neto: string;
             por_metodo_pago: {
                 [key: string]: string;
             };
+            egresos_por_categoria: {
+                [key: string]: string;
+            };
             comisiones_por_empleado: components["schemas"]["ResumenComision"][];
-            /** @description Cuántos RegistroServicio aprobados durante esta caja no tienen ningún movimiento vinculado. Informativo, no bloquea el cierre. */
-            servicios_aprobados_sin_cobrar: number;
+            /** @description Cuántas ventas del negocio siguen pendientes o parciales. Informativo, no bloquea el cierre. */
+            ventas_sin_cobrar: number;
+            /** Format: decimal */
+            saldo_inicial: string;
+            /** Format: decimal */
+            ingresos_efectivo: string;
+            /** Format: decimal */
+            egresos_efectivo: string;
+            /** Format: decimal */
+            devoluciones_efectivo: string;
+            /** Format: decimal */
+            efectivo_esperado: string;
         };
         ResumenComision: {
             empleado: number;
@@ -2083,6 +2239,75 @@ export interface components {
         TokenRefresh: {
             readonly access: string;
             refresh: string;
+        };
+        /**
+         * @description Una cuenta: qué se hizo, cuánto vale, cuánto se cobró.
+         *
+         *     `estado`, `total` y todo lo relacionado con el cobro son de solo
+         *     lectura: los fija el servidor a través de `cobrar`, `devolver` y
+         *     `anular`. El cliente solo manda el cliente, los items y (si aplica)
+         *     la evidencia.
+         */
+        Venta: {
+            readonly id: number;
+            readonly cita: number | null;
+            nombre_cliente: string;
+            telefono_cliente?: string;
+            items: components["schemas"]["VentaItem"][];
+            /** Format: decimal */
+            readonly total: string;
+            /** Format: decimal */
+            readonly total_pagado: string;
+            /** Format: decimal */
+            readonly saldo_pendiente: string;
+            readonly estado: components["schemas"]["VentaEstadoEnum"];
+            observaciones?: string;
+            /** Format: uri */
+            evidencia?: string | null;
+            readonly pagos: components["schemas"]["Pago"][];
+            readonly devoluciones: components["schemas"]["Devolucion"][];
+            readonly creada_por: number;
+            readonly creada_por_nombre: string;
+            readonly anulada_por: number | null;
+            /** Format: date-time */
+            readonly anulada_en: string | null;
+            readonly motivo_anulacion: string;
+            /** Format: date-time */
+            readonly creado_en: string;
+        };
+        /**
+         * @description * `pendiente` - Pendiente de cobro
+         *     * `parcial` - Pagada parcialmente
+         *     * `pagada` - Pagada
+         *     * `anulada` - Anulada
+         * @enum {string}
+         */
+        VentaEstadoEnum: "pendiente" | "parcial" | "pagada" | "anulada";
+        /**
+         * @description Una línea de la venta.
+         *
+         *     Al **crear**, se manda `servicio` (y de ahí se copian descripción,
+         *     precio y comisión) o bien `descripcion` + `precio_unitario` a mano,
+         *     para vender algo que todavía no tiene catálogo. `empleado` es siempre
+         *     obligatorio: es la fuente de verdad de la comisión.
+         *
+         *     Al **leer**, `descripcion`, `precio_unitario` y `porcentaje_comision`
+         *     son los valores congelados al momento de la venta, no los del
+         *     catálogo de hoy.
+         */
+        VentaItem: {
+            readonly id: number;
+            servicio?: number | null;
+            empleado: number;
+            readonly empleado_nombre: string;
+            descripcion?: string;
+            /** Format: decimal */
+            precio_unitario?: string;
+            cantidad?: number;
+            /** Format: decimal */
+            readonly porcentaje_comision: string;
+            /** Format: decimal */
+            readonly subtotal: string;
         };
     };
     responses: never;
@@ -2275,12 +2500,56 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Cita"];
+                    "application/json": components["schemas"]["CitaCompletada"];
                 };
             };
         };
     };
     agenda_citas_confirmar_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cita. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cita"];
+                };
+            };
+        };
+    };
+    agenda_citas_en_atencion_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cita. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cita"];
+                };
+            };
+        };
+    };
+    agenda_citas_no_show_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -2661,7 +2930,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "application/json": components["schemas"]["CerrarCaja"];
                 "application/x-www-form-urlencoded": components["schemas"]["CerrarCaja"];
@@ -2679,7 +2948,7 @@ export interface operations {
             };
         };
     };
-    caja_movimientos_create: {
+    caja_egresos_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -2688,9 +2957,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MovimientoCaja"];
-                "application/x-www-form-urlencoded": components["schemas"]["MovimientoCaja"];
-                "multipart/form-data": components["schemas"]["MovimientoCaja"];
+                "application/json": components["schemas"]["Egreso"];
+                "application/x-www-form-urlencoded": components["schemas"]["Egreso"];
+                "multipart/form-data": components["schemas"]["Egreso"];
             };
         };
         responses: {
@@ -2700,6 +2969,165 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MovimientoCaja"];
+                };
+            };
+        };
+    };
+    caja_ventas_list: {
+        parameters: {
+            query?: {
+                /** @description Filtra por quién realizó alguna de las líneas. */
+                empleado?: number;
+                /** @description Filtra por estado. `?estado=pendiente` es la **cola de cobro** de recepción. */
+                estado?: "anulada" | "pagada" | "parcial" | "pendiente";
+                /** @description YYYY-MM-DD, inclusive. */
+                fecha_desde?: string;
+                /** @description YYYY-MM-DD, inclusive. */
+                fecha_hasta?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Venta"][];
+                };
+            };
+        };
+    };
+    caja_ventas_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Venta"];
+                "application/x-www-form-urlencoded": components["schemas"]["Venta"];
+                "multipart/form-data": components["schemas"]["Venta"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Venta"];
+                };
+            };
+        };
+    };
+    caja_ventas_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this venta. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Venta"];
+                };
+            };
+        };
+    };
+    caja_ventas_anular_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this venta. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnularVenta"];
+                "application/x-www-form-urlencoded": components["schemas"]["AnularVenta"];
+                "multipart/form-data": components["schemas"]["AnularVenta"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Venta"];
+                };
+            };
+        };
+    };
+    caja_ventas_cobrar_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this venta. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Cobrar"];
+                "application/x-www-form-urlencoded": components["schemas"]["Cobrar"];
+                "multipart/form-data": components["schemas"]["Cobrar"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Venta"];
+                };
+            };
+        };
+    };
+    caja_ventas_devolver_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this venta. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Devolver"];
+                "application/x-www-form-urlencoded": components["schemas"]["Devolver"];
+                "multipart/form-data": components["schemas"]["Devolver"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Venta"];
                 };
             };
         };
@@ -3424,131 +3852,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Servicio"][];
-                };
-            };
-        };
-    };
-    servicios_registros_list: {
-        parameters: {
-            query?: {
-                /** @description Filtra por quién lo registró. Sin `puede_aprobar_servicios` no tiene efecto útil: el listado ya está acotado a uno mismo. */
-                empleado?: number;
-                /** @description Filtra por estado. Sin este parámetro, devuelve todos. */
-                estado?: "aprobado" | "pendiente" | "rechazado";
-                /** @description Filtra desde esta fecha, inclusive (YYYY-MM-DD). */
-                fecha_desde?: string;
-                /** @description Filtra hasta esta fecha, inclusive (YYYY-MM-DD). */
-                fecha_hasta?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RegistroServicio"][];
-                };
-            };
-        };
-    };
-    servicios_registros_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RegistroServicio"];
-                "application/x-www-form-urlencoded": components["schemas"]["RegistroServicio"];
-                "multipart/form-data": components["schemas"]["RegistroServicio"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RegistroServicio"];
-                };
-            };
-        };
-    };
-    servicios_registros_retrieve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description A unique integer value identifying this registro servicio. */
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RegistroServicio"];
-                };
-            };
-        };
-    };
-    servicios_registros_aprobar_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description A unique integer value identifying this registro servicio. */
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RegistroServicio"];
-                };
-            };
-        };
-    };
-    servicios_registros_rechazar_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description A unique integer value identifying this registro servicio. */
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Rechazo"];
-                "application/x-www-form-urlencoded": components["schemas"]["Rechazo"];
-                "multipart/form-data": components["schemas"]["Rechazo"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RegistroServicio"];
                 };
             };
         };

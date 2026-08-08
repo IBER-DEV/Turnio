@@ -147,12 +147,20 @@ no en Fase 1.
   en fases posteriores el volumen lo justifica, se documentará aquí el
   esquema de paginación **antes** de activarlo (cambio de contrato).
 - **Máquina de estados de `Cita`**: `agendada → confirmada →
-  completada`, con `cancelada` alcanzable desde `agendada` o
-  `confirmada` (no desde `completada`). No se transiciona con
-  `PATCH estado=...`: son acciones dedicadas —
-  `POST /api/agenda/citas/{id}/confirmar/`,
-  `.../completar/`, `.../cancelar/` — que devuelven `400` si la
-  transición no es válida desde el estado actual.
+  en_atencion → completada`, con `cancelada` y `no_show` alcanzables
+  desde `agendada` o `confirmada` (y `cancelada` también desde
+  `en_atencion`). `en_atencion` es **opcional**: se puede ir de
+  `confirmada` a `completada` directo. `completada`, `cancelada` y
+  `no_show` son terminales. No se transiciona con `PATCH estado=...`:
+  son acciones dedicadas — `POST /api/agenda/citas/{id}/confirmar/`,
+  `.../en-atencion/`, `.../completar/`, `.../cancelar/`, `.../no-show/`
+  — que devuelven `400` si la transición no es válida desde el estado
+  actual.
+- **El estado de la cita no dice nada sobre el dinero.** `completada`
+  significa "el trabajo se hizo", **no** "está pagado". El estado
+  financiero vive en la `Venta` asociada y llega en la cita como
+  `venta_id` / `venta_estado` (ambos `null` mientras no exista venta).
+  Ver 5.13.
 
 ## 5. Modelo de permisos (capacidades, no roles)
 
@@ -172,7 +180,9 @@ permisos propios. La lista vigente **vive en el schema** (`Cargo` en
 - `puede_configurar_horarios`
 - `puede_ver_agenda_completa`
 - `puede_editar_negocio` *(ver 5.12)*
-- `puede_aprobar_servicios` *(ver 5.13)*
+- `puede_anular_venta` *(ver 5.13 — reemplazó a `puede_aprobar_servicios`
+  el 2026-08-07, cuando el circuito de aprobación se colapsó dentro del
+  cobro)*
 
 Esta lista **crecerá**. El frontend no debe hardcodear un switch/enum
 cerrado de capacidades sin volver a chequear el schema: debe tratarlas
@@ -600,86 +610,120 @@ sirven bajo `/media/` **solo con `DEBUG=1`**. Fuera de desarrollo eso lo
 sirve nginx o un bucket — la misma decisión de infraestructura pendiente
 que `frontend/dist/` (ver `backend/ROADMAP-BACKEND.md`).
 
-### 5.13 Registro y validación de servicios realizados
+### 5.13 Ventas, cobros y devoluciones (Fase 3, rediseñado 2026-08-07)
 
-Un empleado puede **decir que hizo un servicio** —incluido un cliente
-sin cita previa (walk-in)— pero ese registro no cuenta para nada
-(comisiones, historial, métricas — cuando existan en Fase 3) hasta que
-alguien con permiso lo revisa. Es **independiente de `Cita`**: no
-extiende su máquina de estados, porque no todo servicio realizado pasó
-antes por la agenda.
+Este es el circuito de dinero completo, y reemplaza al viejo "registro
+y validación de servicios realizados" (`/api/servicios/registros/`, que
+**ya no existe**). La regla que ordena todo:
 
-| Método | Ruta | Quién |
+> **El servicio genera una deuda (`Venta`). El pago genera el
+> movimiento de dinero (`MovimientoCaja`).**
+
+Son dos hechos distintos y por eso son dos recursos. Un trabajo hecho y
+no cobrado es plata que el negocio espera, no plata que tiene.
+
+El flujo normal, de punta a punta:
+
+```
+Cita confirmada
+   → el empleado pulsa Completar   POST /api/agenda/citas/{id}/completar/
+   → nace la Venta en `pendiente`  (aparece en la cola de cobro)
+   → recepción cobra               POST /api/caja/ventas/{id}/cobrar/
+   → Pago + MovimientoCaja(ingreso), la venta pasa a `pagada`
+   → recién ahí se devengan las comisiones
+```
+
+El empleado que atiende **no toca plata**: su responsabilidad termina
+al completar. Quien cobra necesita `puede_cobrar`; en un negocio de un
+solo operario esa misma persona la tiene, así que el caso n=1 funciona
+sin ningún modo especial.
+
+| Método | Ruta | Capacidad |
 |---|---|---|
-| GET/POST | `/api/servicios/registros/` | cualquier miembro (POST siempre sobre sí mismo) |
-| GET | `/api/servicios/registros/{id}/` | dueño del registro, o `puede_aprobar_servicios` |
-| POST | `/api/servicios/registros/{id}/aprobar/` | `puede_aprobar_servicios` |
-| POST | `/api/servicios/registros/{id}/rechazar/` | `puede_aprobar_servicios` |
+| GET/POST | `/api/caja/ventas/` | miembro activo |
+| GET | `/api/caja/ventas/{id}/` | miembro activo (ver alcance abajo) |
+| POST | `/api/caja/ventas/{id}/cobrar/` | `puede_cobrar` |
+| POST | `/api/caja/ventas/{id}/devolver/` | `puede_anular_venta` |
+| POST | `/api/caja/ventas/{id}/anular/` | `puede_anular_venta` |
+| POST | `/api/agenda/citas/{id}/completar/` | `puede_gestionar_agenda` **o** ser el empleado de la cita |
 
 Reglas que el schema no captura:
 
-- **`empleado` es implícito para casi todos, explícito y obligatorio
-  para quien tiene `puede_aprobar_servicios`.** Sin esa capacidad, sale
-  siempre de la membresía del token, igual que el negocio (5.5): un
-  campo `empleado` en el request se ignora en silencio — nadie registra
-  trabajo a nombre de otro, es la protección central contra el fraude
-  que motivó este módulo. **Con** la capacidad, es al revés: `empleado`
-  es **obligatorio** (`400` si falta) porque quien administra puede
-  estar cargando el trabajo de alguien que no usa la app, y el registro
-  tiene que quedar asociado a quien de verdad lo hizo. En ambos casos
-  se valida que el empleado pertenezca al negocio y esté activo.
-- **Estados**: `pendiente` (por defecto) → `aprobado` o `rechazado`.
-  Sin vuelta atrás: un registro ya revisado responde `400` ante una
-  segunda revisión, en cualquier sentido.
-- **Nadie revisa lo suyo, ni siquiera registrando a nombre de otro y
-  poniéndose después como empleado.** A diferencia de `Cita` (donde la
-  propiedad habilita transicionar el propio registro), acá
-  `puede_aprobar_servicios` **no** hace excepción de propiedad: si el
-  revisor es el mismo empleado que quedó asociado al registro, la API
-  responde `400`. Es el mismo principio anti-escalada que ya rige los
-  cargos (5.9): nadie es juez de su propio trabajo.
-- **`fecha_hora` no puede ser futura.** Registrar un servicio es dar fe
-  de que ya ocurrió; una fecha futura respondería `400` en
-  `fecha_hora`.
-- **Rechazar exige motivo** (`{"motivo": "..."}`, no vacío). El
-  empleado lo lee en su propio historial — es el requisito explícito de
-  trazabilidad de este módulo.
-- **Listar** devuelve solo los registros propios, salvo que se tenga
-  `puede_aprobar_servicios`, que ve los de todo el negocio. Un registro
-  ajeno sin esa capacidad responde `404`, igual que uno inexistente
-  (5.2). Filtros opcionales, combinables:
-  - `?estado=` — `pendiente`, `aprobado` o `rechazado`.
-  - `?fecha_desde=` / `?fecha_hasta=` — `YYYY-MM-DD`, ambos inclusive,
-    sobre `fecha_hora`.
-  - `?empleado=` — por id. Sin la capacidad no tiene efecto útil (el
-    listado ya está acotado a uno mismo); con ella, filtra dentro de
-    todo el negocio. Es la manera en que "Mis servicios" en el frontend
-    se queda **siempre** en lo propio incluso para quien tiene
-    visibilidad completa: manda su propio id explícito en vez de
-    apoyarse en el default de la capacidad.
-- **Inmutable tras crearse**: no hay `PUT`/`PATCH`/`DELETE`. La única
-  forma de que cambie es `aprobar`/`rechazar`.
-- **Evidencia fotográfica es opcional** (`evidencia`, multipart, mismo
+- **Completar una cita es idempotente.** Una cita no puede generar más
+  de una venta: `Venta.cita` es `OneToOne`, la operación toma un lock
+  sobre la cita y, si ya hay venta, devuelve **esa misma** con `200`.
+  Dos toques al botón o un reintento por red mala no duplican la
+  cuenta. La respuesta es `{"cita": {...}, "venta": {...}}`, no la cita
+  sola.
+- **Crear una venta no mueve plata ni exige caja abierta.** Un servicio
+  hecho a las 7pm con la caja ya cerrada sigue siendo una deuda que
+  mañana alguien cobra. **Cobrar, devolver y anular una venta ya
+  cobrada sí exigen caja abierta** (`400` si no hay).
+- **Los items congelan precio y comisión.** Cada línea copia
+  `descripcion`, `precio_unitario` y `porcentaje_comision` del servicio
+  al momento de crearse. Subirle el precio al corte mañana **no**
+  cambia lo que se cobró hoy. El frontend nunca debe recalcular un
+  total desde el catálogo: el `total` de la venta es la verdad.
+- **`empleado` es obligatorio en cada item** y es la fuente de verdad
+  de la comisión. La venta **no** tiene un campo `empleado`: una cuenta
+  puede pasar por dos manos (uno corta, otro hace la barba) y un
+  "responsable principal" derivable de los items sería una segunda
+  verdad desincronizable. Para mostrar "quién atendió" en la cola de
+  cobro, se leen los `items[].empleado_nombre`.
+- **Sin `puede_cobrar`, solo se puede facturar trabajo propio**: si
+  algún item trae un `empleado` distinto al del token, responde `400`.
+  Es la protección contra cargarle trabajo (y comisión) a un compañero.
+- **Un item puede no tener `servicio`**: mandando `descripcion` y
+  `precio_unitario` a mano se vende algo fuera de catálogo (un shampoo).
+  El catálogo de productos como tal es Fase 6; el dominio ya lo admite.
+- **Estados de la venta**: `pendiente` → `parcial` → `pagada`, más
+  `anulada` (terminal). Se derivan siempre de los pagos reales, nunca
+  se mandan desde el cliente.
+- **Pago mixto y pago parcial son dos llamadas a `cobrar/`**, una por
+  método: `$40.000` efectivo + `$60.000` transferencia son dos pagos de
+  la misma venta. Cobrar más que el saldo pendiente responde `400`, y
+  cobrar una venta ya pagada o anulada también.
+- **La comisión es de la venta, no del pago.** Se devenga **una sola
+  vez**, cuando la venta queda saldada, calculada sobre el
+  `porcentaje_comision` congelado de cada item. Con pagos parciales no
+  se devenga nada hasta completar. (Antes se calculaba sobre el monto
+  del movimiento de caja, lo que con pagos mixtos producía dos
+  comisiones por el mismo trabajo.)
+- **Nunca se edita ni se borra un movimiento ya registrado.** Un cobro
+  equivocado se corrige con `devolver/`, que genera un movimiento nuevo
+  de tipo `devolucion` apuntando a la misma venta. Las dos mitades del
+  hecho quedan en el libro y en la auditoría. `devolver/` exige
+  `motivo` no vacío y no admite devolver más de lo cobrado (`400`).
+- **`anular/`** exige `motivo`, y si la venta ya tenía cobros genera la
+  devolución por lo cobrado antes de anular (acepta `metodo_devolucion`
+  opcional; por defecto usa el método del primer pago). Revierte las
+  comisiones devengadas — no son movimientos de caja, son el cálculo de
+  lo que se le debe al empleado, y por un trabajo anulado no se le debe
+  nada. Es terminal: una venta anulada no se vuelve a cobrar.
+- **Sin `PUT`/`PATCH`/`DELETE`** sobre ventas (`405`). El historial
+  financiero no se altera retroactivamente.
+- **Listar** devuelve todas las ventas del negocio con `puede_cobrar` o
+  `puede_ver_reportes`; sin ninguna de las dos, solo aquellas donde uno
+  aparece como empleado de algún item — las ventas traen nombre y
+  teléfono del cliente, o sea la libreta del negocio. Una venta fuera
+  del alcance responde `404`, igual que una inexistente (5.2). Filtros
+  combinables: `?estado=` (`?estado=pendiente` **es la cola de cobro**),
+  `?fecha_desde=`/`?fecha_hasta=` (`YYYY-MM-DD`, inclusive) y
+  `?empleado=`.
+- **Evidencia fotográfica opcional** (`evidencia`, multipart, mismo
   límite de 5 MB que las imágenes de negocio — 5.12).
-- **`puede_aprobar_servicios` no viene concedida a ningún cargo
-  sembrado** (ni Recepción ni Barbero/estilista): el dueño la asigna a
-  mano a quien vaya a validar. Es deliberado — decide qué cuenta como
-  trabajo real, así que no arranca activada por defecto salvo en
-  Administración (que hereda todas las capacidades).
-- **Qué NO hace este módulo**: no calcula comisión ni la persiste — eso
-  ocurre al **cobrar** (ver 5.14), no al aprobar. Aprobar sigue
-  disparando la señal `apps.servicios.signals.servicio_aprobado`, pero
-  sin ningún receptor conectado: el cálculo de comisión se resolvió con
-  un import directo desde `apps.caja.services`, no escuchando esta señal
-  (ver `DECISIONES.md` #31).
+- **`puede_anular_venta` no viene concedida a ningún cargo sembrado**
+  salvo Administración (que hereda todas). Es deliberado: cobrar es la
+  operación de todos los días de quien atiende el mostrador; deshacer
+  un cobro ya registrado es la que sirve para tapar un faltante, y
+  conviene que quede en menos manos.
 
-### 5.14 Caja: apertura, movimientos y cierre (Fase 3)
+### 5.14 Caja: apertura, egresos y cierre con arqueo (Fase 3)
 
-Turnio **no procesa pagos** — Nequi, Daviplata, Bre-B o efectivo ya se
-movieron por fuera de la plataforma antes de llegar acá. Este módulo
-**concilia**: deja constancia de cuánto entró, por qué método, y cuánto
-le corresponde de comisión a cada empleado, para reemplazar el Excel
-del domingo.
+Turnio **no procesa pagos** — Nequi, Daviplata, Bre-B, tarjeta o
+efectivo ya se movieron por fuera antes de llegar acá. Este módulo
+**concilia**: deja constancia de cuánto entró, por qué método, cuánto
+salió y si el cajón cuadra.
 
 | Método | Ruta | Capacidad |
 |---|---|---|
@@ -687,48 +731,64 @@ del domingo.
 | GET | `/api/caja/{id}/` | `puede_cobrar` **o** `puede_ver_reportes` |
 | GET | `/api/caja/actual/` | `puede_cobrar` |
 | POST | `/api/caja/abrir/` | `puede_cobrar` |
+| POST | `/api/caja/egresos/` | `puede_cobrar` |
 | POST | `/api/caja/cerrar/` | `puede_cobrar` |
-| POST | `/api/caja/movimientos/` | `puede_cobrar` |
 
 Reglas que el schema no captura:
 
+- **No existe un endpoint para crear ingresos a mano.** Todo ingreso
+  nace de cobrar una venta (5.13). El viejo
+  `POST /api/caja/movimientos/` se eliminó: era la puerta por la que
+  entraba plata que ninguna cuenta explicaba.
 - **Una sola caja abierta por negocio a la vez.** `POST .../abrir/` con
   una ya abierta responde `400`. `GET .../actual/` responde `404` si no
   hay ninguna — es la señal para que el frontend ofrezca "Abrir caja",
   no un error real.
-- **Los movimientos son inmutables**: sin `PUT`/`PATCH`/`DELETE`, mismo
-  criterio que `RegistroServicio` (5.13) — es un libro contable, un
-  error se corrige con un movimiento de ajuste nuevo, nunca editando el
-  histórico.
-- **`POST .../movimientos/` opera sobre la caja abierta del negocio,
-  implícita** — no se manda `caja` en el body. Sin ninguna caja abierta,
-  responde `400`.
-- **`metodo_pago` es obligatorio en un `ingreso` y prohibido en un
-  `egreso`** (`400` en el sentido que corresponda si no se respeta).
-  Valores: `efectivo`, `nequi`, `daviplata`, `bre_b`, `otro` — son
-  etiquetas de conciliación, no una integración con ninguna pasarela.
-- **Vincular un movimiento a un `RegistroServicio`** (`registro_servicio`
-  en el body, opcional): exige que ese registro esté `aprobado` (`400`
-  si no) y que no tenga ya otro movimiento vinculado (`400` — un mismo
-  trabajo no se cobra dos veces). El vínculo **sobreescribe** cualquier
-  `empleado_comision` que se haya mandado: la comisión es siempre de
-  quien hizo el trabajo (`registro_servicio.empleado`), nunca de a quién
-  se le ocurra asignársela. `empleado_comision` solo queda libre para
-  elegir cuando **no** hay `registro_servicio` (ej. una venta suelta que
-  se le quiere acreditar a alguien sin pasar por el flujo de validación).
-  El monto de comisión (`monto_comision`) se calcula con el
-  `porcentaje_comision` del servicio en ese momento y queda fijo — un
-  cambio posterior al porcentaje no lo recalcula retroactivamente.
+- **Tres tipos de movimiento**: `ingreso` (siempre desde un pago),
+  `egreso` (gasto del negocio) y `devolucion` (plata que vuelve al
+  cliente). La devolución tiene tipo propio y **no** es un egreso: para
+  el dueño "devolví $35.000 de un corte" y "compré shampoo por $80.000"
+  son hechos distintos, y mezclarlos haría que el reporte de gastos
+  mienta.
+- **Los egresos llevan `categoria` obligatoria**: `insumos`,
+  `servicios_publicos`, `arriendo`, `transporte`, `mantenimiento`,
+  `nomina`, `comisiones`, `otros`. No tienen venta asociada por diseño.
+- **`metodo_pago`**: `efectivo`, `tarjeta`, `nequi`, `daviplata`,
+  `bre_b`, `otro`. Son etiquetas de conciliación, no una integración
+  con ninguna pasarela.
+- **El arqueo cuenta solo efectivo.** `POST .../cerrar/` exige
+  `efectivo_contado` (`400` si falta) y calcula:
+
+  ```
+  efectivo_esperado = saldo_inicial
+                    + ingresos en efectivo
+                    − egresos en efectivo
+                    − devoluciones en efectivo
+  diferencia        = efectivo_contado − efectivo_esperado   (negativo = faltante)
+  ```
+
+  Una transferencia por Nequi nunca estuvo en el cajón: incluirla haría
+  que toda caja con pagos digitales cerrara con un faltante enorme y
+  perfectamente normal. Tarjeta, transferencias y demás se concilian
+  aparte, contra el extracto de su plataforma, con
+  `resumen.por_metodo_pago`.
+- **Un faltante no bloquea el cierre.** Queda registrado y auditado;
+  negarse a cerrar no lo hace desaparecer y sí deja al negocio sin
+  poder operar mañana.
+- **Los tres campos del arqueo se congelan al cerrar**
+  (`efectivo_esperado`, `efectivo_contado`, `diferencia`; `null`
+  mientras la caja está abierta). Es la excepción a "los totales se
+  calculan en caliente": un arqueo es una afirmación sobre un instante,
+  no una cifra viva.
 - **`GET .../{id}/` y `.../actual/` traen `movimientos` anidados y un
-  `resumen`** calculado siempre en caliente desde los movimientos
-  (nunca persistido aparte): `total_ingresos`, `total_egresos`, `neto`,
-  `por_metodo_pago` (dict), `comisiones_por_empleado` (lista), y
-  **`servicios_aprobados_sin_cobrar`** — cuántos `RegistroServicio`
-  aprobados de todo el negocio no tienen ningún movimiento vinculado.
-  Es informativo, **no bloquea el cierre**, y deliberadamente no se
-  acota a la ventana de la caja actual: un servicio aprobado y nunca
-  cobrado sigue siendo plata pendiente aunque haya pasado el día en que
-  se hizo (ver `DECISIONES.md` #35).
+  `resumen`** calculado siempre en caliente: `total_ingresos`,
+  `total_egresos`, `total_devoluciones`, `neto`, `por_metodo_pago`,
+  `egresos_por_categoria`, `comisiones_por_empleado`,
+  **`ventas_sin_cobrar`** (cuántas ventas del negocio siguen pendientes
+  o parciales — informativo, no bloquea el cierre, y deliberadamente no
+  acotado a la ventana de esta caja) y el desglose del arqueo
+  (`saldo_inicial`, `ingresos_efectivo`, `egresos_efectivo`,
+  `devoluciones_efectivo`, `efectivo_esperado`).
 - **`GET /api/caja/`** (histórico) acepta `?fecha_desde=`/`?fecha_hasta=`
   (`YYYY-MM-DD`, ambos inclusive, sobre cuándo se abrió la caja) y no
   trae `movimientos` ni `resumen` — pedirlos es un `GET .../{id}/` por
@@ -739,10 +799,10 @@ Reglas que el schema no captura:
   `PATCH /api/servicios/{id}/` puede traer los dos campos; cada uno
   exige su propia capacidad **solo si el valor cambia** — reenviar el
   valor que ya tenía no requiere nada. Ver `DECISIONES.md` #33.
-- **Auditoría**: cada apertura, movimiento y cierre queda registrado
-  (quién, qué, cuándo) en un log interno (`RegistroAuditoria`), sin
-  endpoint propio todavía — hoy solo se consulta desde el admin de
-  Django. Ver `DECISIONES.md` #32.
+- **Auditoría**: cada apertura, cobro, egreso, devolución, anulación y
+  cierre queda registrado (quién, qué, cuándo) en un log interno
+  (`RegistroAuditoria`), sin endpoint propio todavía — hoy solo se
+  consulta desde el admin de Django. Ver `DECISIONES.md` #32.
 
 ## 6. Historial de cambios al contrato
 
@@ -1159,3 +1219,64 @@ Reglas que el schema no captura:
 
   Detalle completo de reglas, límites y decisiones de diseño en 5.14 y
   `DECISIONES.md` #30–#36.
+
+- **2026-08-07** — **Rediseño del módulo de dinero. Cambio con ruptura
+  en `caja`, `servicios` y `agenda` a la vez: backend y frontend se
+  entregan juntos.** El disparador fue de uso real, no técnico: había
+  dos puertas de entrada al dinero que no se hablaban ("Caja" y
+  "Registrar servicio"), una cita completada no generaba nada, y
+  aprobar y cobrar los hacía la misma persona sobre el mismo objeto.
+
+  La regla que ahora ordena todo el módulo: **el servicio genera una
+  deuda (`Venta`), el pago genera el movimiento de dinero
+  (`MovimientoCaja`)**.
+
+  Se elimina:
+  - Todo `/api/servicios/registros/` (`RegistroServicio` y su circuito
+    `pendiente → aprobado/rechazado`). Cobrar **es** aprobar.
+  - `POST /api/caja/movimientos/`. Los ingresos ya no se crean a mano:
+    nacen de cobrar una venta.
+  - La capacidad `puede_aprobar_servicios`. **No es un rename**: en su
+    lugar entra `puede_anular_venta`, que gobierna otra cosa (deshacer
+    dinero, no dar fe de un trabajo). Ningún cargo la hereda salvo
+    Administración.
+
+  Se agrega:
+  - `GET/POST /api/caja/ventas/`, `GET /api/caja/ventas/{id}/`,
+    `POST .../cobrar/`, `POST .../devolver/`, `POST .../anular/`.
+    `?estado=pendiente` es la cola de cobro de recepción.
+  - `POST /api/caja/egresos/`, con `categoria` obligatoria.
+  - Estados nuevos de `Cita`: `en_atencion` y `no_show`, con
+    `POST .../en-atencion/` y `POST .../no-show/`.
+
+  Cambia de forma:
+  - **`POST /api/agenda/citas/{id}/completar/` ahora responde
+    `{"cita": ..., "venta": ...}`**, no la cita sola. Genera la venta
+    pendiente de cobro y es idempotente (una cita nunca produce dos
+    ventas). Es el cambio que más toca al frontend.
+  - `CitaSerializer` gana `venta_id` y `venta_estado` (ambos `null`
+    mientras no haya venta). El estado financiero **no** se duplica en
+    la cita.
+  - **`POST /api/caja/cerrar/` exige `efectivo_contado`**: el cierre
+    pasa a ser un arqueo real. `Caja` gana `efectivo_esperado`,
+    `efectivo_contado` y `diferencia`, congelados al cerrar. El
+    esperado cuenta **solo efectivo**.
+  - `MovimientoCaja` pierde `registro_servicio`, `empleado_comision` y
+    `monto_comision`, y gana `categoria`, `venta` y un tercer tipo:
+    `devolucion`. La comisión se mudó a `ComisionDevengada`, que se
+    fija **una vez por venta saldada** y no por movimiento — con pagos
+    parciales o mixtos, el cálculo anterior devengaba dos veces.
+  - `resumen` de la caja: se va `servicios_aprobados_sin_cobrar`,
+    entran `total_devoluciones`, `egresos_por_categoria`,
+    `ventas_sin_cobrar` y el desglose del arqueo.
+  - `metodo_pago` gana `tarjeta`, y ahora es un único `MetodoPagoEnum`
+    compartido por movimientos, pagos y devoluciones.
+
+  Modelos nuevos: `Venta`, `VentaItem`, `Pago`, `Devolucion`,
+  `ComisionDevengada`. Los items congelan `precio_unitario` y
+  `porcentaje_comision`, y llevan `empleado` obligatorio — que es la
+  fuente de verdad de la comisión. `Venta` **no** tiene campo
+  `empleado`.
+
+  Detalle completo de reglas en 5.13 y 5.14, y el porqué de cada
+  decisión en `DECISIONES.md` #37–#42.

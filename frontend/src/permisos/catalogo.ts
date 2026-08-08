@@ -29,7 +29,8 @@ export const DEFINICIONES: Record<
   puede_cobrar: {
     etiqueta: "Cobrarle a los clientes",
     corto: "Cobrar",
-    consecuencia: "Abre y cierra la caja del día, y registra ingresos y egresos.",
+    consecuencia:
+      "Cobra las cuentas pendientes, abre y cierra la caja del día, y registra los gastos del local.",
   },
   puede_ver_reportes: {
     etiqueta: "Ver cuánto vende el negocio",
@@ -76,11 +77,11 @@ export const DEFINICIONES: Record<
     consecuencia:
       "El nombre, la dirección, el logo y las fotos que ven los clientes en el enlace del negocio.",
   },
-  puede_aprobar_servicios: {
-    etiqueta: "Validar servicios registrados",
-    corto: "Validar",
+  puede_anular_venta: {
+    etiqueta: "Anular cuentas y devolver plata",
+    corto: "Anular",
     consecuencia:
-      "Revisa lo que el equipo registra como trabajo hecho y decide si cuenta: aprobarlo o rechazarlo con un motivo. Nadie valida lo que registró él mismo.",
+      "Deshace un cobro ya hecho: devuelve plata al cliente o anula la cuenta completa, siempre con un motivo. Va aparte de cobrar a propósito — cobrar es el día a día, deshacer un cobro conviene que quede en menos manos.",
   },
 };
 
@@ -88,6 +89,11 @@ export const DEFINICIONES: Record<
  *
  * Con diez interruptores, la lista plana dejó de escanearse: quien
  * busca "¿puede tocar la plata?" no debería leerlos todos.
+ *
+ * "Servicios realizados" era un área propia mientras existió el circuito
+ * de validación; con el rediseño del módulo de dinero (2026-08-07) su
+ * única capacidad desapareció y la que la reemplaza (`puede_anular_venta`)
+ * pertenece de lleno a "Dinero".
  */
 export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
   {
@@ -97,6 +103,7 @@ export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
       "puede_ver_reportes",
       "puede_editar_precios",
       "puede_editar_comisiones",
+      "puede_anular_venta",
     ],
   },
   {
@@ -119,12 +126,6 @@ export const GRUPOS: Array<{ area: string; capacidades: Capacidad[] }> = [
     area: "Perfil del negocio",
     capacidades: ["puede_editar_negocio"],
   },
-  {
-    // Área propia y no dentro de "Agenda": operar el calendario no es
-    // lo mismo que dar fe de que un trabajo se hizo de verdad.
-    area: "Servicios realizados",
-    capacidades: ["puede_aprobar_servicios"],
-  },
 ];
 
 /** Todas las capacidades, en el orden en que se muestran. */
@@ -138,7 +139,7 @@ export const TIPOS: Record<TipoDeUsuario, { etiqueta: string; descripcion: strin
   },
   recepcion: {
     etiqueta: "Recepción",
-    descripcion: "Arranca en la agenda del local y la caja del día.",
+    descripcion: "Arranca en los cobros pendientes y la agenda del local.",
   },
   operativo: {
     etiqueta: "Operativo",

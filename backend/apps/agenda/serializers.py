@@ -1,6 +1,9 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.agenda.models import Cita, DiaSemana, HorarioNegocio, HorarioTrabajo
+from apps.caja.models import Venta
+from apps.caja.serializers import VentaSerializer
 from apps.servicios.models import Servicio
 from apps.usuarios.models import MiembroNegocio
 
@@ -80,8 +83,32 @@ class HorarioNegocioSemanalSerializer(serializers.Serializer):
 
 
 class CitaSerializer(serializers.ModelSerializer):
+    """Una cita de la agenda.
+
+    `venta_id` y `venta_estado` son la **única** referencia al dinero que
+    trae la cita, y son de la venta asociada, no campos propios: el
+    estado financiero no se duplica acá (ver `apps.agenda.models.Cita`).
+    Vienen en `null` mientras no exista venta, que es todo el tiempo hasta
+    que alguien completa la cita.
+    """
+
     servicio_nombre = serializers.CharField(source="servicio.nombre", read_only=True)
     empleado_nombre = serializers.CharField(source="empleado.usuario.nombre", read_only=True)
+    # `allow_null=True` explícito y no solo `default=None`: sin él,
+    # drf-spectacular emite estos dos campos como no-nulables y el
+    # frontend termina tipando `venta_id: number` para algo que es `null`
+    # en toda cita sin venta — o sea, en casi todas. El default decide el
+    # valor; `allow_null` es lo que lo dice en el schema.
+    venta_id = serializers.IntegerField(
+        source="venta.id", read_only=True, default=None, allow_null=True
+    )
+    venta_estado = serializers.ChoiceField(
+        source="venta.estado",
+        choices=Venta.Estado.choices,
+        read_only=True,
+        default=None,
+        allow_null=True,
+    )
 
     class Meta:
         model = Cita
@@ -97,8 +124,35 @@ class CitaSerializer(serializers.ModelSerializer):
             "nombre_cliente",
             "telefono_cliente",
             "notas",
+            "venta_id",
+            "venta_estado",
         ]
-        read_only_fields = ["id", "fecha_hora_fin", "estado", "servicio_nombre", "empleado_nombre"]
+        read_only_fields = [
+            "id",
+            "fecha_hora_fin",
+            "estado",
+            "servicio_nombre",
+            "empleado_nombre",
+            "venta_id",
+            "venta_estado",
+        ]
+
+
+class CitaCompletadaSerializer(serializers.Serializer):
+    """Respuesta de `POST /api/agenda/citas/{id}/completar/`.
+
+    Devuelve la venta entera y no solo su id para que el empleado vea en
+    la misma pantalla cuánto quedó a cobrar, sin una segunda llamada — y
+    para que el frontend pueda mostrar el total sin adivinarlo a partir
+    del precio del catálogo, que no es el que se congeló en la venta.
+    """
+
+    cita = CitaSerializer()
+    venta = serializers.SerializerMethodField()
+
+    @extend_schema_field(VentaSerializer)
+    def get_venta(self, datos):
+        return VentaSerializer(datos["venta"], context=self.context).data
 
 
 class CitaCreateSerializer(serializers.Serializer):

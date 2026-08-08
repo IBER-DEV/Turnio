@@ -137,17 +137,36 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     # `Cargo.tipo` y `MovimientoCaja.tipo`/`Caja.estado` comparten nombre
     # de campo con otros `TextChoices` del proyecto (`Cita.estado`,
-    # `RegistroServicio.estado`). drf-spectacular ya resolvía la colisión
-    # de "estado" automáticamente (`CitaEstadoEnum`/`RegistroServicioEstadoEnum`),
-    # pero agregar `Caja.estado` como tercer "estado" lo empujó a un
-    # nombre con hash ilegible (`Estado36eEnum`) y además le movió el
-    # nombre limpio a `Cargo.tipo` (`Tipo14fEnum`) — que el frontend ya
-    # usa por nombre fijo (`components["schemas"]["TipoEnum"]` en
-    # `permisos/catalogo.ts`). Se fijan los dos nombres a mano para que
-    # una colisión nueva no le cambie el nombre a un tipo que ya existía.
+    # `Venta.estado`). drf-spectacular resuelve las colisiones de "estado"
+    # automáticamente (`CitaEstadoEnum`/`VentaEstadoEnum`), pero cuando
+    # `Caja.estado` entró como tercer "estado" lo empujó a un nombre con
+    # hash ilegible (`Estado36eEnum`) y además le movió el nombre limpio a
+    # `Cargo.tipo` (`Tipo14fEnum`) — que el frontend ya usa por nombre
+    # fijo (`components["schemas"]["TipoEnum"]` en `permisos/catalogo.ts`).
+    # Se fijan los nombres a mano para que una colisión nueva no le cambie
+    # el nombre a un tipo que ya existía.
     "ENUM_NAME_OVERRIDES": {
         "TipoEnum": "apps.usuarios.models.Cargo.Tipo",
         "CajaEstadoEnum": "apps.caja.models.Caja.Estado",
+        # `MetodoPago` es un solo `TextChoices` compartido por
+        # `MovimientoCaja`, `Pago` y `Devolucion` — que es justamente lo
+        # que se quería (un cobro y su devolución hablan del mismo
+        # método). drf-spectacular ve el mismo conjunto de opciones
+        # llegando por tres caminos distintos y avisa; se le fija el
+        # nombre para que quede un único `MetodoPagoEnum` en el schema y
+        # el frontend no tenga tres tipos idénticos.
+        "MetodoPagoEnum": "apps.caja.models.MetodoPago",
+        # `Venta.Estado` llega por dos caminos (el propio `VentaSerializer`
+        # y el `venta_estado` que `CitaSerializer` expone), y sin fijarlo
+        # drf-spectacular resolvía la colisión de "estado" con un hash
+        # (`Estado76aEnum`) — ilegible y, peor, inestable: cambia si se
+        # agrega otro "estado" en cualquier app.
+        "VentaEstadoEnum": "apps.caja.models.Venta.Estado",
+        # Sin esto queda `CategoriaEnum` a secas, por el nombre del campo:
+        # un nombre demasiado genérico para el schema compartido, que el
+        # día que exista cualquier otra "categoria" (servicios, productos)
+        # se convierte en una colisión con hash.
+        "CategoriaEgresoEnum": "apps.caja.models.MovimientoCaja.CategoriaEgreso",
     },
 }
 

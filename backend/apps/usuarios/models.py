@@ -59,7 +59,7 @@ CAPACIDADES = (
     "puede_configurar_horarios",
     "puede_ver_agenda_completa",
     "puede_editar_negocio",
-    "puede_aprobar_servicios",
+    "puede_anular_venta",
 )
 
 
@@ -131,12 +131,16 @@ class Cargo(TenantScopedModel):
     # separada de `puede_gestionar_empleados`: quien administra el equipo
     # no necesariamente decide cómo se ve el negocio hacia afuera.
     puede_editar_negocio = models.BooleanField(default=False)
-    # Revisar los registros de servicio realizado que sube el equipo
-    # (`RegistroServicio`, en apps.servicios) y aprobarlos o rechazarlos.
-    # Deliberadamente separada de `puede_gestionar_agenda`: operar el
-    # calendario no es lo mismo que dar fe de que un trabajo se hizo de
-    # verdad — es la capacidad de un "Validador", no de quien agenda.
-    puede_aprobar_servicios = models.BooleanField(default=False)
+    # Anular una venta y devolverle plata a un cliente. Es la única
+    # acción del módulo de dinero que lo mueve **hacia atrás**, y por eso
+    # no va incluida en `puede_cobrar`: cobrar es la operación de todos
+    # los días de quien atiende el mostrador; deshacer un cobro ya
+    # registrado es la que se presta para tapar un faltante, y conviene
+    # que quede en menos manos. Reemplazó a la vieja
+    # `puede_aprobar_servicios` cuando el circuito de aprobación se
+    # colapsó dentro del cobro (2026-08-07): aprobar un trabajo que uno
+    # va a cobrar era un paso que nadie hacía en serio.
+    puede_anular_venta = models.BooleanField(default=False)
 
     creado_en = models.DateTimeField(auto_now_add=True)
 

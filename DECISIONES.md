@@ -27,6 +27,183 @@
 
 ---
 
+## 2026-08-07 — Rediseño del módulo de dinero (Venta / Pago / Caja)
+
+Reescritura del circuito financiero antes de las pruebas con negocios
+reales. El disparador lo puso el humano y fue de uso, no técnico: *"hay
+una opción de caja y otra para registrar servicios, que no deja de ser
+un flujo de la caja"*. Ver `CONTRATO.md` 5.13 y 5.14.
+
+Las siete reglas de implementación de esta tanda (comisión en el item,
+devoluciones como movimiento inverso, fórmula del arqueo, idempotencia
+al completar, atomicidad, validación estricta de tenant, dominio listo
+para devoluciones) las fijó el humano explícitamente antes de aprobar
+el plan. Las entradas de abajo explican **cómo** se resolvió cada una y
+qué se descartó.
+
+### 37. Se elimina `RegistroServicio`, y aprobar se colapsa dentro de cobrar
+
+**Decisión.** El circuito `pendiente → aprobado/rechazado` desaparece.
+Una `Venta` nace `pendiente` de cobro y la valida quien la cobra.
+
+**Por qué.** Eran tres actos —el barbero registra, alguien aprueba,
+alguien cobra— y los dos últimos los hacía la misma persona
+(recepción) sobre el mismo objeto. **Cobrar ya es aprobar**: nadie le
+cobra a un cliente por un trabajo que cree inventado, así que el paso
+intermedio era una ceremonia que en un local real se despacharía sin
+mirar — el peor tipo de control, el que da sensación de seguridad sin
+darla.
+
+**Qué se conservó del modelo viejo, y esto importa.** `RegistroServicio`
+existía por una razón legítima: que nadie inflara sus cifras
+inventándose trabajo, ni le cargara trabajo a un compañero. Esa
+protección **no se perdió**, se mudó: sin `puede_cobrar`, uno solo
+puede crear ventas cuyos items tengan su propio `empleado`
+(`VentaSerializer.validate_items`). Lo que se eliminó fue el paso de
+aprobación, no la garantía que lo motivaba.
+
+**Lo que reemplaza al "nadie aprueba lo suyo" (viejo #28).** La
+separación de responsabilidades ahora es más fuerte, no más débil: el
+empleado que atiende no cobra —completar y cobrar son endpoints con
+capacidades distintas— y deshacer un cobro exige una tercera capacidad
+(#41). La regla vieja protegía contra auto-aprobarse; la nueva protege
+contra tocar plata, que es lo que de verdad importaba.
+
+### 38. La comisión vive en `VentaItem`, y se devenga una vez por venta saldada
+
+**Decisión.** `VentaItem.empleado` + `VentaItem.porcentaje_comision`
+son la fuente de verdad. Al quedar la venta `pagada` se crea una
+`ComisionDevengada` por item (`OneToOne`, idempotente). `Venta` **no**
+tiene campo `empleado`.
+
+**El bug que esto arregla.** Antes la comisión se calculaba sobre el
+`monto` del `MovimientoCaja` (`registrar_movimiento`). Con un pago
+mixto —$40.000 efectivo y $60.000 por transferencia— eso producía dos
+comisiones por el mismo trabajo, cada una sobre una fracción arbitraria
+según cómo hubiera decidido pagar el cliente. La comisión es de la
+**venta**; el pago solo dice cuándo se terminó de cobrar.
+
+**Por qué no hay `Venta.empleado` como "responsable principal".** Se
+consideró y se descartó: es derivable de los items, y un campo
+derivable que se puede guardar es una segunda verdad esperando a
+desincronizarse. Una cuenta puede pasar por dos manos (uno corta, otro
+hace la barba) y ahí el "principal" ya no significa nada. Para mostrar
+quién atendió, el frontend lee `items[].empleado_nombre`.
+
+**Precio y comisión se congelan en el item.** `descripcion`,
+`precio_unitario` y `porcentaje_comision` se copian del catálogo al
+crear la línea y no se vuelven a leer. Subirle el precio al corte
+mañana no puede reescribir lo que se cobró ayer — el `Servicio` guarda
+el precio de hoy, la venta guarda el histórico.
+
+### 39. Una devolución es un movimiento nuevo, nunca una edición
+
+**Decisión.** `MovimientoCaja` es inmutable —sin `PUT`/`PATCH`/`DELETE`
+en la API, sin `.save()` sobre uno existente en la capa de servicios, y
+solo-lectura también en el admin de Django—. Un cobro equivocado se
+corrige con `Devolucion`, que genera un movimiento de signo contrario
+apuntando a la misma venta.
+
+**Por qué el admin también.** Es lo que hace la garantía real y no
+declarativa: dejar el admin abierto sería la puerta de atrás que vuelve
+falso todo lo que el resto del módulo sostiene.
+
+**Qué se gana.** El arqueo de la caja donde entró la plata sigue siendo
+cierto, y el de hoy refleja que salió. Las dos mitades del hecho quedan
+en el libro y en la auditoría. Es también lo que deja el dominio listo
+para devoluciones parciales y notas de crédito sin tocar la
+arquitectura, aunque la UI llegue después.
+
+**Lo que sí se borra al anular: las comisiones devengadas.** No son
+movimientos de caja, son el cálculo de lo que se le debe al empleado, y
+por un trabajo anulado no se le debe nada. La fila de auditoría de
+`venta.anular` deja constancia de cuánto se revirtió y a quién.
+
+### 40. `devolucion` es un tipo de movimiento propio, no un `egreso`
+
+**Decisión.** `MovimientoCaja.Tipo` pasa a `ingreso | egreso |
+devolucion`.
+
+**Por qué.** La fórmula del arqueo que fijó el humano
+(`inicial + ingresos − egresos − devoluciones`) **contaría doble** si
+la devolución fuera un egreso: se restaría una vez como egreso y otra
+como devolución. Con tipo propio la fórmula queda literal y correcta.
+
+**El beneficio de fondo es de reporte, no de aritmética.** Para el
+dueño, "devolví $35.000 de un corte" y "compré shampoo por $80.000" son
+hechos distintos. Mezclarlos haría que el reporte de gastos operativos
+mienta — y ese reporte es una de las razones por las que alguien paga
+por esto.
+
+### 41. `puede_anular_venta` reemplaza a `puede_aprobar_servicios`, y no es un rename
+
+**Decisión.** Se elimina `puede_aprobar_servicios` (su circuito ya no
+existe) y entra `puede_anular_venta`, separada de `puede_cobrar`.
+Ningún cargo sembrado la hereda salvo Administración.
+
+**Por qué no fue un rename en la migración.** Se le respondió `N` a
+Django a propósito: un rename habría trasladado el valor, dándole a
+cada "Validador" existente la capacidad de deshacer cobros — que es
+otra cosa. Son dos capacidades distintas que no se heredan una a otra.
+
+**Por qué anular no va dentro de `puede_cobrar`.** Cobrar es la
+operación de todos los días de quien atiende el mostrador. Deshacer un
+cobro ya registrado es la acción que sirve para tapar un faltante, y
+conviene que quede en menos manos. Mismo criterio que separó
+`puede_editar_comisiones` de `puede_editar_precios` (#33).
+
+**Se quedó en 10 capacidades, no 12.** Se evaluó agregar
+`puede_registrar_egresos` y `puede_cerrar_caja` por separado y se
+descartaron: las dos son operación normal de quien maneja la caja del
+día, y el `ROADMAP.md` tiene un disparador explícito para reabrir el
+modelo de permisos cuando el alta pase de ~8 flags. Agregar tres
+capacidades para un módulo habría cruzado ese umbral por comodidad de
+diseño en vez de por necesidad real.
+
+### 42. `completar_cita` es idempotente con tres capas, no con una
+
+**Decisión.** Tres protecciones, de más amable a más terminante: (1) si
+la cita ya tiene venta, se devuelve esa misma con `200`; (2)
+`select_for_update` sobre la cita serializa dos requests simultáneos;
+(3) `Venta.cita` es `OneToOne`.
+
+**Por qué las tres y no solo la constraint.** El contexto es un local
+comercial con red mala y un barbero con el celular en la mano: el doble
+toque y el reintento son el caso normal, no el borde. Solo con la
+constraint, el segundo request devolvería un `IntegrityError` — un
+error donde el usuario hizo algo perfectamente razonable. Solo con el
+chequeo previo, dos requests concurrentes leerían el mismo estado viejo
+y los dos crearían. La constraint es la red que atrapa lo que las otras
+dos no vieron, no la primera línea.
+
+**`cambiar_estado_cita` ya no acepta `completada`.** Completar tiene un
+efecto de negocio (nace la venta) y por eso vive en su propia función.
+Dejar el camino genérico abierto habría permitido citas completadas sin
+cuenta que cobrar — exactamente el agujero que este rediseño vino a
+cerrar. Un test lo fija.
+
+### 43. `total_pagado_de()` existe además de la propiedad `Venta.total_pagado`
+
+**Decisión.** Toda decisión de dinero (¿excede el saldo?, ¿ya quedó
+pagada?) usa la función de servicios, que agrega contra la base. La
+propiedad del modelo queda para serializar.
+
+**Por qué, y cómo apareció.** La propiedad usa `self.pagos.all()`, que
+respeta el caché de `prefetch_related` — ideal para listar sin N+1. Pero
+la vista entrega la venta ya prefetcheada, así que un pago creado en la
+misma transacción **no aparece** en ese caché: el primer cobro dejaba la
+venta en `pendiente` con el pago ya registrado. Lo encontró un test de
+API que fallaba mientras el mismo caso pasaba en los tests de la capa de
+servicios — justamente porque ahí la venta no venía prefetcheada.
+
+**La lección general.** Una propiedad de modelo que consulta relaciones
+tiene dos comportamientos según cómo se cargó el objeto, y solo uno de
+los dos es correcto para tomar decisiones. Las vistas, además, releen la
+venta con `get_queryset().get(pk=...)` después de mutarla:
+`refresh_from_db()` **no** limpia el caché de prefetch.
+
+---
+
 ## 2026-08-05 — Fase 3: Caja, comisiones automáticas y auditoría
 
 Primera entrega real de Fase 3 (Caja/Comisiones), sobre la base

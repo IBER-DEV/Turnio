@@ -1,349 +1,349 @@
-import datetime
 from decimal import Decimal
 
 import pytest
-from django.utils import timezone
-from rest_framework.test import APIClient
 
 from apps.caja import services
-from apps.caja.models import MovimientoCaja
-from apps.negocios import services as negocios_services
-from apps.servicios import services as servicios_services
+from apps.caja.models import MetodoPago, MovimientoCaja, Venta
 
 pytestmark = pytest.mark.django_db
 
-PASSWORD = "claveSegura123"
-
 
 @pytest.fixture
-def negocio_con_cobrador_y_barbero(negocio_con_dueno, servicio_de_prueba, empleado_con):
-    """Dueño (todas las capacidades, incluida `puede_cobrar`), un barbero
-    sin capacidades, y un validador para poder aprobar servicios sin
-    violar "nadie aprueba lo suyo"."""
-    negocio, dueno, membresia_dueno = negocio_con_dueno
+def ctx(negocio_con_dueno, servicio_de_prueba, empleado_con):
+    """Dueño (todas las capacidades), un barbero raso, y un cajero que
+    cobra pero **no** puede anular."""
+    negocio, _dueno, membresia_dueno = negocio_con_dueno
+    servicio_de_prueba.porcentaje_comision = Decimal("40")
+    servicio_de_prueba.save()
     servicio_de_prueba.refresh_from_db()
-    client_dueno = APIClient()
-    respuesta = client_dueno.post(
-        "/api/auth/login/", {"email": dueno.email, "password": PASSWORD}, format="json"
-    )
-    client_dueno.credentials(HTTP_AUTHORIZATION=f"Bearer {respuesta.data['access']}")
 
-    barbero, client_barbero = empleado_con(negocio=negocio, email="barbero@cajaapi.test", nombre="Barbero")
-    validador, client_validador = empleado_con(
-        negocio=negocio,
-        email="validador@cajaapi.test",
-        nombre="Validador",
-        capacidades=["puede_aprobar_servicios"],
+    barbero, client_barbero = empleado_con(
+        negocio=negocio, email="barbero@api.test", nombre="Barbero"
     )
-    sin_capacidades, client_sin_capacidades = empleado_con(
-        negocio=negocio, email="raso@cajaapi.test", nombre="Raso"
+    cajero, client_cajero = empleado_con(
+        negocio=negocio,
+        email="cajero@api.test",
+        nombre="Cajero",
+        capacidades=["puede_cobrar"],
     )
     return {
         "negocio": negocio,
         "dueno": membresia_dueno,
-        "client_dueno": client_dueno,
         "servicio": servicio_de_prueba,
         "barbero": barbero,
         "client_barbero": client_barbero,
-        "validador": validador,
-        "client_validador": client_validador,
-        "client_sin_capacidades": client_sin_capacidades,
+        "cajero": cajero,
+        "client_cajero": client_cajero,
     }
 
 
-def _registro_aprobado(ctx):
-    registro = servicios_services.registrar_servicio(
-        negocio=ctx["negocio"],
-        empleado=ctx["barbero"],
-        servicio=ctx["servicio"],
-        nombre_cliente="Cliente",
-        fecha_hora=timezone.now() - datetime.timedelta(hours=1),
-    )
-    return servicios_services.aprobar_registro(registro=registro, revisor=ctx["validador"])
-
-
-# --- Gating por capacidad ---
-
-
-def test_abrir_requiere_puede_cobrar(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-
-    respuesta = ctx["client_sin_capacidades"].post("/api/caja/abrir/", {}, format="json")
-
-    assert respuesta.status_code == 403
-
-
-def test_movimientos_requiere_puede_cobrar(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-
-    respuesta = ctx["client_sin_capacidades"].post(
-        "/api/caja/movimientos/",
-        {"tipo": "ingreso", "metodo_pago": "efectivo", "monto": "10000", "concepto": "x"},
+def _crear_venta_api(client, ctx, empleado=None):
+    return client.post(
+        "/api/caja/ventas/",
+        {
+            "nombre_cliente": "Juan Pérez",
+            "items": [
+                {
+                    "servicio": ctx["servicio"].id,
+                    "empleado": (empleado or ctx["barbero"]).id,
+                }
+            ],
+        },
         format="json",
     )
 
+
+# --- caja ---
+
+
+def test_abrir_y_cerrar_con_arqueo(cliente_autenticado_dueno, ctx):
+    abrir = cliente_autenticado_dueno.post(
+        "/api/caja/abrir/", {"saldo_inicial": "100000"}, format="json"
+    )
+    assert abrir.status_code == 201
+
+    cerrar = cliente_autenticado_dueno.post(
+        "/api/caja/cerrar/", {"efectivo_contado": "98000"}, format="json"
+    )
+
+    assert cerrar.status_code == 200
+    assert cerrar.data["efectivo_esperado"] == "100000.00"
+    assert cerrar.data["diferencia"] == "-2000.00"
+
+
+def test_cerrar_sin_contar_el_efectivo_falla(cliente_autenticado_dueno, ctx):
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
+
+    respuesta = cliente_autenticado_dueno.post("/api/caja/cerrar/", {}, format="json")
+
+    assert respuesta.status_code == 400
+    assert "efectivo_contado" in respuesta.data
+
+
+def test_barbero_no_puede_abrir_caja(ctx):
+    respuesta = ctx["client_barbero"].post("/api/caja/abrir/", {}, format="json")
+
     assert respuesta.status_code == 403
 
 
-def test_cerrar_requiere_puede_cobrar(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
+def test_egreso_queda_registrado(cliente_autenticado_dueno, ctx):
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
 
-    respuesta = ctx["client_sin_capacidades"].post("/api/caja/cerrar/", {}, format="json")
+    respuesta = cliente_autenticado_dueno.post(
+        "/api/caja/egresos/",
+        {"monto": "50000", "concepto": "Compra de productos", "categoria": "insumos"},
+        format="json",
+    )
 
-    assert respuesta.status_code == 403
+    assert respuesta.status_code == 201
+    assert respuesta.data["tipo"] == "egreso"
+    assert respuesta.data["categoria"] == "insumos"
 
 
-def test_listar_historico_falla_sin_puede_cobrar_ni_puede_ver_reportes(
-    negocio_con_cobrador_y_barbero,
+def test_egreso_sin_caja_abierta_falla(cliente_autenticado_dueno, ctx):
+    respuesta = cliente_autenticado_dueno.post(
+        "/api/caja/egresos/",
+        {"monto": "50000", "concepto": "Compra", "categoria": "insumos"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+
+
+def test_no_existe_endpoint_para_crear_movimientos_sueltos(cliente_autenticado_dueno, ctx):
+    """La plata que entra siempre tiene una venta que la explica.
+
+    El viejo `POST /api/caja/movimientos/` era la puerta por la que
+    entraba un ingreso sin cuenta detrás. Responde 405 y no 404 porque la
+    ruta la absorbe el detalle de caja (`/api/caja/{pk}/`), que solo
+    acepta GET — lo que importa es que no haya forma de crear un
+    movimiento a mano.
+    """
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
+
+    respuesta = cliente_autenticado_dueno.post(
+        "/api/caja/movimientos/",
+        {"tipo": "ingreso", "monto": "50000", "concepto": "Lo que sea"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 405
+
+
+# --- ventas ---
+
+
+def test_crear_y_cobrar_venta(cliente_autenticado_dueno, ctx):
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
+    creada = _crear_venta_api(cliente_autenticado_dueno, ctx)
+    assert creada.status_code == 201
+    assert creada.data["estado"] == "pendiente"
+    assert creada.data["total"] == "20000.00"
+
+    cobrada = cliente_autenticado_dueno.post(
+        f"/api/caja/ventas/{creada.data['id']}/cobrar/",
+        {"monto": "20000", "metodo_pago": "efectivo"},
+        format="json",
+    )
+
+    assert cobrada.status_code == 200
+    assert cobrada.data["estado"] == "pagada"
+    assert cobrada.data["saldo_pendiente"] == "0.00"
+
+
+def test_pago_mixto_son_dos_cobros(cliente_autenticado_dueno, ctx):
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
+    venta_id = _crear_venta_api(cliente_autenticado_dueno, ctx).data["id"]
+
+    primero = cliente_autenticado_dueno.post(
+        f"/api/caja/ventas/{venta_id}/cobrar/",
+        {"monto": "8000", "metodo_pago": "efectivo"},
+        format="json",
+    )
+    assert primero.data["estado"] == "parcial"
+
+    segundo = cliente_autenticado_dueno.post(
+        f"/api/caja/ventas/{venta_id}/cobrar/",
+        {"monto": "12000", "metodo_pago": "tarjeta"},
+        format="json",
+    )
+
+    assert segundo.data["estado"] == "pagada"
+    assert len(segundo.data["pagos"]) == 2
+
+
+def test_cola_de_cobro_lista_solo_pendientes(cliente_autenticado_dueno, ctx):
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
+    pendiente = _crear_venta_api(cliente_autenticado_dueno, ctx).data["id"]
+    cobrada = _crear_venta_api(cliente_autenticado_dueno, ctx).data["id"]
+    cliente_autenticado_dueno.post(
+        f"/api/caja/ventas/{cobrada}/cobrar/",
+        {"monto": "20000", "metodo_pago": "efectivo"},
+        format="json",
+    )
+
+    respuesta = cliente_autenticado_dueno.get("/api/caja/ventas/?estado=pendiente")
+
+    ids = [venta["id"] for venta in respuesta.data]
+    assert ids == [pendiente]
+
+
+def test_barbero_solo_puede_facturar_su_propio_trabajo(ctx):
+    """Sin `puede_cobrar`, nadie le carga trabajo (ni comisión) a un
+    compañero."""
+    respuesta = _crear_venta_api(ctx["client_barbero"], ctx, empleado=ctx["cajero"])
+
+    assert respuesta.status_code == 400
+    assert "Solo puedes registrar servicios realizados por ti" in str(respuesta.data)
+
+
+def test_barbero_no_ve_ventas_ajenas(ctx, cliente_autenticado_dueno):
+    """Las ventas traen la libreta de clientes: sin capacidad, solo las
+    propias."""
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
+    _crear_venta_api(cliente_autenticado_dueno, ctx, empleado=ctx["cajero"])
+    propia = _crear_venta_api(cliente_autenticado_dueno, ctx, empleado=ctx["barbero"])
+
+    respuesta = ctx["client_barbero"].get("/api/caja/ventas/")
+
+    assert [venta["id"] for venta in respuesta.data] == [propia.data["id"]]
+
+
+def test_ventas_no_se_editan_ni_se_borran(cliente_autenticado_dueno, ctx):
+    venta_id = _crear_venta_api(cliente_autenticado_dueno, ctx).data["id"]
+
+    assert cliente_autenticado_dueno.patch(
+        f"/api/caja/ventas/{venta_id}/", {"nombre_cliente": "Otro"}, format="json"
+    ).status_code == 405
+    assert cliente_autenticado_dueno.delete(f"/api/caja/ventas/{venta_id}/").status_code == 405
+
+
+def test_cajero_puede_cobrar_pero_no_anular(ctx):
+    """`puede_anular_venta` es aparte de `puede_cobrar` a propósito:
+    deshacer un cobro es la acción que sirve para tapar un faltante."""
+    ctx["client_cajero"].post("/api/caja/abrir/", {}, format="json")
+    venta_id = _crear_venta_api(ctx["client_cajero"], ctx).data["id"]
+
+    cobro = ctx["client_cajero"].post(
+        f"/api/caja/ventas/{venta_id}/cobrar/",
+        {"monto": "20000", "metodo_pago": "efectivo"},
+        format="json",
+    )
+    assert cobro.status_code == 200
+
+    anulacion = ctx["client_cajero"].post(
+        f"/api/caja/ventas/{venta_id}/anular/", {"motivo": "Me equivoqué"}, format="json"
+    )
+    assert anulacion.status_code == 403
+
+
+def test_anular_venta_cobrada_genera_movimiento_inverso(cliente_autenticado_dueno, ctx):
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
+    venta_id = _crear_venta_api(cliente_autenticado_dueno, ctx).data["id"]
+    cliente_autenticado_dueno.post(
+        f"/api/caja/ventas/{venta_id}/cobrar/",
+        {"monto": "20000", "metodo_pago": "efectivo"},
+        format="json",
+    )
+
+    respuesta = cliente_autenticado_dueno.post(
+        f"/api/caja/ventas/{venta_id}/anular/",
+        {"motivo": "Cliente reclamó"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["estado"] == "anulada"
+    assert MovimientoCaja.objects.filter(tipo=MovimientoCaja.Tipo.DEVOLUCION).count() == 1
+    assert MovimientoCaja.objects.filter(tipo=MovimientoCaja.Tipo.INGRESO).count() == 1
+
+
+def test_venta_de_otro_negocio_responde_404(ctx, empleado_con, negocio_con_dueno):
+    from apps.negocios import services as negocios_services
+
+    otro_negocio, _dueno, otra_membresia = negocios_services.registrar_negocio(
+        nombre_negocio="Otra Barbería",
+        email_dueno="otro@api.test",
+        password_dueno="claveSegura123",
+        nombre_dueno="Otro",
+    )
+    venta_ajena = services.crear_venta(
+        negocio=otro_negocio,
+        creada_por=otra_membresia,
+        nombre_cliente="Ajeno",
+        items=[
+            {
+                "descripcion": "Corte",
+                "precio_unitario": Decimal("10000"),
+                "empleado": otra_membresia,
+            }
+        ],
+    )
+
+    respuesta = ctx["client_cajero"].get(f"/api/caja/ventas/{venta_ajena.id}/")
+
+    assert respuesta.status_code == 404
+
+
+# --- integración con la agenda ---
+
+
+def test_completar_cita_genera_la_venta_y_es_idempotente(
+    cliente_autenticado_dueno, ctx, negocio_con_dueno
 ):
-    ctx = negocio_con_cobrador_y_barbero
+    """El flujo completo: el barbero termina, la cuenta le aparece a
+    recepción, y dos toques al botón no generan dos cuentas."""
+    from apps.agenda import services as agenda_services
+    from django.utils import timezone
+    import datetime
 
-    respuesta = ctx["client_sin_capacidades"].get("/api/caja/")
+    inicio = timezone.now() + datetime.timedelta(days=1)
+    inicio = inicio.replace(hour=10, minute=0, second=0, microsecond=0)
+    agenda_services.reemplazar_horario_negocio(
+        negocio=ctx["negocio"],
+        franjas=[
+            {
+                "dia_semana": inicio.weekday(),
+                "hora_inicio": datetime.time(8, 0),
+                "hora_fin": datetime.time(20, 0),
+            }
+        ],
+    )
+    cita = agenda_services.agendar_cita(
+        negocio=ctx["negocio"],
+        servicio=ctx["servicio"],
+        empleado=ctx["barbero"],
+        fecha_hora_inicio=inicio,
+        nombre_cliente="Juan Pérez",
+    )
+
+    primera = ctx["client_barbero"].post(f"/api/agenda/citas/{cita.id}/completar/")
+    assert primera.status_code == 200
+    assert primera.data["cita"]["estado"] == "completada"
+    assert primera.data["venta"]["estado"] == "pendiente"
+    assert primera.data["venta"]["total"] == "20000.00"
+
+    segunda = ctx["client_barbero"].post(f"/api/agenda/citas/{cita.id}/completar/")
+
+    assert segunda.status_code == 200
+    assert segunda.data["venta"]["id"] == primera.data["venta"]["id"]
+    assert Venta.objects.filter(cita=cita).count() == 1
+
+
+def test_barbero_no_puede_cobrar_lo_que_completo(ctx, cliente_autenticado_dueno):
+    """Su responsabilidad termina cuando termina el servicio."""
+    cliente_autenticado_dueno.post("/api/caja/abrir/", {}, format="json")
+    venta = services.crear_venta(
+        negocio=ctx["negocio"],
+        creada_por=ctx["barbero"],
+        nombre_cliente="Juan",
+        items=[{"servicio": ctx["servicio"], "empleado": ctx["barbero"]}],
+    )
+
+    respuesta = ctx["client_barbero"].post(
+        f"/api/caja/ventas/{venta.id}/cobrar/",
+        {"monto": "20000", "metodo_pago": MetodoPago.EFECTIVO},
+        format="json",
+    )
 
     assert respuesta.status_code == 403
-
-
-def test_listar_historico_alcanza_con_puede_ver_reportes(negocio_con_cobrador_y_barbero, empleado_con):
-    ctx = negocio_con_cobrador_y_barbero
-    _reportero, client_reportero = empleado_con(
-        negocio=ctx["negocio"], email="reportes@cajaapi.test", capacidades=["puede_ver_reportes"]
-    )
-
-    respuesta = client_reportero.get("/api/caja/")
-
-    assert respuesta.status_code == 200
-
-
-# --- /actual/ ---
-
-
-def test_actual_404_sin_caja_abierta(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-
-    respuesta = ctx["client_dueno"].get("/api/caja/actual/")
-
-    assert respuesta.status_code == 404
-
-
-def test_actual_devuelve_la_caja_abierta(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    ctx["client_dueno"].post("/api/caja/abrir/", {"saldo_inicial": "30000"}, format="json")
-
-    respuesta = ctx["client_dueno"].get("/api/caja/actual/")
-
-    assert respuesta.status_code == 200
-    assert respuesta.data["estado"] == "abierta"
-    assert respuesta.data["saldo_inicial"] == "30000.00"
-
-
-# --- Flujo E2E ---
-
-
-def test_flujo_completo_abrir_cobrar_cerrar(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    ctx["servicio"].porcentaje_comision = Decimal("70")
-    ctx["servicio"].save(update_fields=["porcentaje_comision"])
-    registro = _registro_aprobado(ctx)
-
-    apertura = ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-    assert apertura.status_code == 201
-
-    movimiento = ctx["client_dueno"].post(
-        "/api/caja/movimientos/",
-        {
-            "tipo": "ingreso",
-            "metodo_pago": "nequi",
-            "monto": str(ctx["servicio"].precio),
-            "concepto": ctx["servicio"].nombre,
-            "registro_servicio": registro.id,
-        },
-        format="json",
-    )
-    assert movimiento.status_code == 201, movimiento.data
-    esperado = (ctx["servicio"].precio * Decimal("70") / Decimal("100")).quantize(Decimal("0.01"))
-    assert Decimal(movimiento.data["monto_comision"]) == esperado
-    assert movimiento.data["empleado_comision"] == ctx["barbero"].id
-
-    cierre = ctx["client_dueno"].post("/api/caja/cerrar/", {"nota_cierre": "ok"}, format="json")
-    assert cierre.status_code == 200
-    resumen = cierre.data["resumen"]
-    assert Decimal(resumen["total_ingresos"]) == ctx["servicio"].precio
-    assert resumen["comisiones_por_empleado"][0]["empleado"] == ctx["barbero"].id
-    assert resumen["servicios_aprobados_sin_cobrar"] == 0
-
-
-def test_no_se_puede_vincular_el_mismo_registro_dos_veces(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    registro = _registro_aprobado(ctx)
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-    primero = ctx["client_dueno"].post(
-        "/api/caja/movimientos/",
-        {
-            "tipo": "ingreso",
-            "metodo_pago": "efectivo",
-            "monto": str(ctx["servicio"].precio),
-            "concepto": "Corte",
-            "registro_servicio": registro.id,
-        },
-        format="json",
-    )
-    assert primero.status_code == 201
-
-    segundo = ctx["client_dueno"].post(
-        "/api/caja/movimientos/",
-        {
-            "tipo": "ingreso",
-            "metodo_pago": "efectivo",
-            "monto": str(ctx["servicio"].precio),
-            "concepto": "duplicado",
-            "registro_servicio": registro.id,
-        },
-        format="json",
-    )
-
-    assert segundo.status_code == 400
-
-
-def test_no_se_puede_cobrar_un_registro_no_aprobado(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    registro = servicios_services.registrar_servicio(
-        negocio=ctx["negocio"], empleado=ctx["barbero"], servicio=ctx["servicio"],
-        nombre_cliente="Cliente", fecha_hora=timezone.now() - datetime.timedelta(hours=1),
-    )
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-
-    respuesta = ctx["client_dueno"].post(
-        "/api/caja/movimientos/",
-        {
-            "tipo": "ingreso", "metodo_pago": "efectivo", "monto": "10000",
-            "concepto": "x", "registro_servicio": registro.id,
-        },
-        format="json",
-    )
-
-    assert respuesta.status_code == 400
-
-
-def test_abrir_dos_veces_falla(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-
-    respuesta = ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-
-    assert respuesta.status_code == 400
-
-
-def test_movimientos_sin_caja_abierta_falla(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-
-    respuesta = ctx["client_dueno"].post(
-        "/api/caja/movimientos/",
-        {"tipo": "ingreso", "metodo_pago": "efectivo", "monto": "10000", "concepto": "x"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 400
-
-
-def test_egreso_no_acepta_metodo_pago(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-
-    respuesta = ctx["client_dueno"].post(
-        "/api/caja/movimientos/",
-        {"tipo": "egreso", "metodo_pago": "efectivo", "monto": "5000", "concepto": "Insumos"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 400
-    assert "metodo_pago" in respuesta.data
-
-
-def test_ingreso_sin_metodo_pago_falla(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-
-    respuesta = ctx["client_dueno"].post(
-        "/api/caja/movimientos/",
-        {"tipo": "ingreso", "monto": "5000", "concepto": "Corte"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 400
-    assert "metodo_pago" in respuesta.data
-
-
-# --- Histórico y aislamiento ---
-
-
-def test_listar_historico_filtra_por_fecha(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-    ctx["client_dueno"].post("/api/caja/cerrar/", {}, format="json")
-
-    hoy = timezone.localdate().isoformat()
-    manana = (timezone.localdate() + datetime.timedelta(days=1)).isoformat()
-
-    respuesta_incluye = ctx["client_dueno"].get(f"/api/caja/?fecha_desde={hoy}&fecha_hasta={hoy}")
-    respuesta_excluye = ctx["client_dueno"].get(
-        f"/api/caja/?fecha_desde={manana}&fecha_hasta={manana}"
-    )
-
-    assert len(respuesta_incluye.data) == 1
-    assert len(respuesta_excluye.data) == 0
-
-
-def test_aislamiento_por_tenant(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    apertura = ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-    caja_id = apertura.data["id"]
-
-    _otro_negocio, _otro_dueno, _m = negocios_services.registrar_negocio(
-        nombre_negocio="Otro Negocio",
-        email_dueno="otro-caja@test.com",
-        password_dueno=PASSWORD,
-        nombre_dueno="Otro Dueño",
-    )
-    client_otro = APIClient()
-    login = client_otro.post(
-        "/api/auth/login/", {"email": "otro-caja@test.com", "password": PASSWORD}, format="json"
-    )
-    client_otro.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
-
-    respuesta = client_otro.get(f"/api/caja/{caja_id}/")
-
-    assert respuesta.status_code == 404
-
-
-def test_movimiento_de_negocio_ajeno_se_rechaza(negocio_con_cobrador_y_barbero):
-    ctx = negocio_con_cobrador_y_barbero
-    otro_negocio, _otro_dueno, _m = negocios_services.registrar_negocio(
-        nombre_negocio="Otro Negocio",
-        email_dueno="otro-servicio@test.com",
-        password_dueno=PASSWORD,
-        nombre_dueno="Otro Dueño",
-    )
-    servicio_ajeno = servicios_services.crear_servicio(
-        negocio=otro_negocio, nombre="Corte ajeno", precio=Decimal("10000"), duracion_minutos=20
-    )
-    _usuario_ajeno, empleado_ajeno = negocios_services.agregar_empleado(
-        negocio=otro_negocio, email="empleado-ajeno@test.com", password=PASSWORD, nombre="Ajeno"
-    )
-    registro_ajeno = servicios_services.registrar_servicio(
-        negocio=otro_negocio, empleado=empleado_ajeno, servicio=servicio_ajeno,
-        nombre_cliente="Cliente", fecha_hora=timezone.now() - datetime.timedelta(hours=1),
-    )
-    ctx["client_dueno"].post("/api/caja/abrir/", {}, format="json")
-
-    respuesta = ctx["client_dueno"].post(
-        "/api/caja/movimientos/",
-        {
-            "tipo": "ingreso", "metodo_pago": "efectivo", "monto": "10000",
-            "concepto": "x", "registro_servicio": registro_ajeno.id,
-        },
-        format="json",
-    )
-
-    assert respuesta.status_code == 400

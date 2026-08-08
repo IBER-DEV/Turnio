@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from apps.agenda import services
 from apps.agenda.models import Cita, HorarioTrabajo
 from apps.agenda.serializers import (
+    CitaCompletadaSerializer,
     CitaCreateSerializer,
     CitaSerializer,
     HorarioNegocioSemanalSerializer,
@@ -169,7 +170,14 @@ class CitaViewSet(viewsets.ModelViewSet):
     serializer_class = CitaSerializer
 
     # Transiciones de estado: la propiedad de la cita habilita por sí sola.
-    ACCIONES_DE_ESTADO = ("confirmar", "completar", "cancelar")
+    # Toda transición de estado va acá: son las que la **propiedad de la
+    # cita** habilita por sí sola, sin `puede_gestionar_agenda`. Olvidar
+    # sumar una acción nueva a esta tupla la manda al `else` de abajo y
+    # le devuelve 403 a un empleado actuando sobre su propia cita — pasó
+    # con `en_atencion` y `no_show` al agregarlas (2026-08-07), y el
+    # síntoma no aparece en ningún test que use al dueño, que tiene la
+    # capacidad. Si agregas una acción de estado, agrégala también acá.
+    ACCIONES_DE_ESTADO = ("confirmar", "en_atencion", "completar", "cancelar", "no_show")
 
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
@@ -226,12 +234,54 @@ class CitaViewSet(viewsets.ModelViewSet):
     def confirmar(self, request, pk=None):
         return self._transicionar(request, "confirmada")
 
-    @extend_schema(request=None, responses={200: CitaSerializer})
+    @extend_schema(
+        request=None,
+        responses={200: CitaCompletadaSerializer},
+        description=(
+            "El empleado terminó el trabajo. Marca la cita como `completada` "
+            "y **genera la venta pendiente de cobro** con el servicio de la "
+            "cita, que aparece de inmediato en la cola de recepción "
+            "(`GET /api/caja/ventas/?estado=pendiente`).\n\n"
+            "No mueve plata ni requiere caja abierta: completar crea la "
+            "deuda, cobrarla es otro acto, de otra persona "
+            "(`POST /api/caja/ventas/{id}/cobrar/`).\n\n"
+            "**Idempotente**: llamarlo dos veces devuelve la misma venta, no "
+            "crea una segunda. Responde `200` con la cita ya completada y la "
+            "venta asociada."
+        ),
+    )
     @action(detail=True, methods=["post"])
     def completar(self, request, pk=None):
-        return self._transicionar(request, "completada")
+        cita = self.get_object()
+        try:
+            cita, venta = services.completar_cita(cita=cita, responsable=request.membresia)
+        except (services.CitaNoCompletable, services.TransicionEstadoInvalida) as error:
+            raise drf_serializers.ValidationError({"non_field_errors": [str(error)]})
+        return Response(
+            CitaCompletadaSerializer(
+                {"cita": cita, "venta": venta}, context={"request": request}
+            ).data
+        )
+
+    @extend_schema(request=None, responses={200: CitaSerializer})
+    @action(detail=True, methods=["post"], url_path="en-atencion")
+    def en_atencion(self, request, pk=None):
+        return self._transicionar(request, "en_atencion")
 
     @extend_schema(request=None, responses={200: CitaSerializer})
     @action(detail=True, methods=["post"])
     def cancelar(self, request, pk=None):
         return self._transicionar(request, "cancelada")
+
+    @extend_schema(
+        request=None,
+        responses={200: CitaSerializer},
+        description=(
+            "El cliente no llegó y no avisó. Distinto de `cancelar`: la "
+            "franja se libera igual, pero para el negocio son hechos "
+            "distintos y conviene poder contarlos por separado."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="no-show")
+    def no_show(self, request, pk=None):
+        return self._transicionar(request, "no_show")
