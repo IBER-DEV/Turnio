@@ -1840,3 +1840,89 @@ un bug de datos.
 - Migrar los usos existentes de formateo de moneda suelto
   (`ServiciosPage.tsx`, `ModalCatalogo.tsx`, `publico/secciones.tsx`) a
   `formatearMoneda` — sigue sin urgir.
+
+## 2026-08-07 — Onboarding: el primer minuto en Turnio (adelanto de Fase 5)
+
+Pedido explícito del humano, y adelanta parte de Fase 5. La motivación
+que dio fue el dueño que es su propio y único recurso: "siento que igual
+debe pasar por un flujo que no es necesario si tú mismo eres el dueño".
+
+### El problema resultó ser más grande que el planteo
+
+Al medirlo, un negocio recién registrado queda así:
+
+```
+horarios del negocio: 0 franjas
+servicios: 0
+perfil público: HTTP 200
+```
+
+O sea: **el enlace público nace vivo y muerto a la vez**. Responde, se
+ve bien, se puede compartir — y no puede producir una sola reserva,
+porque sin horario `huecos_disponibles` devuelve lista vacía. Nada se lo
+decía al dueño, que caía en un panel vacío. Y le pasaba igual al dueño
+con cinco barberos, así que el arreglo vale más que ahorrarle clics al
+operador único: el enlace **es** el MVP, y se entregaba roto por defecto.
+
+### Qué se construyó
+- **`onboarding/estadoNegocio.tsx`** — un provider que responde una sola
+  pregunta: ¿este negocio puede recibir una reserva? (tiene horario **y**
+  servicios). Se consulta una vez por sesión y vive por encima de las
+  rutas: `Layout` se remonta en cada navegación, así que preguntarlo ahí
+  serían dos requests por clic de menú.
+- **`onboarding/BienvenidaPage.tsx`** — cuatro pasos: equipo → horario →
+  servicios → tu enlace. Cada paso **guarda al terminarlo**, no todo al
+  final: quien abandona conserva lo hecho y retoma donde iba.
+- **Puerta en `RutaProtegida`** — nadie aterriza en el panel con el
+  negocio incompleto. **Solo se le muestra a quien puede resolverlo**
+  (`puede_configurar_horarios` **y** `puede_editar_precios`): mandar a un
+  barbero al wizard sería encerrarlo en una pantalla donde no puede hacer
+  nada, y el negocio incompleto no es problema suyo.
+- Los pasos reusan lo que ya existía: el catálogo semilla con
+  `POST /api/servicios/lote/`, `PUT /api/agenda/horario-negocio/` y
+  `POST /api/negocios/empleados/`. Lo único nuevo es el envoltorio.
+
+### Decisiones
+- **"Solo yo" no se persiste en ninguna parte.** Decide qué pasos se
+  muestran y nada más. El `CLAUDE.md` de la raíz es explícito en que el
+  operador único es el caso n=1 del mismo diseño y no un modo aparte;
+  guardar la respuesta sería crear ese modo por la puerta de atrás, y
+  quedaría mentiroso el día que contrate a alguien. Hay test.
+- **No se marca "onboarding hecho".** La condición es el estado real del
+  negocio, así que la puerta **reaparece** si alguien se queda sin
+  servicios — que es lo correcto, porque su enlace volvió a estar muerto.
+  Es lo que hace que abandonar el wizard no deje un negocio roto para
+  siempre, y es también por lo que se decidió **no sembrar un horario por
+  defecto** al registrar (decisión del humano): el wizard lo pide.
+- **Salir siempre es posible** ("Configurar esto después"). Encerrar a
+  alguien en un wizard es peor que un negocio incompleto, y la puerta lo
+  vuelve a traer.
+- **El paso de horario es más simple que el editor de Agenda a
+  propósito**: un rango, igual para todos los días marcados. Sin horario
+  partido ni horario por empleado — existen en el modelo y se ajustan
+  después. Meterlos acá convertiría el primer minuto en una hoja de
+  cálculo.
+- **Un preset mentía y se corrigió antes de entregar**: decía "sábado
+  más corto" pero aplicaba el mismo rango a todos los días, porque el
+  paso maneja un solo rango. Una etiqueta que miente es peor que no
+  ofrecer el atajo — quien confía en ella publica un horario que no es el
+  suyo. Quedó "Solo entre semana", que sí es lo que hace.
+
+### Verificación
+84 tests en verde (venían 76), `tsc` limpio y build OK. Ocho tests
+nuevos: los cuatro de la puerta (redirige, deja pasar, no encierra al
+barbero, no decide mientras carga) y cuatro del wizard.
+
+Prueba contra el backend real recorriendo las llamadas del wizard sobre
+un negocio recién registrado: **de 0 huecos ofrecidos a 39** el día
+siguiente, después de horario + servicios.
+
+### Pendiente
+- **Sin lista de "primeros pasos" en el dashboard.** La puerta cubre lo
+  que impide reservar; lo que solo *mejora* el perfil (logo, fotos,
+  plantilla, comisiones) no tiene dónde recordarse. Es el complemento
+  natural y no se hizo en esta tanda.
+- El paso de equipo crea empleados de a uno con `POST`. El registro
+  acepta `empleados[]` en una sola llamada, pero eso solo sirve dentro
+  del registro, no después.
+- Verificación en navegador, como el resto de esta sesión.

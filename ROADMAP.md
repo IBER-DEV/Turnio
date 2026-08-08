@@ -333,6 +333,37 @@ NO hacer todavía.
     `CONTRATO.md` 5.13/5.14 e historial, y el porqué de cada decisión en
     `DECISIONES.md` #37–#43.
 
+12. **Onboarding adelantado desde Fase 5 (2026-08-07, pedido explícito
+    del humano).** Se señaló que era adelantar fase antes de proceder, y
+    el humano lo confirmó. Solo se adelanta el **primer minuto en el
+    producto**; el resto de Fase 5 (planes, cobro recurrente, push) se
+    queda donde está.
+
+    El disparador fue el dueño que es su único recurso, pero al medirlo
+    el problema resultó ser más grande y no tener que ver con el tamaño
+    del negocio: **un negocio recién registrado nace con el enlace
+    público vivo y muerto a la vez.** Responde `200`, se ve bien, se
+    puede compartir, y no puede producir una sola reserva — sin horario,
+    `huecos_disponibles` devuelve lista vacía, y nada se lo decía al
+    dueño. Como el enlace único **es** el MVP, se estaba entregando roto
+    por defecto, con cinco barberos o con ninguno.
+
+    Se construyó un wizard de cuatro pasos (equipo → horario → servicios
+    → tu enlace) y una puerta que impide aterrizar en el panel con el
+    negocio incompleto. Dos decisiones que conciernen a ambas partes:
+    **la respuesta "trabajo solo" no se persiste** (el operador único
+    sigue siendo el caso n=1 del mismo diseño, no un modo — ver principio
+    en `CLAUDE.md`), y **no se marca "onboarding hecho"**: la condición
+    es el estado real del negocio, así que la puerta reaparece si alguien
+    se queda sin servicios. Tampoco se siembra un horario por defecto al
+    registrar (decisión del humano): lo pide el wizard.
+
+    **No hubo cambios de backend**: el wizard usa endpoints que ya
+    existían. Verificado contra el backend real: un negocio recién
+    registrado pasa de **0 huecos a 39**. Detalle en
+    `frontend/ROADMAP-FRONTEND.md` y el porqué en `DECISIONES.md`
+    #44–#46.
+
 ## Historial de fases
 
 ### Fase 0 — Fundacional — COMPLETADA (2026-07-24)

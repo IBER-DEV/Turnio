@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "PowerShell($p = Get-Process \"Docker Desktop\" -ErrorAction SilentlyContinue; if \\($p\\) { \"Docker Desktop corriendo \\(pid $\\($p.Id\\)\\)\" } else { \"Docker Desktop NO esta corriendo\" }; docker version --format '{{.Server.Version}}' 2>&1 | Select-Object -First 2)",
-      "Bash(python -)"
+      "Bash(python -)",
+      "Bash(bash \"C:/Users/Iver/AppData/Local/Temp/claude/c--Users-Iver-Documents-GitHub-Turnio/7237b60a-5ad7-4f51-9223-750e35293d07/scratchpad/humo_onboarding.sh\")"
     ]
   }
 }

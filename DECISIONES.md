@@ -27,6 +27,67 @@
 
 ---
 
+## 2026-08-07 — Onboarding (adelanto de Fase 5)
+
+### 44. La respuesta "trabajo solo" no se guarda en ninguna parte
+
+**Decisión.** El onboarding pregunta "¿solo yo o tengo equipo?", pero la
+respuesta solo decide qué pasos se muestran y cómo se redacta el de
+horario. No se persiste, no viaja al backend, no existe ningún campo.
+
+**Por qué.** El `CLAUDE.md` de la raíz es explícito: el operador único es
+el **caso n=1 del mismo diseño**, no un modo separado. Guardar la
+respuesta sería crear ese modo por la puerta de atrás — y a partir de ahí
+el sistema empezaría a comportarse distinto según un dato que nadie
+vuelve a mirar. Además queda mentiroso el día que contrate a alguien, que
+es exactamente el día en que más importa que la agenda funcione por
+empleado.
+
+**Lo que se descartó.** Persistir un `modo_operacion` en `Negocio`, que
+era la lectura literal del pedido. Se propuso en su lugar hacer el paso
+salteable sin preguntar nada; el humano prefirió mantener la pregunta, y
+se implementó de la forma que da el ahorro de pasos sin crear el modo.
+
+### 45. El onboarding es una puerta que reaparece, no un evento
+
+**Decisión.** No se marca "onboarding completado" en ninguna parte. La
+condición es el **estado real del negocio**: ¿tiene horario?, ¿tiene
+servicios? Si no, la puerta redirige al wizard.
+
+**Por qué.** Un flag de "ya lo hizo" es una segunda verdad sobre algo que
+ya se puede consultar, y se desincroniza en el primer caso raro: quien
+abandona a la mitad quedaría marcado como completo con el negocio roto, y
+quien borra todos sus servicios seguiría marcado como listo con el enlace
+muerto. Con la condición derivada, los dos casos se resuelven solos.
+
+**Consecuencia buscada:** si un negocio vuelve a quedar sin servicios, el
+wizard vuelve. No es un efecto colateral — su enlace público volvió a
+estar muerto, así que corresponde.
+
+**Lo que esto costó:** dos requests al abrir sesión. Se pagan una sola
+vez por sesión, en un provider por encima de las rutas.
+
+### 46. La puerta solo se le muestra a quien puede cruzarla
+
+**Decisión.** El wizard exige `puede_configurar_horarios` **y**
+`puede_editar_precios`. Sin las dos, la puerta no se activa y la persona
+entra normal al panel.
+
+**Por qué.** Un barbero no tiene ninguna de las dos. Mandarlo al
+onboarding sería encerrarlo en una pantalla donde cada botón le
+respondería 403 — y el negocio incompleto no es problema suyo, es del
+dueño. Es el mismo principio que ya rige `RutaProtegida`: no mostrar lo
+que respondería 403.
+
+**Es la tercera vez en esta sesión** que un problema sale de construir
+asumiendo las capacidades del dueño (las otras dos: el 403 del barbero en
+`en_atencion`/`no_show`, y la cola de cobro pidiendo el endpoint de
+gestión de empleados). La pregunta que hay que hacerse al construir
+cualquier pantalla nueva no es "¿qué hace esto?" sino "¿con qué
+capacidades entra quien la va a mirar?".
+
+---
+
 ## 2026-08-07 — Rediseño del módulo de dinero (Venta / Pago / Caja)
 
 Reescritura del circuito financiero antes de las pruebas con negocios

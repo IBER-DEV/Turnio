@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
+import { useEstadoNegocio } from "../onboarding/estadoNegocio";
 import type { Capacidad } from "../permisos/catalogo";
 import { usePermisos } from "../permisos/usePermisos";
 
@@ -41,13 +42,29 @@ export function RutaProtegida({
 }) {
   const { cargando, membresia } = useAuth();
   const { puede, shell } = usePermisos();
+  const negocio = useEstadoNegocio();
 
-  if (cargando) {
+  if (cargando || negocio.cargando) {
     return <p className="p-margin-mobile text-on-surface-variant">Cargando…</p>;
   }
 
   if (!membresia) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Un negocio sin horario ni servicios tiene el enlace público vivo y
+  // muerto a la vez: responde, se ve bien, y no puede producir una sola
+  // reserva. Antes de dejar a nadie aterrizar en el panel, se le pide lo
+  // que falta (ver `onboarding/BienvenidaPage`).
+  //
+  // **Solo a quien puede resolverlo.** Un empleado operativo no tiene
+  // `puede_configurar_horarios` ni `puede_editar_precios`, así que
+  // mandarlo al wizard sería encerrarlo en una pantalla donde no puede
+  // hacer nada — el negocio incompleto es problema del dueño, no suyo.
+  const puedeCompletarlo =
+    puede("puede_configurar_horarios") && puede("puede_editar_precios");
+  if (!negocio.listo && puedeCompletarlo) {
+    return <Navigate to="/bienvenida" replace />;
   }
 
   const exigidas = capacidades ?? (capacidad ? [capacidad] : []);

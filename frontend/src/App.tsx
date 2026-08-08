@@ -1,9 +1,10 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import { AuthProvider } from "./auth/AuthContext";
+import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
 import { RutaProtegida } from "./components/RutaProtegida";
+import { EstadoNegocioProvider } from "./onboarding/estadoNegocio";
 import { ToastProvider } from "./ui/Toast";
 import { TooltipProvider } from "./ui/Tooltip";
 
@@ -35,6 +36,9 @@ const MiTrabajoPage = lazy(() =>
   import("./pages/MiTrabajoPage").then((m) => ({ default: m.MiTrabajoPage })),
 );
 const CajaPage = lazy(() => import("./pages/caja/CajaPage").then((m) => ({ default: m.CajaPage })));
+const BienvenidaPage = lazy(() =>
+  import("./onboarding/BienvenidaPage").then((m) => ({ default: m.BienvenidaPage })),
+);
 
 function CargandoRuta() {
   // Sin logo ni layout propio a propósito: esta pantalla la ve tanto un
@@ -48,12 +52,31 @@ function CargandoRuta() {
   );
 }
 
+/** El onboarding, exigiendo sesión pero sin la puerta que redirige acá.
+ *
+ * `RutaProtegida` manda a `/bienvenida` cuando el negocio está
+ * incompleto; envolver esta ruta con ella sería un bucle. Se repite el
+ * chequeo mínimo de sesión, que es lo único que de verdad hace falta.
+ */
+function RutaBienvenida() {
+  const { cargando, membresia } = useAuth();
+
+  if (cargando) {
+    return <CargandoRuta />;
+  }
+  if (!membresia) {
+    return <Navigate to="/login" replace />;
+  }
+  return <BienvenidaPage />;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <TooltipProvider>
       <ToastProvider>
         <AuthProvider>
+          <EstadoNegocioProvider>
           <Suspense fallback={<CargandoRuta />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
@@ -68,6 +91,16 @@ function App() {
                   </RutaProtegida>
                 }
               />
+              {/* Sin `Layout` a propósito: el onboarding es pantalla
+                  completa. La barra de navegación ofrece secciones que
+                  todavía no sirven de nada (una agenda sin horario, una
+                  caja sin servicios) y sería justo la distracción que
+                  este flujo existe para evitar.
+
+                  Tampoco lleva `RutaProtegida`: esa es la que redirige
+                  acá, y usarla se mordería la cola. La sesión se exige a
+                  mano abajo. */}
+              <Route path="/bienvenida" element={<RutaBienvenida />} />
               <Route
                 path="/servicios"
                 element={
@@ -156,6 +189,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
+          </EstadoNegocioProvider>
         </AuthProvider>
       </ToastProvider>
       </TooltipProvider>
