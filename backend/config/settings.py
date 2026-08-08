@@ -11,6 +11,23 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-change-me")
 DEBUG = os.environ.get("DEBUG", "0") == "1"
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
+# En desarrollo se acepta cualquier host. Es lo que permite abrir la app
+# desde un **celular de la misma red** (`http://192.168.x.x:5173`, que le
+# pega al backend en `:8001` de esa misma IP): con la lista fija, Django
+# respondía `400 Bad Request` a todo lo que no viniera de `localhost`, y
+# el síntoma en el teléfono era "este negocio no existe" y un login que
+# no entra — sin nada que apuntara a la causa.
+#
+# Importante para un producto que es una app Capacitor: probar en un
+# teléfono real no puede depender de acordarse de poner la IP del día en
+# un `.env`, porque el router la cambia.
+#
+# **Solo aplica con `DEBUG=1`.** En producción `DEBUG=0` y la lista
+# explícita vuelve a ser obligatoria, que es donde importa: `ALLOWED_HOSTS`
+# es la defensa contra cabeceras `Host` falsificadas.
+if DEBUG:
+    ALLOWED_HOSTS = ["*"]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

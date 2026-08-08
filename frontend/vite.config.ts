@@ -17,6 +17,18 @@ export default defineConfig({
   // v4, es más rápido, y es el que ya usaba `landing/`. Tener los dos
   // proyectos con el mismo pipeline es la mitad de poder compartir tokens.
   plugins: [react(), tailwindcss()],
+  server: {
+    // Escucha en todas las interfaces, no solo en `localhost`. Esto es lo
+    // que deja abrir la app desde un celular de la misma red
+    // (`http://192.168.x.x:5173`) sin acordarse de pasar `--host` en cada
+    // arranque. Para un producto que se compila a Capacitor, probar en un
+    // teléfono real es parte del ciclo normal, no un caso excepcional.
+    //
+    // El cliente HTTP deriva la URL del backend del host desde el que se
+    // sirvió la app (ver `src/api/client.ts`), así que con esto solo
+    // alcanza: no hay ninguna IP escrita a mano en ningún lado.
+    host: true,
+  },
   test: {
     environment: "jsdom",
     globals: true,

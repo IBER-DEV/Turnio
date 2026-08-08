@@ -1797,13 +1797,38 @@ genera el movimiento de caja**.
   `$65.000`**, con los `$20.000` de Nequi fuera del cajón y listados
   aparte → cerrar contando `$63.000` y obtener `diferencia = -2.000`.
 
+### La app no se podía probar desde un teléfono (corregido)
+
+Al intentar abrirla desde un celular de la misma red, la interfaz
+cargaba pero **ningún dato**: el perfil público decía "este negocio no
+existe" y el login no entraba. Nada apuntaba a la causa, y no era el
+contenedor —que ya publica `0.0.0.0:8001`—. Eran tres cosas apiladas:
+
+1. `src/api/client.ts` caía en `http://localhost:8001` cuando
+   `VITE_API_BASE_URL` no está definida. En el teléfono, `localhost` es
+   **el teléfono**. Ahora deriva el backend del host desde el que se
+   sirvió la app, así que funciona desde cualquier dispositivo y
+   sobrevive a que el router cambie la IP.
+2. `DJANGO_ALLOWED_HOSTS` traía solo `localhost,127.0.0.1`, así que
+   Django respondía `400` a cualquier petición por IP. Con `DEBUG=1`
+   ahora acepta cualquier host; con `DEBUG=0` la lista explícita vuelve
+   a ser obligatoria, que es donde importa.
+3. `vite` solo escucha en `localhost` por defecto. `server.host: true`
+   en `vite.config.ts` lo deja fijo, sin depender de pasar `--host`.
+
+Vale anotarlo porque **esto es una app Capacitor**: probar en un
+teléfono real es parte del ciclo normal, no un caso excepcional, y tres
+piezas de configuración lo estaban impidiendo con un síntoma que parecía
+un bug de datos.
+
 ### Pendiente
 - **Verificación manual en navegador**, que no se hizo en esta tanda: no
   hay automatización de navegador en este entorno, así que lo verificado
   es la suite, el build y el contrato real por HTTP. Vale la pena mirar
   a ojo, con dos sesiones (una con `puede_cobrar`, otra sin), la cola de
   cobro en un teléfono angosto y la fila de cuatro acciones de una cita
-  `confirmada`.
+  `confirmada`. **Desde el arreglo de arriba, esto ya se puede hacer en
+  un celular de verdad**, que es donde el diseño angosto se juzga.
 - **Devoluciones parciales no tienen entrada propia en la UI.**
   `ModalDeshacer` soporta el modo `devolver` y está cableado, pero hoy
   solo se llega a él por "Anular". Falta decidir dónde vive el botón:
