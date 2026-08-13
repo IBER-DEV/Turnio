@@ -27,6 +27,239 @@
 
 ---
 
+## 2026-08-12 — Consistencia del shell móvil (tras probar en dispositivo)
+
+### 53. El chrome de la app es indigo en todas las pantallas, no solo en Inicio
+
+**Contexto.** Inicio estrenó una portada indigo a sangre completa; el
+resto de pantallas seguía con la barra blanca de antes. Probado en un
+teléfono, navegar entre secciones cambiaba el color de la franja superior
+y las pantallas se leían como si fueran de dos apps distintas.
+
+**Decisión.** El header móvil se pinta con `bg-primary` y sus botones
+repiten el círculo `bg-white/15` de la portada. Lo que iguala a las dos
+es el **material**, no la silueta: el header sigue plano y `sticky`, y la
+portada sigue con esquinas redondeadas y se va con el scroll, porque una
+barra fija y una portada son cosas distintas y está bien que se vean
+distintas.
+
+**Lo que se descartó, y por qué.** Mover el título de cada sección al
+header —lo que haría de la barra una TopAppBar de verdad, como en
+escritorio— habría obligado a tocar todas las pantallas para quitarles su
+título propio, o a dejar el título repetido dos veces en la misma
+pantalla. El problema que había que resolver era de color, y se resolvió
+en un archivo.
+
+**La regla que queda.** Cuando una pantalla estrena un tratamiento nuevo
+para algo que es **chrome** (encabezado, barra de navegación, fondo de
+página), o se aplica a todas o no se aplica: el chrome es lo único que la
+persona ve en las cinco pantallas, y es donde una inconsistencia se nota
+más. El contenido de cada pantalla sí puede ser distinto — de hecho debe
+serlo.
+
+### 54. La barra inferior centra el botón por estructura, no contando entradas
+
+**Contexto.** La primera versión insertaba el botón de agendar en la
+mitad de la lista de entradas. Con las cinco que tenía un dueño, quedaban
+tres a un lado y dos al otro: el botón salía corrido y se veía.
+
+**Decisión, en dos capas.**
+
+1. **Estructural**: la barra es una grilla `1fr auto 1fr` con un grupo de
+   entradas a cada lado. El botón está en el centro exacto pase lo que
+   pase con la lista.
+2. **De contenido**: `Equipo` pasó a `secundaria`, con lo que la barra
+   queda en cuatro entradas que se reparten dos y dos.
+
+**Por qué las dos y no solo la segunda.** Rebalancear la lista arregla
+*hoy*; la grilla arregla *siempre*. La lista de secciones va a volver a
+crecer —Clientes y Reportes son Fase 4— y quien las agregue no va a estar
+pensando en la simetría de la barra inferior.
+
+**Por qué las dos y no solo la primera.** Con la grilla el botón queda
+centrado aunque los lados sean impares, pero los iconos quedan repartidos
+de forma visiblemente distinta a cada lado. Centrado no es lo mismo que
+parejo.
+
+**El test que quedó** (`shell.test.ts`): ningún shell pasa de cuatro
+entradas principales. Es el tipo de invariante que hay que escribir,
+porque el cambio que la rompe —agregar una sección— compila, funciona, y
+solo se ve mal.
+
+### 55. Dos hallazgos más que solo aparecieron al abrir la app en un teléfono
+
+**Contexto.** Las dos entradas de arriba salieron de que el humano probó
+la app en su celular y mandó capturas. La suite estaba en verde, `tsc`
+limpio y el CSS del build verificado clase por clase.
+
+**Por qué ninguna de esas verificaciones servía.** Un botón corrido y dos
+encabezados de distinto color son estados **perfectamente válidos**: no
+hay excepción, no hay clase que falte, no hay aserción posible que no sea
+"esto se ve mal". `jsdom` además no hace layout, así que ni siquiera
+existía la posibilidad de medir el centrado en un test.
+
+**Confirma, por tercera vez, la regla de #24**: un cambio de frontend no
+está terminado hasta que alguien lo miró renderizado. La suite protege de
+las regresiones que ya se entendieron una vez; no encuentra las de la
+primera vez.
+
+---
+
+## 2026-08-12 — Onboarding: las dos pantallas compuestas
+
+### 50. Un mockup se calca en geometría, no en paleta ni en promesas
+
+**Contexto.** Los mockups del onboarding vienen de Stitch con su propia
+paleta (verde `#006c49`), su propia escala tipográfica (Hanken Grotesk,
+body de 14px) y su propio texto de relleno.
+
+**Decisión, y el criterio de reparto.** Se calca **lo que es diseño de
+esta pantalla** y se traduce **lo que es sistema**:
+
+- **Se calca**: repartos, radios, tamaños de círculo, jerarquía, posición
+  de cada bloque. Es lo que hace que la pantalla se vea como el mockup.
+- **Se traduce al sistema**: colores y tamaños de texto salen de
+  `design/tokens.css`. Un mockup que trae su paleta no está proponiendo
+  un cambio de marca, está mostrando una composición.
+- **Se reescribe**: el texto de relleno, contra lo que el producto hace
+  hoy.
+
+**El caso que obligó a escribir esto.** El mockup de bienvenida promete
+"Gestión de Clientes". La ficha de clientes es **Fase 4**: no existe.
+Calcar el texto habría puesto una promesa falsa en la primera pantalla de
+la app — el peor lugar posible, porque es donde se decide si el producto
+merece los cinco minutos siguientes. Quedaron la agenda por empleado y el
+enlace de reservas, que son lo que el producto sí hace el primer día.
+
+**La regla que queda.** Un mockup es una propuesta visual, no una
+especificación de producto. Antes de calcar un texto que nombra una
+funcionalidad, hay que verificar que esa funcionalidad exista — y si no,
+el que se cambia es el texto, no la fase.
+
+### 51. La píldora de progreso cuenta pasos reales, no el número del mockup
+
+**Decisión.** "Paso 1 de 5" del mockup se volvió `Paso {n} de
+{visibles.length}`.
+
+**Por qué.** El wizard tiene cinco pasos para un dueño y cuatro para
+quien no gestiona equipo (ver #46). Un "de 5" fijo le miente a la mitad
+de los usuarios, y prometer cinco para terminar en el cuarto es la clase
+de detalle que hace que el resto de la app se sienta descuidada aunque
+todo lo demás funcione. Hay test, porque es exactamente el tipo de cosa
+que alguien "simplifica" a una constante seis meses después.
+
+### 52. Una foto que entra al repo se recorta y se reescala antes de usarse
+
+**Contexto.** La portada del onboarding llegó como un JPEG de 2752×1536 y
+**2,4 MB**, para un hueco que en el teléfono más grande no pasa de 430px
+de ancho.
+
+**Decisión.** En `public/` va la versión servida: recortada a la zona con
+la que se compone y reescalada a 1200px de ancho — **176 kB**. El
+original íntegro queda versionado en `design/onboarding/`, que no entra
+al bundle.
+
+**Por qué importa más acá que en una web.** Esto es una app Capacitor:
+todo lo que esté en `public/` viaja **dentro del APK**. No hay CDN que lo
+sirva bajo demanda ni caché del navegador que lo amortice — se descarga
+una vez al instalar y después ocupa espacio en el teléfono de cada dueño,
+muchos de ellos con equipos de gama baja. 2,3 MB de más en una sola foto
+de bienvenida es un costo que se paga para siempre a cambio de píxeles
+que ninguna pantalla llega a mostrar.
+
+**Por qué se guarda el original.** Un recorte es una decisión de
+composición y se va a querer rehacer (otro encuadre, otra pantalla, otra
+densidad). Reescalar desde la versión ya reescalada pierde calidad de
+forma acumulativa.
+
+**La regla que queda.** Ninguna imagen entra a `frontend/public/` sin
+pasar por recorte y reescalado al tamaño en que se va a mostrar, y el
+original se conserva fuera del bundle.
+
+---
+
+## 2026-08-12 — Inicio en móvil
+
+### 47. El teléfono recibe otra pantalla, no la de escritorio encogida
+
+**Decisión.** `DashboardPage` renderiza dos composiciones distintas: bajo
+`lg` una portada a sangre completa + dos tarjetas; desde `lg`, la
+cuadrícula de métricas, el banner y las dos columnas que ya existían.
+Las dos viven en el mismo archivo y se alternan con `hidden`/`lg:hidden`.
+
+**Por qué.** No es una preferencia estética. La cuadrícula de tres
+métricas se lee de un vistazo **porque hay ancho**; en un teléfono se
+convierte en tres tarjetas apiladas de 80px cada una que empujan la lista
+de turnos —el motivo real por el que se abre la app— fuera de la primera
+pantalla. Responsive no es solo reflow: a cierto ancho, la misma
+información tiene que cambiar de forma.
+
+**Lo que se descartó.** Colapsar las tres métricas en una fila horizontal
+apretada. Habría cabido, pero deja tres números sin jerarquía entre
+ellos: en un teléfono hay lugar para **un** dato grande, y los otros dos
+funcionan mejor como su subtítulo ("3 por atender · 5 completados"), que
+es lo que hace la portada.
+
+**El costo, explícito.** Duplicación de markup en un solo archivo, y el
+riesgo de que un cambio de producto se aplique a una composición y no a
+la otra. Se acepta a sabiendas: el archivo es uno solo y ambas
+composiciones leen del mismo estado calculado arriba (`totalHoy`,
+`pendientes`, `completadas`), así que lo que se puede desincronizar es la
+presentación, no el dato.
+
+### 48. Agendar sale de la Agenda y pasa a la barra inferior, por la URL
+
+**Decisión.** El botón flotante del centro de la barra inferior navega a
+`/agenda?nueva=1`, y `AgendaPage` lee ese parámetro para abrir su
+formulario y acto seguido lo borra de la URL con `replace`.
+
+**Por qué por la URL y no por estado compartido.** El formulario de nueva
+cita necesita servicios, equipo, horarios y horario del negocio ya
+cargados — cinco peticiones que `AgendaPage` ya hace. Montarlo desde el
+`Layout` significaría duplicar esas peticiones en todas las pantallas de
+la app, o levantar un contexto global solo para esto. Navegar es la
+opción que no agrega estado nuevo a ninguna parte.
+
+**Por qué se consume el parámetro.** Si `?nueva=1` se quedara en la URL,
+cerrar el formulario y recargar —o volver atrás— lo abriría solo otra
+vez. Una URL que dispara una acción tiene que dejar de ser esa URL en
+cuanto la acción ocurre.
+
+**Lo frágil, y cómo se cubrió.** El string `?nueva=1` está escrito en dos
+archivos que no se referencian entre sí. Renombrarlo de un solo lado no
+rompe la compilación ni ningún tipo: el botón navega y no pasa nada más.
+Hay un test en `Layout.test.tsx` que afirma la URL exacta y otro en
+`AgendaPage.test.tsx` que afirma la lectura, para que el fallo silencioso
+tenga al menos un lado que grite.
+
+### 49. `space-y-*` de Tailwind 4 no se sobrescribe con `mt-*` en el hijo
+
+**Contexto.** Las tarjetas nuevas de Inicio necesitaban 1rem de
+separación dentro de un contenedor que ya usaba `space-y-8`. El primer
+intento fue `mt-4!` en cada tarjeta, contando con que el `!` le ganara a
+la utilidad del padre.
+
+**No funcionaba, y el build no lo dijo.** Revisando el CSS emitido,
+`space-y-8` en v4 es
+`:where(.space-y-8 > :not(:last-child)) { margin-block-end: … }` — aplica
+**margen inferior al hermano anterior**, no margen superior al siguiente.
+El `mt-4!` no le ganaba a nada porque nunca compitió con nada: la
+separación la ponía la tarjeta de arriba.
+
+**Decisión.** Cuando un subconjunto de hijos necesita otro ritmo, va en
+su propio contenedor con su propio `space-y-*`, no en overrides por hijo.
+
+**La regla general que sale de acá.** Tailwind **no falla ante una clase
+que no reconoce ni ante una que no surte efecto**: simplemente no escribe
+nada. Un `className` es un string, y nadie lo valida. Cuando una
+utilidad nueva o poco usada no se ve, el paso que encuentra el problema
+es `grep` sobre el CSS del build (`dist/assets/*.css`), no releer el
+`className`. Así se encontró esto, y así se confirmó de paso que
+`bg-linear-to-b` —el nombre v4 de lo que en v3 era `bg-gradient-to-b`—
+sí emitía.
+
+---
+
 ## 2026-08-07 — Onboarding (adelanto de Fase 5)
 
 ### 44. La respuesta "trabajo solo" no se guarda en ninguna parte

@@ -139,4 +139,21 @@ describe("shellDe", () => {
       }
     }
   });
+
+  it("la barra inferior de móvil no pasa de cuatro entradas principales", () => {
+    // El botón de agendar va en el centro de la barra y la parte en dos
+    // mitades. Con cinco entradas una mitad se queda con tres y la otra
+    // con dos: el botón sigue centrado (el layout es una grilla de tres
+    // columnas), pero los iconos quedan repartidos de forma visiblemente
+    // distinta a cada lado. Cuatro es el máximo que se reparte parejo.
+    //
+    // Este test existe porque agregar una sección nueva a un shell es
+    // exactamente el cambio que lo rompe, y no rompe nada más: compila,
+    // funciona, y solo se ve mal. Si hace falta una quinta, alguna de las
+    // otras tiene que volverse `secundaria`.
+    for (const tipo of Object.keys(SHELLS) as TipoDeUsuario[]) {
+      const principales = shellDe(tipo, TODO).navegacion.filter((item) => !item.secundaria);
+      expect(principales.length, `shell de ${tipo}`).toBeLessThanOrEqual(4);
+    }
+  });
 });

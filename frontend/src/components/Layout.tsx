@@ -1,18 +1,52 @@
 import type { ReactNode } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../ui/Avatar";
 import { cn } from "../ui/cn";
 import { Icon } from "../ui/Icon";
 import { MenuAcciones, MenuAccionesItem, MenuAccionesSeparator } from "../ui/MenuAcciones";
+import type { ItemNav } from "../permisos/shell";
 import { usePermisos } from "../permisos/usePermisos";
+
+/** La barra inferior, en sus dos formas: con botón de agendar (tres
+ *  columnas, el botón exacto en el centro) y sin él (una sola fila). El
+ *  `grid` es el default; la variante sin botón lo pisa con `flex`. */
+const CLASES_BARRA =
+  "fixed bottom-0 left-0 z-50 grid w-full grid-cols-[1fr_auto_1fr] items-stretch border-t border-outline-variant/40 bg-white/95 px-1 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden";
+
+/** Una entrada de la barra inferior. Función suelta y no componente para
+ *  poder pasarla directo a `.map()` en los dos grupos sin repetir el
+ *  cuerpo del `NavLink`. */
+function itemDeBarra({ to, etiqueta, icono }: ItemNav) {
+  return (
+    <NavLink
+      key={to}
+      to={to}
+      end={to === "/"}
+      viewTransition
+      className={({ isActive }) =>
+        cn(
+          "tactile flex min-w-14 flex-1 flex-col items-center justify-start gap-1 py-1 transition-colors",
+          isActive ? "text-menta" : "text-on-surface-variant",
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <Icon name={icono} filled={isActive} className="text-[24px]" />
+          <span className="text-[10px] font-semibold leading-none">{etiqueta}</span>
+        </>
+      )}
+    </NavLink>
+  );
+}
 
 export function Layout({ children }: { children: ReactNode }) {
   const { membresia, logout } = useAuth();
   // La navegación ya no se arma acá: sale del shell del tipo de usuario
   // (ver permisos/shell.ts). El Layout solo la dibuja.
-  const { shell } = usePermisos();
+  const { shell, puede } = usePermisos();
   const navegacion = shell.navegacion;
   // La barra inferior de móvil tiene un presupuesto de espacio que la
   // barra lateral de desktop no tiene: los ajustes ocasionales van al
@@ -20,10 +54,16 @@ export function Layout({ children }: { children: ReactNode }) {
   const navegacionPrincipal = navegacion.filter((item) => !item.secundaria);
   const navegacionSecundaria = navegacion.filter((item) => item.secundaria);
   const navigate = useNavigate();
+  // Dónde se parte la lista para dejar el botón de agendar en el medio.
+  // `Math.ceil` para que con un número impar de entradas la mitad más
+  // grande quede a la izquierda, que es donde está Inicio.
+  const puedeAgendar = puede("puede_gestionar_agenda");
+  const centroBarra = Math.ceil(navegacionPrincipal.length / 2);
   // Título de la TopAppBar de escritorio: se deriva de la navegación en
   // vez de que cada página lo declare — un solo lugar que ya conoce la
   // ruta de todas las pantallas (permisos/shell.ts).
   const { pathname } = useLocation();
+  const esInicio = pathname === "/";
   const paginaActual =
     navegacion.find((item) => item.to === pathname) ??
     navegacion.find((item) => item.to !== "/" && pathname.startsWith(item.to));
@@ -35,21 +75,34 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-background">
-      {/* Header — visible siempre en mobile, simplificado en desktop.
-          Calcado del mockup: icono de grilla (abre el menú de cuenta, ya
-          que acá no hay un ítem de menú aparte para eso) + wordmark
-          "Turnio" centrado + campana decorativa. El saludo personalizado
-          que había acá antes no tiene equivalente en el mockup — vive en
-          el contenido de Inicio (`DashboardPage`), no en el chrome. */}
-      <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b border-outline-variant/30 bg-background/90 px-4 backdrop-blur-md safe-top lg:hidden">
+      {/* Header móvil — icono de grilla (abre el menú de cuenta, que no
+          tiene entrada propia en la navegación) + wordmark + campana.
+
+          Va en indigo y no en blanco **para que todas las pantallas
+          empiecen con el mismo material que la portada de Inicio**. Con
+          el header blanco, Inicio era la única pantalla con un bloque
+          indigo arriba y el resto arrancaba en blanco: al navegar entre
+          secciones, la parte de arriba de la app cambiaba de color y se
+          leía como si fueran dos apps distintas. Los botones repiten el
+          círculo `bg-white/15` de la portada por lo mismo.
+
+          En Inicio no se dibuja: la portada ya lleva dentro el saludo y
+          el botón de cuenta, y una barra encima le robaría el sangrado
+          completo hasta el borde superior. */}
+      <header
+        className={cn(
+          "sticky top-0 z-40 h-14 w-full items-center justify-between bg-primary px-4 safe-top lg:hidden",
+          esInicio ? "hidden" : "flex",
+        )}
+      >
         <MenuAcciones
           trigger={
             <button
               type="button"
-              className="flex h-10 w-10 shrink-0 items-center justify-center text-emerald-600"
+              className="tactile flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white"
               aria-label="Menú de cuenta"
             >
-              <Icon name="grid_view" className="text-[24px]" />
+              <Icon name="grid_view" className="text-[20px]" />
             </button>
           }
         >
@@ -64,12 +117,15 @@ export function Layout({ children }: { children: ReactNode }) {
           </MenuAccionesItem>
         </MenuAcciones>
 
-        <span className="font-headline-lg text-headline-lg tracking-tight text-emerald-600">
+        {/* El wordmark se queda en menta y no pasa a blanco: es la marca,
+            y sobre el indigo mantiene contraste de sobra al tamaño al que
+            se dibuja. */}
+        <span className="font-headline-lg text-headline-lg tracking-tight text-menta">
           Turnio
         </span>
 
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center text-emerald-600">
-          <Icon name="notifications" className="text-[24px]" />
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">
+          <Icon name="notifications" className="text-[20px]" />
         </span>
       </header>
 
@@ -182,43 +238,84 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="min-w-0 flex-1 px-4 pb-28 pt-6 md:px-8 lg:px-10 lg:pb-8 lg:pt-8">
+          {/* `px-5` = `--spacing-margin-mobile`: el mismo margen lateral
+              que usan las tarjetas del mockup. Inicio arranca pegado al
+              borde superior (`pt-0`) para que su portada sangre hasta la
+              barra de estado; las demás pantallas conservan su respiro.
+              `pb-32` y no `pb-28`: el botón flotante de la barra inferior
+              sobresale y taparía la última fila de la lista. */}
+          <main
+            className={cn(
+              "min-w-0 flex-1 px-5 pb-32 md:px-8 lg:px-10 lg:pb-8 lg:pt-8",
+              esInicio ? "pt-0" : "pt-6",
+            )}
+          >
             <div className="mx-auto max-w-6xl animate-aparecer">{children}</div>
           </main>
         </div>
       </div>
 
-      {/* BottomNavBar móvil — una sola píldora envuelve icono+etiqueta en
-          el activo (sin indicador superior aparte), calcado del mockup:
-          esquinas superiores redondeadas en el propio contenedor. */}
-      <nav
-        aria-label="Navegación principal"
-        className="fixed bottom-0 left-0 z-50 flex w-full items-center justify-around rounded-t-xl border-t border-outline-variant/40 bg-white/95 px-2 pb-4 pt-1.5 backdrop-blur-md safe-bottom lg:hidden"
-      >
-        {navegacionPrincipal.map(({ to, etiqueta, icono }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            viewTransition
-            className={({ isActive }) =>
-              cn(
-                "tactile flex min-w-14 flex-col items-center gap-0.5 rounded-full px-4 py-1.5 transition-colors",
-                isActive ? "bg-emerald-500/15 text-emerald-700" : "text-on-surface-variant",
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon name={icono} filled={isActive} className="text-[22px]" />
-                <span className={cn("text-[10px] font-semibold", isActive && "text-emerald-700")}>
-                  {etiqueta}
-                </span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+      {/* BottomNavBar móvil — barra plana de iconos con el botón de
+          agendar flotando en el centro, por encima del borde. Agendar es
+          la acción que más se repite en el día y hasta ahora vivía dentro
+          de la Agenda: sacarla acá la deja a un toque desde cualquier
+          pantalla.
+
+          El centrado del botón es **estructural**, no un cálculo de
+          índices: tres columnas (`1fr auto 1fr`) dejan el botón exacto en
+          la mitad de la barra sin importar cuántas entradas caigan a cada
+          lado. La primera versión lo insertaba en la mitad de la lista, y
+          con cinco entradas quedaba tres a la izquierda y dos a la
+          derecha — el botón terminaba corrido y se notaba. Que las dos
+          mitades tengan además el mismo número de entradas es cosa de
+          `shell.ts`, que dejó `Equipo` como secundaria justamente por
+          esto; pero si algún día vuelven a ser impares, el botón sigue
+          centrado y solo se reparten distinto los iconos.
+
+          Sin el botón (quien no puede agendar) la barra vuelve a ser una
+          sola fila: dos grupos con distinto número de entradas alrededor
+          de un hueco vacío se verían descuadrados sin motivo. */}
+      {puedeAgendar ? (
+        <nav aria-label="Navegación principal" className={CLASES_BARRA}>
+          <div className="flex items-stretch justify-around">
+            {navegacionPrincipal.slice(0, centroBarra).map(itemDeBarra)}
+          </div>
+          <BotonAgendar navigate={navigate} />
+          <div className="flex items-stretch justify-around">
+            {navegacionPrincipal.slice(centroBarra).map(itemDeBarra)}
+          </div>
+        </nav>
+      ) : (
+        <nav aria-label="Navegación principal" className={cn(CLASES_BARRA, "flex justify-around")}>
+          {navegacionPrincipal.map(itemDeBarra)}
+        </nav>
+      )}
     </div>
+  );
+}
+
+/** El botón de agendar que flota en el centro de la barra inferior.
+ *
+ * Sobresale de la barra con `translate`, que no ocupa espacio en el
+ * layout: las entradas de navegación siguen repartiéndose el ancho como
+ * si el botón estuviera dentro de la fila, y no hay que compensar el
+ * desplazamiento con márgenes negativos en los vecinos.
+ *
+ * Navega a la Agenda con `?nueva=1`, que es la señal que esa pantalla
+ * lee para abrir el formulario ya montado (ver `AgendaPage`). Se hace
+ * por la URL y no por estado compartido porque el formulario vive dentro
+ * de la Agenda y necesita sus datos —servicios, equipo, horarios— ya
+ * cargados: duplicarlo acá sería duplicar esas cinco peticiones.
+ */
+function BotonAgendar({ navigate }: { navigate: NavigateFunction }) {
+  return (
+    <button
+      type="button"
+      onClick={() => navigate("/agenda?nueva=1")}
+      aria-label="Agendar cita"
+      className="tactile flex h-14 w-14 shrink-0 -translate-y-6 items-center justify-center self-start rounded-full bg-secondary text-on-secondary shadow-lg shadow-secondary/30 transition-colors hover:bg-secondary-hover"
+    >
+      <Icon name="add" className="text-[28px]" />
+    </button>
   );
 }

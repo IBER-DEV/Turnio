@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { FormEvent } from "react";
 
 import { apiClient } from "../api/client";
@@ -114,6 +115,20 @@ export function AgendaPage() {
   const [panelHorarios, setPanelHorarios] = useState(false);
   const [porCancelar, setPorCancelar] = useState<Cita | null>(null);
   const [vista, setVista] = useState<"lista" | "semana">("lista");
+
+  // `?nueva=1` abre el formulario al entrar: es la señal que manda el
+  // botón flotante de la barra inferior (ver `Layout`), que agenda desde
+  // cualquier pantalla sin duplicar acá el formulario ni sus datos.
+  // El parámetro se consume —se borra de la URL con `replace`— para que
+  // volver atrás o recargar no vuelva a abrir el formulario solo.
+  const [parametros, setParametros] = useSearchParams();
+  const pideNuevaCita = parametros.get("nueva") === "1";
+  useEffect(() => {
+    if (!pideNuevaCita) return;
+    if (puedeGestionar) setFormularioCita(true);
+    parametros.delete("nueva");
+    setParametros(parametros, { replace: true });
+  }, [pideNuevaCita, puedeGestionar, parametros, setParametros]);
 
   async function cargar() {
     setCargando(true);

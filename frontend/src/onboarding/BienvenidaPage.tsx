@@ -5,15 +5,22 @@ import { useAuth } from "../auth/AuthContext";
 import { usePermisos } from "../permisos/usePermisos";
 import { Icon } from "../ui/Icon";
 import { cn } from "../ui/cn";
+import { PantallaBienvenida } from "./PantallaBienvenida";
 import { PasoEnlace } from "./PasoEnlace";
 import { PasoEquipo } from "./PasoEquipo";
 import { PasoHorario } from "./PasoHorario";
 import { PasoServicios } from "./PasoServicios";
 import { useEstadoNegocio } from "./estadoNegocio";
 
-type Paso = "equipo" | "horario" | "servicios" | "enlace";
+type Paso = "bienvenida" | "equipo" | "horario" | "servicios" | "enlace";
 
-const TITULOS: Record<Paso, { titulo: string; bajada: string }> = {
+type PasoConMarco = Exclude<Paso, "bienvenida" | "enlace">;
+
+/** Los pasos que comparten el marco del wizard. `bienvenida` y `enlace`
+ * no están acá porque no piden nada: se componen enteros, cada uno con
+ * su propia pantalla. Si el tipo deja de excluirlos, TypeScript exige
+ * títulos que nadie va a leer. */
+const TITULOS: Record<PasoConMarco, { titulo: string; bajada: string }> = {
   equipo: {
     titulo: "¿Quién atiende?",
     bajada: "Con esto sabemos cómo organizar tu agenda.",
@@ -25,10 +32,6 @@ const TITULOS: Record<Paso, { titulo: string; bajada: string }> = {
   servicios: {
     titulo: "¿Qué ofreces?",
     bajada: "Marca los que haces. Los precios los ajustas después.",
-  },
-  enlace: {
-    titulo: "Listo. Este es tu enlace",
-    bajada: "Compártelo y deja de coordinar citas por chat.",
   },
 };
 
@@ -64,8 +67,11 @@ export function BienvenidaPage() {
   const puedeGestionarEquipo = puede("puede_gestionar_empleados");
 
   // Se retoma en lo primero que falte, para que volver no sea repetir.
+  // La bienvenida solo aparece cuando no hay nada hecho: a quien ya
+  // empezó y volvió a entrar no se le presenta otra vez el producto, se
+  // le devuelve al paso donde iba.
   const [paso, setPaso] = useState<Paso>(() => {
-    if (puedeGestionarEquipo && !tieneHorario && !tieneServicios) return "equipo";
+    if (!tieneHorario && !tieneServicios) return "bienvenida";
     if (!tieneHorario) return "horario";
     if (!tieneServicios) return "servicios";
     return "enlace";
@@ -73,14 +79,49 @@ export function BienvenidaPage() {
   const [conEquipo, setConEquipo] = useState(false);
 
   const visibles: Paso[] = puedeGestionarEquipo
-    ? ["equipo", "horario", "servicios", "enlace"]
-    : ["horario", "servicios", "enlace"];
+    ? ["bienvenida", "equipo", "horario", "servicios", "enlace"]
+    : ["bienvenida", "horario", "servicios", "enlace"];
   const indiceActual = visibles.indexOf(paso);
-  const { titulo, bajada } = TITULOS[paso];
 
   function terminar() {
     navigate(shell.inicio, { replace: true });
   }
+
+  // Las dos pantallas compuestas van antes del marco del wizard y no
+  // adentro: cada una ocupa la pantalla entera, la de bienvenida con su
+  // foto a sangre y la de cierre con su botón pegado abajo. Meterlas en
+  // el contenedor de los pasos —que tiene `px-5 py-8` y una barra de
+  // progreso arriba— dejaría la foto con márgenes y el botón flotando a
+  // mitad de la pantalla.
+  if (paso === "bienvenida") {
+    return (
+      <PantallaBienvenida
+        paso={indiceActual + 1}
+        totalPasos={visibles.length}
+        onComenzar={() => setPaso(puedeGestionarEquipo ? "equipo" : "horario")}
+        onSaltar={terminar}
+      />
+    );
+  }
+
+  if (paso === "enlace") {
+    // Sin membresía todavía no hay slug que mostrar. El `return null`
+    // separado —y no un `paso === "enlace" && membresia` en la
+    // condición— es lo que deja que TypeScript descarte `"enlace"` del
+    // tipo de `paso` más abajo: con la condición compuesta, el caso se
+    // colaba hasta `TITULOS[paso]`, donde no hay entrada, y había que
+    // taparlo con un cast que mentía.
+    if (!membresia) return null;
+    return (
+      <PasoEnlace
+        slug={membresia.negocio.slug}
+        nombre={membresia.nombre}
+        onTerminar={terminar}
+      />
+    );
+  }
+
+  const { titulo, bajada } = TITULOS[paso];
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col gap-6 px-5 py-8">
@@ -137,23 +178,17 @@ export function BienvenidaPage() {
         />
       )}
 
-      {paso === "enlace" && membresia && (
-        <PasoEnlace slug={membresia.negocio.slug} onTerminar={terminar} />
-      )}
-
       {/* Salir siempre es posible: encerrar a alguien en un wizard es
           peor que un negocio incompleto, y la puerta lo vuelve a traer
           mientras siga faltando algo. */}
-      {paso !== "enlace" && (
-        <button
-          type="button"
-          onClick={terminar}
-          className="mx-auto flex items-center gap-1 font-caption text-caption text-on-surface-variant hover:underline"
-        >
-          Configurar esto después
-          <Icon name="chevron_right" className="text-[16px]" />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={terminar}
+        className="mx-auto flex items-center gap-1 font-caption text-caption text-on-surface-variant hover:underline"
+      >
+        Configurar esto después
+        <Icon name="chevron_right" className="text-[16px]" />
+      </button>
     </div>
   );
 }

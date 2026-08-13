@@ -48,6 +48,16 @@ const EQUIPO: ItemNav = {
   etiqueta: "Equipo",
   icono: "group",
   capacidad: "puede_gestionar_empleados",
+  // Secundaria desde que la barra inferior tiene el botón de agendar en
+  // el centro (2026-08-12). El botón parte la barra en dos mitades, y con
+  // cinco entradas una mitad se queda con tres y la otra con dos: el
+  // botón deja de estar en el centro de la barra y se nota.
+  //
+  // De las cinco, `Equipo` es la que menos se toca —se da de alta a
+  // alguien cuando entra a trabajar, no todos los días— y sigue a un
+  // toque desde Inicio, que la tiene en su bandeja de accesos. Las otras
+  // cuatro (Inicio, Agenda, Servicios, Caja) son el día a día.
+  secundaria: true,
 };
 const CARGOS: ItemNav = {
   to: "/configuracion/cargos",

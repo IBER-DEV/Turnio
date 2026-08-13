@@ -1926,3 +1926,264 @@ siguiente, después de horario + servicios.
   acepta `empleados[]` en una sola llamada, pero eso solo sirve dentro
   del registro, no después.
 - Verificación en navegador, como el resto de esta sesión.
+
+## 2026-08-12 — Inicio en móvil: portada, bandeja de acciones y botón flotante
+
+Pedido del humano: mejorar cómo se ve la app **en teléfono**, tomando
+como referencia una pantalla de una app de finanzas (portada a sangre
+completa con el dato grande, bandeja de accesos incrustada, tarjetas
+blancas apiladas, barra inferior con botón flotante al centro) —
+**calcando la estructura, no los colores**: la paleta de Turnio se
+mantiene tal cual.
+
+### Qué se hizo
+
+**La estructura de la referencia, con el vocabulario de Turnio.** Nada
+de paleta nueva: el degradado de la portada es `--color-primary` →
+`--color-primary-container` (los dos indigos que ya existían), el botón
+flotante es `--color-secondary` (la menta), y las tarjetas usan
+`--color-outline-variant` y `--color-on-surface`. No entró ni un `#hex`
+suelto.
+
+- **`DashboardPage` — portada (`Portada`).** Sangra fuera del `px-5` del
+  `main` con `-mx-5` y se come el `padding` de la barra de estado ella
+  misma, para que el degradado empiece en el pixel cero. Lleva el saludo
+  y el nombre a la izquierda, el menú de cuenta en un botón redondo a la
+  derecha, y al centro el dato del día en tres líneas (fecha / número
+  grande / de qué se compone).
+- **Bandeja de acciones (`BandejaAcciones`).** La tarjeta blanca
+  incrustada en el pie de la portada, cuatro accesos con icono en
+  círculo. Los candidatos van ordenados por cuántas veces al día se
+  tocan y se toman los **primeros cuatro que la persona pueda usar**: un
+  empleado sin caja no ve un hueco, ve su cuarta acción corrida.
+- **`EquipoDelDia`.** La fila horizontal de avatares de la referencia,
+  con la carga de cada empleado hoy. Sale de las citas **que la pantalla
+  ya cargó**, no de `GET /api/negocios/equipo/`: una segunda petición
+  para mostrar las mismas dos o tres personas no se paga sola, y quien
+  no tiene citas hoy no aporta a una fila que habla de la carga de hoy.
+- **`TurnosDeHoy`.** La lista de la referencia, cinco filas y "Ver
+  todos". Cada fila: avatar, cliente, servicio · empleado, y a la
+  derecha la hora con el estado debajo.
+- **`Layout` — botón flotante de agendar.** Parte la barra inferior por
+  la mitad y sobresale con `translate` (que no ocupa espacio en el
+  layout, así que las entradas siguen repartiéndose el ancho). Navega a
+  `/agenda?nueva=1`.
+- **`Layout` — cabecera móvil.** Deja de dibujarse en Inicio: la portada
+  lleva su propio saludo y su propio menú de cuenta, y una barra encima
+  le quitaría el sangrado completo. El resto de pantallas la conservan;
+  sin ella perderían el acceso a cerrar sesión.
+- **`AgendaPage` — `?nueva=1`.** Abre el formulario al entrar y
+  **consume el parámetro** (`replace`), para que volver atrás o recargar
+  no lo vuelva a abrir solo. Se hizo por la URL y no por estado
+  compartido porque el formulario necesita servicios, equipo y horarios
+  ya cargados: duplicarlo en el `Layout` sería duplicar esas peticiones.
+
+**El escritorio no se tocó.** La cuadrícula de métricas, el banner y las
+dos columnas siguen igual, ahora tras `hidden lg:*`. En escritorio hay
+ancho para leer tres tarjetas de un vistazo; en un teléfono las mismas
+tres se apilan y empujan la agenda fuera de la pantalla.
+
+### Decisiones técnicas
+
+- **`space-y-8` de la página no se podía sobrescribir con `mt-4`.** El
+  primer intento le puso `mt-4!` a cada tarjeta móvil. Revisando el CSS
+  emitido: en Tailwind 4 `space-y-*` aplica **`margin-block-end` al
+  hermano anterior**, no `margin-block-start` al siguiente — el `mt-4`
+  no le ganaba a nada porque no competía con nada. Quedó un contenedor
+  propio (`space-y-4 lg:hidden`) que envuelve las tres piezas, que
+  además les quita el `lg:hidden` repetido a cada una. Ver `DECISIONES.md` #49.
+- **La cabecera en Inicio se oculta con `hidden`, no se desmonta.** Un
+  `esInicio && <header>` habría sido lo mismo visualmente, pero la
+  prueba de regresión puede afirmar sobre la clase y no sobre la
+  ausencia — y la ausencia es indistinguible de "el componente se rompió".
+
+### Verificación
+
+89 tests en verde (venían 84), `tsc` limpio, `oxlint` sin avisos nuevos
+y build OK. Cinco tests nuevos:
+
+- `Layout.test.tsx` — el botón flotante navega a `/agenda?nueva=1`
+  (el string es el contrato con `AgendaPage`: renombrarlo de un solo
+  lado hace que el botón navegue y no pase nada más), no aparece sin
+  `puede_gestionar_agenda`, y la cabecera cede el borde en Inicio.
+- `AgendaPage.test.tsx` — `?nueva=1` abre el formulario y consume el
+  parámetro; se ignora para quien no puede gestionar la agenda.
+
+Se revisó también el CSS del build para confirmar que las utilidades
+nuevas se emitieron (`bg-linear-to-b`, `from-primary`,
+`to-primary-container`, `rounded-b-3xl`, `divide-outline-variant`):
+Tailwind no falla ante una clase que no reconoce, simplemente no la
+escribe, y así fue como se encontró lo del `space-y-8`.
+
+### Pendiente
+
+- **Sin verificación en navegador real**, que es justamente lo que
+  `DECISIONES.md` #24 dice que hace falta para dar por bueno un cambio
+  de frontend. No hay driver de navegador instalado en este entorno.
+  Falta mirar en un teléfono: que el degradado llegue de verdad bajo la
+  barra de estado, que el botón flotante no tape la última fila de la
+  lista, y que la fila de equipo desborde bien con seis o más empleados.
+- **Solo Inicio recibió el rediseño.** Agenda, Caja, Servicios y Equipo
+  siguen con su layout de antes en teléfono. La portada y la bandeja son
+  el patrón; aplicarlo al resto es la tanda siguiente.
+- El botón flotante siempre agenda. Si más adelante hay una acción más
+  frecuente por pantalla (cobrar dentro de Caja), habría que decidir si
+  el botón cambia de acción según la sección o se queda fijo.
+
+## 2026-08-12 — Onboarding: pantalla de bienvenida y pantalla de cierre
+
+Segunda tanda del mismo pedido (ver la entrada anterior). El humano dejó
+dos mockups en `frontend/public/ombording*/` —la primera vista del
+wizard y la de "todo listo"— y una foto propia para la portada
+(`public/portada.jpeg`), con la misma instrucción: calcar la estructura,
+mantener la paleta de Turnio.
+
+### Qué se hizo
+
+- **`PantallaBienvenida` (nueva).** Primera vista del onboarding: la foto
+  ocupa el 45% superior de la pantalla y se funde con el fondo por un
+  degradado, con la píldora de paso arriba a la derecha; abajo, hoja
+  redondeada con titular, bajada y **dos** promesas en tarjetas con icono
+  en círculo, y el botón "Comenzar configuración".
+- **`PasoEnlace` (rehecho).** La pantalla de cierre del mockup: el visto
+  en círculo con halo, "¡Todo listo, {nombre}!", la tarjeta del enlace
+  con su botón de copiar, y "Ir a mi negocio" fijo abajo.
+- **`BienvenidaPage`.** `bienvenida` entra como paso real de la máquina,
+  y las dos pantallas compuestas se renderizan **fuera** del marco del
+  wizard (el marco tiene `px-5 py-8` y barra de progreso: adentro, la
+  foto quedaría con márgenes y el botón flotando a media pantalla).
+- **La foto.** El original de 2752×1536 y **2,4 MB** se recortó a la zona
+  con la que se compone (la persona y la tarjeta flotante de la app) y se
+  reescaló a 1200px: **176 kB**, catorce veces menos. El original quedó
+  íntegro en `design/onboarding/portada-original.jpeg`. Esto es un bundle
+  Capacitor: el peso no se paga en una CDN, se paga en el espacio del
+  teléfono de cada dueño.
+
+### Dónde se respetó el mockup y dónde no
+
+**Geometría, calcada**: repartos, radios, tamaños de círculo, jerarquía y
+posición de cada bloque.
+
+**Paleta y tipografía, de Turnio**:
+- El verde oscuro del mockup (`#006c49`) es su color de marca, no el
+  nuestro. El botón principal usa `Button` sin variante, que ya es
+  `bg-menta` — y de hecho el `primary-container` del mockup **es**
+  `#10b981`, la menta de Turnio: las dos paletas son primas.
+- El titular va en `text-primary` (el indigo), que es el color de titular
+  del resto de la app.
+- Los tamaños salen de la escala de `design/tokens.css`, no de los
+  literales del mockup. El `body-md` del mockup es de 14px y el de Turnio
+  de 16px; se usa el de Turnio por la misma razón que la paleta.
+
+**Las dos promesas dicen otra cosa.** El mockup ofrece "Agenda
+Inteligente" y **"Gestión de Clientes"**. La ficha de clientes es Fase 4:
+no existe. Quedaron las dos cosas que el producto sí hace el primer día —
+la agenda por empleado y el enlace de reservas— que además son la tesis
+del producto. La primera pantalla de la app es el peor lugar para
+prometer algo que no se va a encontrar.
+
+**"Ir al Dashboard" quedó como "Ir a mi negocio".** Es el texto que ya
+ship*ea* y "Dashboard" no es una palabra que aparezca en ninguna otra
+parte de la app; la sección se llama "Inicio".
+
+**Se cayó la lista "Qué hacer con él".** Los tres consejos que tenía
+`PasoEnlace` (pégalo en Instagram, mándaselo a un cliente, no necesitan
+cuenta) no están en el mockup y no se reemplazaron por nada. **Es una
+pérdida real** —era la única parte del producto que explica qué hacer con
+el enlace— y está anotada acá para que sea una decisión y no un descuido.
+Restaurarla es cambiar una constante.
+
+**La píldora cuenta pasos reales.** El mockup dice "Paso 1 de 5" fijo; el
+wizard tiene un paso menos para quien no gestiona equipo. La píldora lee
+el largo real de la lista de pasos visibles. Hay test.
+
+**No se hizo el confeti** del `code.html` de cierre. No aparece en la
+captura, así que no afecta al calco, y la pantalla ya tiene tres
+animaciones (el visto que entra, el halo que late, los bloques que
+suben). Era el accesorio de más.
+
+### Verificación
+
+91 tests en verde (venían 89), `tsc` limpio, `oxlint` sin avisos nuevos y
+build OK. Los cuatro tests que ya existían del wizard se actualizaron
+para cruzar la pantalla nueva, más dos nuevos: la píldora cuenta los
+pasos reales de esa persona, y salir funciona desde la primera pantalla
+(este último con la ruta de destino montada, para afirmar que **navega** y
+no solo que el botón responde).
+
+Se verificó contra el CSS del build que las utilidades nuevas se
+emitieron (`h-[45dvh]`, `bg-menta/20`, `via-background/20`,
+`from-transparent`, `to-background`, `animate-zoom-in`).
+
+### Pendiente
+
+- **Sigue sin verificación en navegador real** (ver la entrada anterior y
+  `DECISIONES.md` #24). Lo que más falta mirar acá: cómo cae el recorte
+  de la foto en un teléfono angosto —`object-cover` sobre una foto que
+  es apaisada de origen— y si en una pantalla de 640px de alto el
+  contenido de la bienvenida entra sin scroll.
+- El texto alternativo de la foto es vacío a propósito (es ambiente), lo
+  que está bien, pero conviene confirmarlo con un lector de pantalla real.
+
+## 2026-08-12 — Consistencia entre Inicio y el resto (revisión en dispositivo)
+
+El humano probó lo anterior **en un teléfono real** y trajo capturas.
+Dos cosas que ninguna prueba iba a atrapar y que se ven de inmediato en
+pantalla.
+
+### 1. El botón de agendar no quedaba centrado
+
+Con las cinco entradas de la barra (Inicio, Agenda, Servicios, Caja,
+Equipo), partir la lista por la mitad deja tres a la izquierda y dos a la
+derecha: el botón terminaba corrido a la derecha del centro real.
+
+Se arregló por los dos lados:
+
+- **La barra ahora centra por estructura**, no por índice: es una grilla
+  `1fr auto 1fr` con un grupo de entradas a cada lado. El botón queda en
+  el centro exacto sin importar cómo se reparta la lista. Sin botón
+  (quien no puede agendar) vuelve a ser una sola fila.
+- **`Equipo` pasó a `secundaria`** en `shell.ts`, con lo que la barra
+  queda en cuatro entradas y se reparten dos y dos. Es la que menos se
+  toca de las cinco —se da de alta a alguien cuando entra a trabajar, no
+  todos los días— y sigue a un toque desde Inicio, que la tiene en su
+  bandeja de accesos, y en la barra lateral completa en escritorio.
+
+Hay test en `shell.test.ts`: **ningún shell puede pasar de cuatro
+entradas principales**. Agregar una sección nueva es exactamente el
+cambio que rompe esto, y es un cambio que compila, funciona, y solo se
+ve mal.
+
+### 2. Inicio parecía de otra app
+
+Inicio abría con la portada indigo a sangre completa y el resto de
+pantallas con una barra blanca y el wordmark en menta. Al navegar entre
+secciones, la franja de arriba cambiaba de color: dos lenguajes visuales
+en la misma app.
+
+**El header móvil pasó a indigo** (`bg-primary`), con los dos botones en
+el mismo círculo `bg-white/15` que usa la portada para su botón de
+cuenta. El wordmark se queda en menta —es la marca, y sobre el indigo
+mantiene contraste de sobra al tamaño al que se dibuja.
+
+Se mantuvo plano y `sticky`, sin las esquinas redondeadas de la portada:
+una barra que se queda fija y una portada que se va con el scroll son dos
+cosas distintas y está bien que se vean distintas. Lo que tenía que
+igualarse era el material, no la silueta.
+
+**No se tocó ninguna pantalla**, solo el `Layout`: el título de sección
+sigue viviendo en el cuerpo de cada página, así que no hay títulos
+duplicados entre la barra y el contenido.
+
+### Verificación
+
+92 tests en verde (venían 91), `tsc` limpio, `oxlint` sin avisos nuevos,
+build OK, y las utilidades nuevas confirmadas en el CSS del build
+(`grid-cols-[1fr_auto_1fr]`, `bg-white/15`).
+
+### Nota de método
+
+Las dos cosas de esta entrada las encontró **mirar la app en un teléfono**,
+no la suite ni la revisión de código — igual que `DECISIONES.md` #24. Un
+botón descentrado y dos encabezados de distinto color son estados
+perfectamente válidos para el compilador y para los tests.
