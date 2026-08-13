@@ -91,7 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
           completo hasta el borde superior. */}
       <header
         className={cn(
-          "sticky top-0 z-40 h-14 w-full items-center justify-between bg-primary px-4 safe-top lg:hidden",
+          "sticky top-0 z-40 h-14 w-full items-center justify-between bg-primary px-5 safe-top lg:hidden",
           esInicio ? "hidden" : "flex",
         )}
       >

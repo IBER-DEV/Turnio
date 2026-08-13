@@ -358,14 +358,29 @@ function Portada({
 
   return (
     <section className="-mx-5 rounded-b-3xl bg-linear-to-b from-primary to-primary-container px-5 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] text-white">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium text-white/60">{saludo()}</p>
-          <p className="truncate text-[20px] font-extrabold leading-tight">
-            {nombre.split(" ")[0]}
-          </p>
-        </div>
+      {/* Primera fila: **la misma** que el encabezado del resto de
+          pantallas (menú de cuenta / wordmark / campana), con la misma
+          altura y el mismo margen lateral. Antes la portada tenía el
+          saludo acá y el wordmark no aparecía por ningún lado, así que
+          Inicio era la única pantalla sin la marca y la línea superior
+          cambiaba de contenido al navegar. Ahora el borde de arriba es
+          idéntico en todas y la portada simplemente sigue hacia abajo
+          con lo suyo. */}
+      <div className="flex h-10 items-center justify-between">
         <MenuCuenta />
+        <span className="font-headline-lg text-headline-lg tracking-tight text-menta">
+          Turnio
+        </span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">
+          <Icon name="notifications" className="text-[20px]" />
+        </span>
+      </div>
+
+      <div className="mt-4 min-w-0">
+        <p className="text-[11px] font-medium text-white/60">{saludo()}</p>
+        <p className="truncate text-[20px] font-extrabold leading-tight">
+          {nombre.split(" ")[0]}
+        </p>
       </div>
 
       {/* El dato por el que se abre la app. Tres líneas centradas: la

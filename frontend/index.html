@@ -9,7 +9,18 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#f8f9ff" />
+    <!-- Tiñe la barra de estado del sistema, que en la app queda pegada
+         al encabezado indigo. Con el casi-blanco que había acá se veía
+         una franja clara sobre el indigo justo donde está la isla
+         dinámica / la hora: la app no llegaba hasta el borde de la
+         pantalla. Va el mismo `--color-primary` del encabezado.
+
+         El perfil público **no** se ve afectado: `apps/publico/
+         views_shell.py` borra esta meta y pone la del tema del negocio
+         (barbería oscura, spa clara, clínica clara) antes de servir el
+         HTML. Lo hace por regex sobre el nombre, no sobre el valor, así
+         que cambiar este color no toca ese camino. -->
+    <meta name="theme-color" content="#1e1b4b" />
     <title>Turnio</title>
   </head>
   <body>

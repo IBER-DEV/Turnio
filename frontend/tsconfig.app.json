@@ -4,7 +4,12 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    /* `node` además de `vite/client`: `src/tema/barraDeEstado.test.ts`
+       compara dos archivos fuente del repo (`design/tokens.css` e
+       `index.html`) y para eso necesita `node:fs`. `design/` está fuera
+       de la raíz de Vite, así que `?raw` no sirve: el servidor lo
+       rechaza. `@types/node` ya estaba en devDependencies. */
+    "types": ["vite/client", "node"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 

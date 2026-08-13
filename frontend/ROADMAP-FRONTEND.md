@@ -2187,3 +2187,65 @@ Las dos cosas de esta entrada las encontró **mirar la app en un teléfono**,
 no la suite ni la revisión de código — igual que `DECISIONES.md` #24. Un
 botón descentrado y dos encabezados de distinto color son estados
 perfectamente válidos para el compilador y para los tests.
+
+## 2026-08-12 — El logo en Inicio y la franja de la barra de estado
+
+Tercera revisión en dispositivo del mismo trabajo. Dos detalles, uno de
+composición y otro que no era CSS.
+
+### 1. Inicio se había quedado sin el wordmark
+
+La portada llevaba el saludo en la primera línea y el resto de pantallas
+el wordmark, así que Inicio era la única sin la marca y la línea de
+arriba cambiaba de contenido al navegar.
+
+La primera fila de la portada pasó a ser **la misma** que el encabezado:
+menú de cuenta / "Turnio" / campana, con la misma altura (`h-10`) y el
+mismo margen lateral. El saludo bajó una línea. El encabezado móvil pasó
+de `px-4` a `px-5` (`--spacing-margin-mobile`, el mismo del `main` y el
+de la portada) para que el wordmark no se corra 4px al cambiar de
+pantalla.
+
+### 2. La franja blanca de la barra de estado no era CSS
+
+Arriba del indigo quedaba una banda clara donde va la hora y la isla
+dinámica. No venía de un `padding` ni de un `safe-area`: era la meta
+**`theme-color`** de `index.html`, que seguía en `#f8f9ff` de cuando la
+app era blanca arriba. Ahora es `#1e1b4b`, el mismo `--color-primary` del
+encabezado.
+
+`viewport-fit=cover` ya estaba, así que no hizo falta tocarlo.
+
+**Se verificó que no afecta al perfil público**, que es el que tiene
+plantillas de color propias: `backend/apps/publico/views_shell.py`
+**borra** esta meta y pone la del tema del negocio antes de servir el
+HTML, y lo hace con un regex sobre el nombre de la tag, no sobre su
+valor (`_META_THEME_COLOR`). Cambiar el color de acá no toca ese camino.
+El test del backend usa un `index.html` de prueba propio, así que tampoco
+depende del valor real.
+
+**Test nuevo** (`src/tema/barraDeEstado.test.ts`): el `theme-color` de
+`index.html` tiene que ser igual a `--color-primary` de
+`design/tokens.css`. Es un literal en un HTML que ningún token alimenta —
+si alguien cambia el color de marca, esto se queda con el viejo en
+silencio y la franja de arriba deja de coincidir. Es la misma deriva del
+preámbulo de `tokens.css`, en una franja de 40px que es fácil no mirar.
+
+`tsconfig.app.json` suma `"node"` a `types` para ese test (compara dos
+archivos fuente y necesita `node:fs`; `design/` está fuera de la raíz de
+Vite, así que `?raw` da "Denied ID"). `@types/node` ya estaba.
+
+### Verificación
+
+93 tests en verde (venían 92), `tsc` limpio, `oxlint` sin avisos nuevos,
+build OK, y confirmado que `dist/index.html` sale con el color nuevo —
+que es el archivo que el backend lee para el shell del perfil público.
+
+### Pendiente
+
+- **iOS nativo no queda cubierto por `theme-color`**: esa meta la
+  respetan Android/Chrome y las PWA, pero la barra de estado del
+  contenedor de Capacitor en iOS se controla con `@capacitor/status-bar`.
+  No se instaló: es una dependencia nueva y todavía no hay plataformas
+  nativas agregadas (`npx cap add` sigue pendiente). Cuando se agreguen,
+  hay que configurarla ahí con el mismo `#1e1b4b`.
